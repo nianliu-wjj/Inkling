@@ -1271,6 +1271,44 @@
     pasteAtCursor(c);
   });
 
+  // ── 多主题系统（设置页切换 · localStorage 持久化 · 默认深色） ──
+  const THEMES = [
+    { id: 'dark',      name: '深色',     dots: ['#1e2232', '#6c8cff', '#ffd76e', '#7ee0a8'] },
+    { id: 'light',     name: '浅色',     dots: ['#f2f5fc', '#4c68e0', '#b8860b', '#12805c'] },
+    { id: 'cupcake',   name: '纸杯蛋糕', dots: ['#fdf0f4', '#e56ba5', '#8fd3c7', '#f5c26b'] },
+    { id: 'bumblebee', name: '大黄蜂',   dots: ['#f6f3ea', '#a3860b', '#2b2b2b', '#8a8a8a'] },
+    { id: 'emerald',   name: '翡翠绿',   dots: ['#e9f5ee', '#0f8f5f', '#2f7d6d', '#c2654a'] },
+    { id: 'business',  name: '商务蓝',   dots: ['#e8edf6', '#2752c4', '#5b7bd5', '#94a3c4'] },
+    { id: 'neon',      name: '霓虹未来', dots: ['#160b2e', '#22d3ee', '#e879f9', '#a3e635'] },
+    { id: 'retro',     name: '复古',     dots: ['#f0e4cc', '#b4713a', '#7a5c2e', '#c9a86a'] },
+    { id: 'romance',   name: '浪漫',     dots: ['#fbeaf1', '#d2568f', '#9f7aea', '#f4a7c3'] },
+    { id: 'halloween', name: '万圣节',   dots: ['#1a1220', '#ff7a1a', '#8a2be2', '#5c4033'] },
+  ];
+  function applyTheme(id, save = true) {
+    const t = THEMES.find(x => x.id === id) || THEMES[0];
+    document.documentElement.dataset.theme = t.id;
+    if (save) { try { localStorage.setItem('inkling-theme', t.id); } catch (_) {} }
+    document.querySelectorAll('.theme-chip').forEach(c => c.classList.toggle('active', c.dataset.theme === t.id));
+    // 主题相关图形（热力图/折线图的颜色读取自 CSS 变量）需要重绘
+    if (!document.getElementById('archive-stats').classList.contains('hidden')) renderStats();
+    if (!document.getElementById('miniHeat').classList.contains('hidden')) renderMiniHeat();
+  }
+  function buildThemePicker() {
+    const grid = $('themeGrid');
+    grid.innerHTML = THEMES.map(t => `
+      <div class="theme-chip" data-theme="${t.id}" title="${t.name}">
+        <span class="theme-dots">${t.dots.map(c => `<i style="background:${c}"></i>`).join('')}</span>
+        <span>${t.name}</span>
+      </div>`).join('');
+    grid.addEventListener('click', (e) => {
+      const chip = e.target.closest('.theme-chip'); if (!chip) return;
+      applyTheme(chip.dataset.theme);
+    });
+    let saved = 'dark';
+    try { saved = localStorage.getItem('inkling-theme') || 'dark'; } catch (_) {}
+    applyTheme(saved, false);
+  }
+
   // ── 统计：热力图（月份范围/悬浮明细/逾期红框） + 月度趋势折线图 ──
   // 固定种子伪随机：同一份数据贯穿热力图与折线图，悬浮明细可复现
   function mulberry32(seed) {
@@ -1307,9 +1345,13 @@
 
   function renderStats() { renderHeatmap(); renderTrend(); }
 
+  // 读取当前主题的 CSS 变量（图表颜色跟随主题）
+  const themeVar = (name, fallback) => (getComputedStyle(document.documentElement).getPropertyValue(name) || fallback).trim();
+
   function renderHeatmap() {
     const wrap = $('heatmap');
     const STEP = 17;   // 14px 格子 + 3px 间距
+    const hmBase = themeVar('--hm-base', '108,140,255');
     // 顶部月份范围标签：每列（周）检查月份变化，避免标签重叠
     let monthsHtml = '', prevMonth = -1, lastX = -99;
     statsData.forEach((d, i) => {
@@ -1325,7 +1367,7 @@
     const cellsHtml = statsData.map(d => {
       const total = d.notes + d.clips + d.todos;
       const lv = total === 0 ? 0 : total < 5 ? 1 : total < 10 ? 2 : total < 18 ? 3 : 4;
-      const bg = lv ? ` style="background:rgba(108,140,255,${[0, .18, .38, .6, .88][lv]})"` : '';
+      const bg = lv ? ` style="background:rgba(${hmBase},${[0, .18, .38, .6, .88][lv]})"` : '';
       return `<div class="heat-cell ${d.overdue > 0 ? 'ovd' : ''}" data-date="${d.date}"${bg}></div>`;
     }).join('');
     wrap.innerHTML =
@@ -1335,8 +1377,8 @@
          <div class="heat-grid">${cellsHtml}</div>
        </div>
        <div class="heat-legend">少
-         <i style="background:rgba(108,140,255,.18)"></i><i style="background:rgba(108,140,255,.38)"></i><i style="background:rgba(108,140,255,.6)"></i><i style="background:rgba(108,140,255,.88)"></i>
-         多 <i class="lg-ovd" style="background:rgba(108,140,255,.3)"></i> 存在逾期</div>`;
+         <i style="background:rgba(${hmBase},.18)"></i><i style="background:rgba(${hmBase},.38)"></i><i style="background:rgba(${hmBase},.6)"></i><i style="background:rgba(${hmBase},.88)"></i>
+         多 <i class="lg-ovd" style="background:rgba(${hmBase},.3)"></i> 存在逾期</div>`;
   }
 
   // 悬浮明细：日期 + 笔记/复制项/待办（已完成、逾期），存在逾期时 tooltip 红边
@@ -1365,7 +1407,7 @@
   $('heatmap').addEventListener('mouseout', (e) => { if (e.target.closest('.heat-cell')) hideHeatTip(); });
   $('heatmap').addEventListener('mouseleave', hideHeatTip);
 
-  // 近 6 个月趋势：SVG 折线图（笔记/粘贴板/待办）
+  // 近 6 个月趋势：SVG 折线图（笔记/粘贴板/待办，颜色跟随主题）
   function renderTrend() {
     const el = $('trendChart');
     const byMonth = {};
@@ -1376,10 +1418,12 @@
     });
     const keys = Object.keys(byMonth).sort().slice(-6);
     const series = [
-      { key: 'note', label: '笔记', color: '#ff8a8a' },
-      { key: 'clip', label: '粘贴板', color: '#ffd76e' },
-      { key: 'todo', label: '待办', color: '#7ee0a8' },
+      { key: 'note', label: '笔记', color: themeVar('--trend-note', '#ff8a8a') },
+      { key: 'clip', label: '粘贴板', color: themeVar('--trend-clip', '#ffd76e') },
+      { key: 'todo', label: '待办', color: themeVar('--trend-todo', '#7ee0a8') },
     ];
+    const dim = themeVar('--text-dim', 'rgba(255,255,255,.5)');
+    const wsa = themeVar('--wsa', '255,255,255');
     const W = 620, H = 190, P = { l: 40, r: 12, t: 24, b: 28 };
     const iw = W - P.l - P.r, ih = H - P.t - P.b;
     const maxV = Math.max(10, ...keys.flatMap(k => series.map(s => byMonth[k][s.key])));
@@ -1389,8 +1433,8 @@
     let svg = `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet" role="img" aria-label="月度趋势折线图">`;
     for (let g = 0; g <= 3; g++) {   // 网格线与刻度
       const v = niceMax * g / 3, yy = y(v);
-      svg += `<line x1="${P.l}" y1="${yy}" x2="${W - P.r}" y2="${yy}" stroke="rgba(255,255,255,.09)"/>`;
-      svg += `<text x="${P.l - 8}" y="${yy + 3.5}" text-anchor="end" font-size="10" fill="rgba(255,255,255,.45)">${Math.round(v)}</text>`;
+      svg += `<line x1="${P.l}" y1="${yy}" x2="${W - P.r}" y2="${yy}" stroke="rgba(${wsa},.09)"/>`;
+      svg += `<text x="${P.l - 8}" y="${yy + 3.5}" text-anchor="end" font-size="10" fill="${dim}">${Math.round(v)}</text>`;
     }
     series.forEach(s => {            // 折线 + 数据点（悬浮显示数值）
       const pts = keys.map((k, i) => `${x(i)},${y(byMonth[k][s.key])}`).join(' ');
@@ -1400,7 +1444,7 @@
       });
     });
     keys.forEach((k, i) => {         // 月份标签
-      svg += `<text x="${x(i)}" y="${H - 8}" text-anchor="middle" font-size="10.5" fill="rgba(255,255,255,.55)">${Number(k.slice(5))}月</text>`;
+      svg += `<text x="${x(i)}" y="${H - 8}" text-anchor="middle" font-size="10.5" fill="${dim}">${Number(k.slice(5))}月</text>`;
     });
     svg += '</svg>';
     el.innerHTML = `<div class="trend-legend">${series.map(s => `<span><i style="background:${s.color}"></i>${s.label}</span>`).join('')}</div>` + svg;
@@ -1431,6 +1475,7 @@
   function renderMiniHeat() {
     realByDate = buildRealByDate();
     const box = $('miniHeat'); if (!box) return;
+    const hmBase = themeVar('--hm-base', '108,140,255');
     // 侧边栏分类计数徽章（待办含子任务）
     const cn = $('countNotes'), cc = $('countClips'), ct = $('countTodos');
     if (cn) cn.textContent = notes.length;
@@ -1450,7 +1495,7 @@
       const d = realByDate[ds];
       const total = d ? d.notes + d.clips + d.todos : 0;
       const lv = total === 0 ? 0 : total < 3 ? 1 : total < 6 ? 2 : total < 10 ? 3 : 4;
-      const bg = lv ? ` style="background:rgba(108,140,255,${[0, .18, .38, .6, .88][lv]})"` : '';
+      const bg = lv ? ` style="background:rgba(${hmBase},${[0, .18, .38, .6, .88][lv]})"` : '';
       cells += `<span class="heat-cell mh-cell ${d && d.overdue > 0 ? 'ovd' : ''} ${ds === dayDetailDate ? 'selected' : ''}" data-date="${ds}"${bg}></span>`;
     }
     box.innerHTML = `<div class="mh-title">${m + 1}月活跃（悬浮明细 · 点击查当日）</div><div class="mh-grid">${cells}</div>`;
@@ -1668,5 +1713,6 @@
   setInterval(() => { $('clock').textContent = new Date().toTimeString().slice(0,5); }, 1000);
 
   // 初始渲染
+  buildThemePicker();
   renderClips(); renderTodos(); renderPanelTags();
 })();
