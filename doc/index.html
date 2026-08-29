@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Inkling · 念头捕手 — 交互原型</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <!-- ═══════════ 模拟桌面环境 ═══════════ -->
+  <div id="desktop">
+    <!-- 模拟 macOS 顶部菜单栏 -->
+    <div id="menubar">
+      <div class="menubar-left">
+        <span class="menu-item bold"></span>
+        <span class="menu-item">Code</span>
+        <span class="menu-item">文件</span>
+        <span class="menu-item">编辑</span>
+        <span class="menu-item">选择</span>
+      </div>
+      <div class="menubar-right">
+        <span class="menu-item" id="clock">--:--</span>
+        <!-- Inkling 托盘图标（左键=历史归档 / 右键=菜单） -->
+        <span class="menu-item tray-icon" id="trayIcon" title="Inkling（左键: 历史归档 / 右键: 菜单）">✒️</span>
+      </div>
+    </div>
+
+    <!-- 托盘右键菜单：Inkling 主菜单 -->
+    <div id="trayMenu" class="context-menu hidden">
+      <div class="menu-title">✒️ Inkling 主菜单</div>
+      <div class="menu-sep"></div>
+      <div class="menu-row" data-action="history">📚 历史归档</div>
+      <div class="menu-row" data-action="stats">📊 统计报表</div>
+      <div class="menu-row" data-action="settings">⚙️ 偏好设置</div>
+      <div class="menu-sep"></div>
+      <div class="menu-row" data-action="quit">⏻ 退出 Inkling</div>
+    </div>
+
+    <!-- 桌面上的"当前工作应用"（演示不切换应用的沉浸感） -->
+    <div id="fakeApp">
+      <div class="fake-titlebar"><span class="dot red"></span><span class="dot yellow"></span><span class="dot green"></span><span class="fake-title">VS Code — 你正在专注工作的应用</span></div>
+      <div class="fake-body">
+        <pre class="fake-code">function captureThought() {
+  <span class="cmt">// 写到一半，突然闪过一个念头…</span>
+  <span class="kw">const</span> idea = <span class="str">"把鼠标移到屏幕顶部中央试试"</span>;
+  <span class="cmt">// 不需要离开这里 ↓</span>
+}</pre>
+      </div>
+    </div>
+
+    <!-- 首次使用引导 -->
+    <div id="onboarding" class="glass">
+      <div class="onboard-title">✨ 欢迎使用 Inkling</div>
+      <div class="onboard-tip">把鼠标移到<b>屏幕顶部中央</b>试试</div>
+      <div class="onboard-sub">或按 <kbd>⌃</kbd>+<kbd>⇧</kbd>+<kbd>Space</kbd>（原型中点击此处也可呼出）</div>
+      <button class="btn ghost" id="onboardDismiss">知道了</button>
+    </div>
+
+    <!-- 操作提示条（原型演示专用） -->
+    <div id="demoBar">
+      <span class="demo-label">原型演示：</span>
+      <button class="btn tiny" id="demoTogglePanel">⌃⇧Space 呼出面板</button>
+      <button class="btn tiny" id="demoReminder">模拟待办提醒</button>
+      <button class="btn tiny" id="demoReset">重置演示</button>
+    </div>
+  </div>
+
+  <!-- ═══════════ hotzone 顶部感应区 ═══════════ -->
+  <div id="hotzone" title="感应区（悬停 100ms 展开面板）"></div>
+
+  <!-- ═══════════ panel 主面板（三态合一） ═══════════ -->
+  <div id="panel" class="glass hidden">
+    <!-- 三态圆点导航 -->
+    <div class="panel-nav">
+      <span class="nav-dot active" data-mode="note" title="笔记 (⌃1)">🔴</span>
+      <span class="nav-dot" data-mode="clipboard" title="粘贴板 (⌃2)">🟡</span>
+      <span class="nav-dot" data-mode="todo" title="待办 (⌃3)">🟢</span>
+      <span class="panel-hint">Esc 收起</span>
+    </div>
+
+    <!-- 🔴 笔记模式 -->
+    <section class="panel-page" id="page-note">
+      <div id="editor" class="editor" contenteditable="true" data-placeholder="此刻在想什么？直接写下来… 支持 **Markdown** 即时渲染，右下角管理标签"></div>
+      <div class="editor-footer">
+        <span class="save-state" id="saveState">已暂存</span>
+        <div class="editor-actions">
+          <!-- 右下角标签区：chips 或置灰「无标签」，点击弹标签管理窗 -->
+          <div class="tag-preview" id="tagPreview" title="点击管理标签"></div>
+          <button class="btn primary" id="btnArchive">归档念头 ↵</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- 🟡 粘贴板模式 -->
+    <section class="panel-page hidden" id="page-clipboard">
+      <input class="search-input" id="clipSearch" placeholder="搜索剪贴板历史…（双击条目 = 粘贴并置顶）">
+      <ul class="clip-list" id="clipList"></ul>
+    </section>
+
+    <!-- 🟢 待办模式 -->
+    <section class="panel-page hidden" id="page-todo">
+      <div class="todo-input-row">
+        <input class="search-input" id="todoInput" placeholder="- [ ] 输入待办，回车创建…（仅当日）">
+        <select id="todoPriority" class="prio-select" title="优先级">
+          <option value="high">🔴 高</option>
+          <option value="medium" selected>🟡 中</option>
+          <option value="low">🟢 低</option>
+        </select>
+        <button class="btn tiny" id="todoRemindBtn" title="设置提醒">⏰</button>
+      </div>
+      <div class="todo-panel-hint">仅展示当日待办 · 逾期事项自动置顶 · 点击优先级徽章可调整 · 悬浮卡片显示操作按钮</div>
+      <ul class="todo-list" id="todoList"></ul>
+    </section>
+  </div>
+
+  <!-- ═══════════ main 单窗口（Inkling：侧边栏 + 主内容区） ═══════════ -->
+  <div id="mainWindow" class="app-window glass hidden">
+    <div class="window-titlebar">
+      <span class="win-title"><span class="app-ico">✒️</span> Inkling</span>
+      <span class="win-close" data-close="mainWindow">✕</span>
+    </div>
+    <div class="archive-layout">
+      <!-- 左侧边栏：页签 + 当月热力图 + 底部（左：偏好设置 / 右：统计）；支持折叠为图标窄栏、拖动调宽 -->
+      <aside class="archive-side" id="archiveSide">
+        <div class="side-nav">
+          <div class="side-item active" data-view="notes"><span class="si-icon">📝</span><span class="si-label">笔记</span><span class="si-count" id="countNotes"></span></div>
+          <div class="side-item" data-view="clips"><span class="si-icon">📋</span><span class="si-label">粘贴板</span><span class="si-count" id="countClips"></span></div>
+          <div class="side-item" data-view="todos"><span class="si-icon">✅</span><span class="si-label">待办</span><span class="si-count" id="countTodos"></span></div>
+        </div>
+        <!-- 当月热力图：悬浮看当日明细，点击查询该日全部 pin -->
+        <div class="mini-heat" id="miniHeat"></div>
+        <div class="side-foot">
+          <button class="icon-btn side-btn" id="sideSettings" title="偏好设置">⚙️</button>
+          <button class="icon-btn side-btn" id="sideStats" title="统计数据">📊</button>
+        </div>
+      </aside>
+      <div class="side-resizer" id="sideResizer" title="拖动调整宽度（拖过阈值自动折叠）">
+        <button class="icon-btn side-toggle" id="sideToggle" title="折叠/展开侧边栏">«</button>
+      </div>
+      <!-- 右侧主内容区（同一窗口内切换视图，不再弹独立窗口） -->
+      <main class="archive-main">
+        <div class="archive-page" id="archive-notes">
+          <input class="search-input" id="noteArchiveSearch" placeholder="🔍 搜索笔记…（正文与标签）">
+          <div id="noteArchList"></div>
+        </div>
+        <div class="archive-page hidden" id="archive-clips">
+          <input class="search-input" id="clipArchiveSearch" placeholder="🔍 搜索粘贴板历史…">
+          <div id="clipArchList"></div>
+        </div>
+        <div class="archive-page hidden" id="archive-todos">
+          <div class="todo-date-bar">
+            <button class="btn tiny" id="todoDatePrev" title="前一天">‹</button>
+            <span class="todo-date-label" id="todoDateLabel">—</span>
+            <button class="btn tiny" id="todoDateNext" title="后一天">›</button>
+            <button class="btn tiny" id="todoDateToday" title="回到今天">今天</button>
+            <span class="todo-date-hint">逾期未完成自动置顶</span>
+            <input class="search-input todo-search" id="todoArchiveSearch" placeholder="🔍 搜索全部待办（含子任务）…">
+            <button class="icon-btn todo-new-btn" id="todoArchiveNew" title="新增待办事项">
+              <svg width="13" height="13" viewBox="0 0 12 12" fill="none"><path d="M6 1v10M1 6h10" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+            </button>
+          </div>
+          <ul class="todo-list todo-arch-list" id="archiveTodoList"></ul>
+        </div>
+        <div class="archive-page hidden" id="archive-settings">
+          <div class="page-title">⚙️ 偏好设置</div>
+          <div class="settings-body">
+            <label class="setting-row"><span>失焦自动收起</span>
+              <select id="settingBlur">
+                <option>立即收起</option><option selected>延迟 3 秒收起</option><option>固定不收起</option>
+              </select>
+            </label>
+            <label class="setting-row"><span>粘贴板保留天数</span><input type="number" value="30" min="1" max="365"> 天</label>
+            <label class="setting-row"><span>开机静默自启动</span><input type="checkbox" checked></label>
+            <label class="setting-row"><span>全局快捷键</span><kbd>⌃ ⇧ Space</kbd> <button class="btn tiny">重新录制</button></label>
+            <label class="setting-row"><span>备注展示样式</span>
+              <select id="settingRemarkStyle">
+                <option value="auto" selected>混合模式（超100字用图标）</option>
+                <option value="icon">图标徽章 + 悬浮</option>
+                <option value="line">置灰文本行</option>
+              </select>
+            </label>
+            <label class="setting-row"><span>主题</span>
+              <select><option>跟随系统</option><option>深色</option><option>浅色</option></select>
+            </label>
+          </div>
+        </div>
+        <div class="archive-page hidden" id="archive-stats">
+          <div class="page-title">📊 使用统计</div>
+          <div class="stats-legend">每日活跃度热力图（悬浮查看当日明细 · 红框 = 存在逾期待办）</div>
+          <div class="heatmap-wrap" id="heatmap"></div>
+          <div class="stats-legend">近 6 个月趋势（各模块使用量折线）</div>
+          <div id="trendChart" class="trend-chart"></div>
+        </div>
+        <!-- 日期详情：点击侧边栏当月热力图某日 → 该日全部 pin（按时间排序，可按类别筛选/搜索，支持编辑删除） -->
+        <div class="archive-page hidden" id="archive-day">
+          <div class="day-head">
+            <span class="day-date" id="dayDetailDateLabel">—</span>
+            <div class="day-filters" id="dayFilters">
+              <span class="day-filter active" data-filter="all">全部</span>
+              <span class="day-filter f-note" data-filter="note">📝 笔记</span>
+              <span class="day-filter f-clip" data-filter="clip">📋 粘贴板</span>
+              <span class="day-filter f-todo" data-filter="todo">✅ 待办</span>
+            </div>
+            <input class="search-input day-search" id="dayDetailSearch" placeholder="🔍 在该日记录中搜索…">
+          </div>
+          <div class="day-hint">按时间先后排序（待办取完成时间）· 悬浮卡片可编辑 / 删除</div>
+          <div id="dayDetailList"></div>
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <!-- ═══════════ pinned 置顶浮窗（右下角） ═══════════ -->
+  <div id="pinnedWindow" class="glass hidden">
+    <div class="pinned-header"><span>📌 置顶</span><span class="pinned-close" id="pinnedClose">✕</span></div>
+    <div class="pinned-body" id="pinnedContent">双击可展开编辑…</div>
+    <div class="pinned-footer">
+      <span>透明度</span>
+      <input type="range" id="pinnedOpacity" min="30" max="100" value="100">
+    </div>
+  </div>
+
+  <!-- ═══════════ reminder 右上角提醒卡片 ═══════════ -->
+  <div id="reminderCard" class="glass hidden">
+    <div class="reminder-header">
+      <button class="icon-btn reminder-close" id="reminderDismiss" title="关闭（稍后不再提醒）">
+        <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M1 1l10 10M11 1L1 11" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+      </button>
+      <span class="reminder-title">⏰ 待办提醒</span>
+    </div>
+    <div class="reminder-content" id="reminderContent">记得给产品文档补充截图</div>
+    <div class="reminder-actions">
+      <select id="snoozeSelect" class="snooze-select">
+        <option value="" selected>选择下次提醒时间…</option>
+        <option value="10">10 分钟后</option>
+        <option value="30">30 分钟后</option>
+        <option value="60">1 小时后</option>
+        <option value="180">3 小时后</option>
+        <option value="tomorrow">明天上午 9:00</option>
+      </select>
+    </div>
+  </div>
+
+  <!-- ═══════════ 标签管理弹窗 ═══════════ -->
+  <div id="tagManagerOverlay" class="hidden">
+    <div id="tagManagerModal" class="glass">
+      <div class="clip-editor-header">
+        <span class="clip-editor-title">🏷️ 管理标签</span>
+        <button class="icon-btn" id="tagManagerClose" title="关闭（Esc）">
+          <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M1 1l10 10M11 1L1 11" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+        </button>
+      </div>
+      <div class="tag-mgr-sub" id="tagMgrSub">当前笔记的标签</div>
+      <!-- 新增标签 -->
+      <div class="tag-add-row">
+        <input id="tagAddInput" class="search-input" placeholder="输入标签名，回车添加（最多 5 字）" maxlength="5">
+        <button class="btn primary" id="tagAddBtn">添加</button>
+      </div>
+      <!-- 标签列表（可改可删） -->
+      <ul class="tag-mgr-list" id="tagMgrList"></ul>
+    </div>
+  </div>
+
+  <!-- ═══════════ 待办编辑弹窗（创建/子任务/提醒/编辑 共用） ═══════════ -->
+  <div id="todoEditorOverlay" class="hidden">
+    <div id="todoEditorModal" class="glass">
+      <div class="clip-editor-header">
+        <span class="clip-editor-title" id="todoEditorTitle">✏️ 编辑待办</span>
+        <button class="icon-btn" id="todoEditorClose" title="关闭（Esc）">
+          <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M1 1l10 10M11 1L1 11" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+        </button>
+      </div>
+      <input id="todoEditorText" class="search-input" placeholder="待办内容…">
+      <!-- 标签（参考笔记标签设计：≤3 个，每个 ≤10 字，✕ 抖动二次确认删除） -->
+      <div class="te-tags-row" id="teTagsRow">
+        <span class="te-label">标签</span>
+        <div class="te-tags" id="todoEditorTags"></div>
+      </div>
+      <input id="todoEditorTagInput" class="search-input te-tag-input" placeholder="输入标签回车添加（最多 3 个 · 每个 10 字）" maxlength="10">
+      <!-- 备注（最多 200 字，带字数计数） -->
+      <div class="te-remark-wrap">
+        <span class="te-label">备注</span>
+        <textarea id="todoEditorRemark" maxlength="200" rows="2" placeholder="补充说明…（选填，最多 200 字）"></textarea>
+        <span class="te-remark-count" id="todoEditorRemarkCount">0/200</span>
+      </div>
+      <div class="todo-editor-grid">
+        <label class="te-field">完成日期
+          <input type="date" id="todoEditorDate">
+        </label>
+        <label class="te-field">完成时间
+          <input type="time" id="todoEditorDueTime">
+        </label>
+      </div>
+      <div class="todo-editor-grid">
+        <label class="te-field">提醒日期（选填）
+          <input type="date" id="todoEditorRemindDate">
+        </label>
+        <label class="te-field">提醒时间（选填）
+          <input type="time" id="todoEditorRemindTime">
+        </label>
+      </div>
+      <div class="todo-editor-grid">
+        <label class="te-field" id="todoEditorPrioWrap">优先级
+          <select id="todoEditorPrio">
+            <option value="high">🔴 高</option>
+            <option value="medium" selected>🟡 中</option>
+            <option value="low">🟢 低</option>
+          </select>
+        </label>
+      </div>
+      <div class="clip-editor-footer">
+        <span class="clip-editor-hint" id="todoEditorHint"></span>
+        <div class="clip-editor-actions">
+          <button class="btn ghost" id="todoEditorCancel">取消</button>
+          <button class="btn primary" id="todoEditorSave">保存</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════ 粘贴板内容编辑浮框 ═══════════ -->
+  <div id="clipEditorOverlay" class="hidden">
+    <div id="clipEditorModal" class="glass">
+      <div class="clip-editor-header">
+        <span class="clip-editor-title">✏️ 编辑剪贴板内容</span>
+        <button class="icon-btn" id="clipEditorClose" title="关闭（Esc）">
+          <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M1 1l10 10M11 1L1 11" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+        </button>
+      </div>
+      <textarea id="clipEditorTextarea" placeholder="编辑内容…" spellcheck="false"></textarea>
+      <div class="clip-editor-footer">
+        <span class="clip-editor-hint">保存后替换原内容，时间更新为最后修改时间（⌃/⌘+Enter 快捷保存）</span>
+        <div class="clip-editor-actions">
+          <button class="btn ghost" id="clipEditorCancel">取消</button>
+          <button class="btn primary" id="clipEditorSave">保存修改</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════ 重复提醒下拉选择 ═══════════ -->
+  <div id="repeatMenu" class="repeat-menu hidden">
+    <div class="repeat-opt" data-repeat="">🚫 不重复</div>
+    <div class="repeat-opt" data-repeat="daily">🔁 每天重复</div>
+    <div class="repeat-opt" data-repeat="weekly">🔁 每周重复</div>
+  </div>
+
+  <!-- ═══════════ 优先级阶梯下拉（当前优先级由 Pin 卡片本身充当） ═══════════ -->
+  <div id="prioMenu" class="hidden"></div>
+
+  <!-- 热力图悬浮明细 tooltip -->
+  <div id="heatTip" class="hidden"></div>
+
+  <!-- toast 轻提示 -->
+  <div id="toast" class="hidden"></div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+  <script src="app.js?v=1.5"></script>
+</body>
+</html>
