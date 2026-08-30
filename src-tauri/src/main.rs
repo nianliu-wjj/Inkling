@@ -256,6 +256,29 @@ fn normalized_tags(tags: &[String]) -> Vec<String> {
     }
     result
 }
+fn normalized_todo_tags(tags: &[String]) -> Result<Vec<String>, String> {
+    let mut result = Vec::new();
+    for raw in tags {
+        let tag = raw.trim();
+        if tag.is_empty() {
+            continue;
+        }
+        if tag.chars().count() > 10 {
+            return Err("待办标签最多 10 个字".into());
+        }
+        if !result
+            .iter()
+            .any(|item: &String| item.eq_ignore_ascii_case(tag))
+        {
+            result.push(tag.to_string());
+        }
+    }
+    if result.len() > 3 {
+        return Err("待办最多只能有 3 个标签".into());
+    }
+    Ok(result)
+}
+
 fn hash_content(content: &str) -> String {
     let mut hasher = Sha256::new();
     hasher.update(content.as_bytes());
@@ -467,6 +490,10 @@ fn validate_todo(store: &Store, input: &TodoInput, id: Option<&str>) -> Result<(
     if !is_valid_priority(&input.priority) {
         return Err("无效的优先级".into());
     }
+    if input.remark.chars().count() > 200 {
+        return Err("待办备注最多 200 个字".into());
+    }
+    normalized_todo_tags(&input.tags)?;
     if let Some(parent_id) = &input.parent_id {
         if id.is_some_and(|value| value == parent_id) {
             return Err("待办不能成为自己的子任务".into());
@@ -511,7 +538,12 @@ fn save_todo(input: TodoInput, state: State<'_, AppState>) -> Result<Todo, Strin
         .map(|x| x.created_at.clone())
         .unwrap_or_else(|| timestamp.clone());
     store.db.execute("INSERT INTO todos(id, content, due_at, remind_at, repeat_rule, priority, remark, parent_id, created_at, updated_at) VALUES(?,?,?,?,?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET content=excluded.content, due_at=excluded.due_at, remind_at=excluded.remind_at, repeat_rule=excluded.repeat_rule, priority=excluded.priority, remark=excluded.remark, parent_id=excluded.parent_id, updated_at=excluded.updated_at", params![id, input.content.trim(), input.due_at, input.remind_at, input.repeat_rule, input.priority, input.remark, input.parent_id, created_at, timestamp]).map_err(db_err)?;
-    store.replace_tags("todo_tags", "todo_id", &id, &normalized_tags(&input.tags))?;
+    store.replace_tags(
+        "todo_tags",
+        "todo_id",
+        &id,
+        &normalized_todo_tags(&input.tags)?,
+    )?;
     store.todo(&id)
 }
 
@@ -568,10 +600,23 @@ fn create_child_todo(
     parent_id: String,
     content: String,
     due_at: String,
+    priority: String,
+    remark: String,
+    tags: Vec<String>,
     state: State<'_, AppState>,
 ) -> Result<Todo, String> {
     let store = state.0.lock().map_err(|_| "数据库锁已损坏".to_string())?;
     let parent = store.todo(&parent_id)?;
+    if content.trim().is_empty() {
+        return Err("子任务内容不能为空".into());
+    }
+    if !is_valid_priority(&priority) {
+        return Err("无效的优先级".into());
+    }
+    if remark.chars().count() > 200 {
+        return Err("待办备注最多 200 个字".into());
+    }
+    let tags = normalized_todo_tags(&tags)?;
     let count: i64 = store
         .db
         .query_row(
@@ -593,9 +638,11 @@ fn create_child_todo(
         due_at
     };
     let tx = store.db.unchecked_transaction().map_err(db_err)?;
-    tx.execute("INSERT INTO todos(id, content, due_at, status, priority, parent_id, created_at, updated_at) VALUES(?,?,?,?,?,?,?,?)", params![id, content.trim(), due_at, "open", "medium", parent_id, timestamp, timestamp]).map_err(db_err)?;
+    tx.execute("INSERT INTO todos(id, content, due_at, status, priority, remark, parent_id, created_at, updated_at) VALUES(?,?,?,?,?,?,?,?,?)", params![id, content.trim(), due_at, "open", priority, remark.trim(), parent_id, timestamp, timestamp]).map_err(db_err)?;
     tx.execute("UPDATE todos SET status='open', completed_at=NULL, due_at=CASE WHEN due_at < ? THEN ? ELSE due_at END, updated_at=? WHERE id=?", params![due_at, due_at, timestamp, parent_id]).map_err(db_err)?;
+    let child_id = id.clone();
     tx.commit().map_err(db_err)?;
+    store.replace_tags("todo_tags", "todo_id", &child_id, &tags)?;
     store.todo(&id)
 }
 
@@ -879,5 +926,13 @@ mod tests {
         assert!(is_valid_priority("medium"));
         assert!(is_valid_priority("low"));
         assert!(!is_valid_priority("urgent"));
+    }
+
+    #[test]
+    fn todo_tags_are_trimmed_deduplicated_and_limited() {
+        let tags = vec!["  Rust ".into(), "rust".into(), "Vue".into()];
+        assert_eq!(normalized_todo_tags(&tags).unwrap(), vec!["Rust", "Vue"]);
+        assert!(normalized_todo_tags(&["a".into(), "b".into(), "c".into(), "d".into()]).is_err());
+        assert!(normalized_todo_tags(&["12345678901".into()]).is_err());
     }
 }
