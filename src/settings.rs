@@ -1,4 +1,4 @@
-//! 应用设置：读写 `%APPDATA%\inkling\settings.json`，并提供开机自启注册表维护。
+//! 应用设置：读写操作系统应用数据目录中的 `inkling/settings.json`，并提供开机自启维护。
 
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
@@ -186,9 +186,30 @@ fn xml_escape(value: &str) -> String {
 
 impl Settings {
     fn config_path() -> PathBuf {
-        let dir = std::env::var("APPDATA")
-            .map(|d| PathBuf::from(d).join("inkling"))
-            .unwrap_or_else(|_| PathBuf::from("."));
+        let dir = if let Ok(value) = std::env::var("APPDATA") {
+            PathBuf::from(value).join("inkling")
+        } else {
+            #[cfg(target_os = "macos")]
+            if let Ok(value) = std::env::var("HOME") {
+                PathBuf::from(value).join("Library/Application Support/inkling")
+            } else if let Ok(value) = std::env::var("XDG_CONFIG_HOME") {
+                PathBuf::from(value).join("inkling")
+            } else {
+                std::env::var("HOME")
+                    .map(PathBuf::from)
+                    .unwrap_or_else(|_| PathBuf::from("."))
+                    .join(".config/inkling")
+            }
+            #[cfg(not(target_os = "macos"))]
+            if let Ok(value) = std::env::var("XDG_CONFIG_HOME") {
+                PathBuf::from(value).join("inkling")
+            } else {
+                std::env::var("HOME")
+                    .map(PathBuf::from)
+                    .unwrap_or_else(|_| PathBuf::from("."))
+                    .join(".config/inkling")
+            }
+        };
         std::fs::create_dir_all(&dir).ok();
         dir.join("settings.json")
     }

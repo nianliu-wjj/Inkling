@@ -127,6 +127,10 @@ fn app_data_dir() -> PathBuf {
     if let Ok(value) = std::env::var("APPDATA") {
         return PathBuf::from(value).join("inkling");
     }
+    #[cfg(target_os = "macos")]
+    if let Ok(value) = std::env::var("HOME") {
+        return PathBuf::from(value).join("Library/Application Support/inkling");
+    }
     if let Ok(value) = std::env::var("XDG_DATA_HOME") {
         return PathBuf::from(value).join("inkling");
     }
