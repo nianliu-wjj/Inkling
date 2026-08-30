@@ -73,6 +73,22 @@ pub fn month_grid(year: i64, month: u32) -> (Vec<Option<String>>, u32) {
 }
 
 /// 当月网格
+/// 返回日期对应的中文星期名称。
+pub fn weekday_name(date: &str) -> &'static str {
+    let parts: Vec<u32> = date
+        .split('-')
+        .filter_map(|part| part.parse::<u32>().ok())
+        .collect();
+    if parts.len() != 3 {
+        return "星期一";
+    }
+    // 1970-01-01 为星期四；余数 0..6 对应周一到周日。
+    let monday_index = (days_from_civil(parts[0] as i64, parts[1], parts[2]) + 3)
+        .rem_euclid(7);
+    ["星期一", "星期二", "星期三", "星期四", "星期五", "星期六", "星期日"]
+        [monday_index as usize]
+}
+
 pub fn current_month_grid() -> (Vec<Option<String>>, u32, i64, u32) {
     let today = days_from_today();
     let (y, m, _) = civil_ymd(today);

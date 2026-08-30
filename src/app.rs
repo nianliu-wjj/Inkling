@@ -2,7 +2,7 @@
 //! 对应原型 `doc/index.html` 的「Inkling 单窗口（左右结构）」布局。
 
 use gpui::{
-    actions, div, prelude::*, px, App, ClickEvent, Context, Entity, FocusHandle, Focusable,
+    actions, div, prelude::*, px, AnyView, App, ClickEvent, Context, Entity, FocusHandle, Focusable,
     FontWeight, InteractiveElement, IntoElement, KeyBinding, KeyDownEvent, MouseButton, MouseDownEvent,
     MouseMoveEvent, MouseUpEvent, ParentElement, PathBuilder, Render,
     Rgba, SharedString, StatefulInteractiveElement, Styled, Window, WindowControlArea,
@@ -13,6 +13,105 @@ use crate::stats::{self, DayStat};
 use crate::text_input::TextInput;
 use crate::theme::{Theme, THEMES};
 use crate::views;
+
+#[derive(Copy, Clone)]
+pub struct MainWindowGlobal {
+    pub handle: gpui::AnyWindowHandle,
+}
+
+impl gpui::Global for MainWindowGlobal {}
+
+struct HeatmapTooltip {
+    text: SharedString,
+    theme: Theme,
+}
+
+impl Render for HeatmapTooltip {
+    fn render(&mut self, _window: &mut Window, _cx: &mut Context<Self>) -> impl IntoElement {
+        div()
+            .p_2()
+            .rounded_md()
+            .bg(self.theme.card())
+            .border_1()
+            .border_color(self.theme.border())
+            .text_size(px(11.))
+            .text_color(self.theme.text())
+            .child(self.text.clone())
+    }
+}
+
+fn heatmap_tooltip(cx: &mut App, theme: Theme, stat: &DayStat) -> AnyView {
+    let text = format!(
+        "{} {} · 总计 {} 条 · 笔记 {} · 复制项 {} · 待办 {} · 已完成 {} · 逾期 {}",
+        stat.date(),
+        stats::weekday_name(&stat.date()),
+        stat.total(),
+        stat.notes(),
+        stat.clips(),
+        stat.todos(),
+        stat.done(),
+        stat.overdue()
+    );
+    cx.new(|_| HeatmapTooltip {
+        text: text.into(),
+        theme,
+    })
+    .into()
+}
+
+/// 打开或激活唯一主窗口，并切换到指定视图。
+pub fn show_main_window(cx: &mut App, view: ActiveView) {
+    if let Some(handle) = cx
+        .try_global::<MainWindowGlobal>()
+        .and_then(|global| global.handle.downcast::<InboxApp>())
+    {
+        if handle
+            .update(cx, |app, window, cx| {
+                app.set_active_view(view);
+                window.activate_window();
+                window.focus(&app.focus_handle(cx));
+                cx.notify();
+            })
+            .is_ok()
+        {
+            cx.activate(true);
+            return;
+        }
+    }
+
+    open_main_window(cx, Settings::load(), view);
+}
+
+/// 创建主窗口并登记句柄，供托盘和静默自启动模式复用。
+pub fn open_main_window(cx: &mut App, settings: Settings, view: ActiveView) {
+    let bounds = gpui::Bounds::centered(None, gpui::size(px(880.), px(680.)), cx);
+    let handle = cx
+        .open_window(
+            gpui::WindowOptions {
+                window_bounds: Some(gpui::WindowBounds::Windowed(bounds)),
+                titlebar: Some(gpui::TitlebarOptions {
+                    title: Some("Inkling".into()),
+                    appears_transparent: true,
+                    ..Default::default()
+                }),
+                ..Default::default()
+            },
+            |_, cx| cx.new(|cx| InboxApp::new(settings.clone(), cx)),
+        )
+        .expect("打开主窗口失败");
+
+    handle
+        .update(cx, |app, window, cx| {
+            app.set_active_view(view);
+            window.focus(&app.focus_handle(cx));
+            window.activate_window();
+        })
+        .ok();
+    cx.set_global(MainWindowGlobal {
+        handle: handle.into(),
+    });
+    cx.activate(true);
+}
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum DeleteTarget {
@@ -618,6 +717,11 @@ impl InboxApp {
                                     el.border_1().border_color(theme.red())
                                 })
                                 .when(selected, |el| el.border_1().border_color(theme.accent()))
+                                .tooltip({
+                                    let tooltip_theme = *theme;
+                                    let stat = stat.clone();
+                                    move |_, cx| heatmap_tooltip(cx, tooltip_theme, &stat)
+                                })
                                 .hover(|s| s.opacity(0.75))
                                 .on_click(cx.listener({
                                     let date = date.clone();
@@ -1375,6 +1479,11 @@ impl InboxApp {
                             el.border_1().border_color(theme.red())
                         })
                         .when(selected, |el| el.border_1().border_color(theme.accent()))
+                        .tooltip({
+                            let tooltip_theme = *theme;
+                            let stat = day.clone();
+                            move |_, cx| heatmap_tooltip(cx, tooltip_theme, &stat)
+                        })
                         .hover(|s| s.opacity(0.75))
                         .on_click(cx.listener({
                             let date = day.date().clone();
@@ -2107,3 +2216,4 @@ impl Render for InboxApp {
             )
     }
 }
+

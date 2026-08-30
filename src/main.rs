@@ -12,14 +12,12 @@ mod stats;
 mod store;
 mod summon;
 mod text_input;
+mod tray;
 mod theme;
 mod views;
 
-use app::{key_bindings, InboxApp};
-use gpui::{
-    px, size, App, AppContext, Application, Bounds, Focusable, TitlebarOptions, WindowBounds,
-    WindowOptions,
-};
+use app::{key_bindings, open_main_window};
+use gpui::{App, Application};
 
 fn main() {
     Application::new().run(|cx: &mut App| {
@@ -31,33 +29,13 @@ fn main() {
         cx.bind_keys(text_input::key_bindings());
         summon::init(cx);
         reminder::init(cx);
+        tray::init(cx);
 
         // 通过 Windows Run 注册表启动时只驻留后台，不抢占焦点，也不自动打开主窗口。
-        // 用户仍可通过全局快捷键、触顶感应或提醒窗口唤起需要的界面。
+        // 用户仍可通过全局快捷键、触顶感应、托盘或提醒窗口唤起需要的界面。
         if !silent_autostart {
-            let bounds = Bounds::centered(None, size(px(880.), px(680.)), cx);
-            let window = cx
-                .open_window(
-                    WindowOptions {
-                        window_bounds: Some(WindowBounds::Windowed(bounds)),
-                        titlebar: Some(TitlebarOptions {
-                            title: Some("Inkling".into()),
-                            appears_transparent: true,
-                            ..Default::default()
-                        }),
-                        ..Default::default()
-                    },
-                    |_, cx| cx.new(|cx| InboxApp::new(settings.clone(), cx)),
-                )
-                .expect("打开主窗口失败");
-
-            window
-                .update(cx, |view, window, _cx| {
-                    window.focus(&view.focus_handle(_cx));
-                })
-                .ok();
-
-            cx.activate(true);
+            open_main_window(cx, settings, app::ActiveView::Notes);
         }
     });
 }
+
