@@ -93,13 +93,13 @@ cargo check --manifest-path src-tauri/Cargo.toml
 启动 Tauri 开发应用：
 
 ```powershell
-npm --prefix web run tauri -- dev
+web\node_modules\.bin\tauri dev --config src-tauri/tauri.conf.json
 ```
 
 构建前端和桌面安装包：
 
 ```powershell
-npm --prefix web run tauri -- build
+web\node_modules\.bin\tauri build --config src-tauri/tauri.conf.json
 ```
 
 数据默认保存于 Tauri `app_data_dir`，包括 `inkling.sqlite3` 和大笔记 `notes/` 目录；不会写入源码目录。

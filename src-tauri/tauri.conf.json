@@ -4,8 +4,8 @@
   "version": "0.1.0",
   "identifier": "com.inkling.capture",
   "build": {
-    "beforeDevCommand": "npm run dev --prefix web",
-    "beforeBuildCommand": "npm run build --prefix web",
+    "beforeDevCommand": "npm --prefix ../web run dev",
+    "beforeBuildCommand": "npm --prefix ../web run build",
     "devUrl": "http://localhost:1420",
     "frontendDist": "../web/dist"
   },
@@ -32,6 +32,7 @@
   "bundle": {
     "active": true,
     "targets": "all",
-    "createUpdaterArtifacts": false
+    "createUpdaterArtifacts": false,
+    "icon": ["icons/icon.ico", "icons/icon.png"]
   }
 }
