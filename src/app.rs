@@ -7,7 +7,7 @@ use gpui::{
     SharedString, StatefulInteractiveElement, Styled, Window, WindowControlArea,
 };
 
-use crate::settings::{BlurClose, RemarkStyle, Settings};
+use crate::settings::{BlurClose, ClipRetention, RemarkStyle, Settings};
 use crate::stats::{self, DayStat};
 use crate::theme::{Theme, THEMES};
 use crate::views;
@@ -27,6 +27,15 @@ actions!(
     [SwitchNotes, SwitchClips, SwitchTodos, NextTheme, QuitApp]
 );
 
+/// 步进器步进类型
+#[derive(Clone, Copy)]
+pub enum Step {
+    /// 粘贴板自定义保留天数
+    Retention(i32),
+    /// 失焦延迟秒数
+    BlurDelay(i32),
+}
+
 pub fn key_bindings() -> Vec<KeyBinding> {
     vec![
         KeyBinding::new("ctrl-1", SwitchNotes, None),
@@ -43,6 +52,7 @@ crate::accessors! {
         focus: FocusHandle,
         settings: Settings,
         theme_menu_open: bool,
+        remark_menu_open: bool,
         day_detail_date: Option<String>,
         autostart_error: Option<String>,
     }
@@ -64,6 +74,7 @@ impl InboxApp {
             focus: cx.focus_handle(),
             settings,
             theme_menu_open: false,
+            remark_menu_open: false,
             day_detail_date: None,
             autostart_error: None,
         }
@@ -382,7 +393,7 @@ impl InboxApp {
 
         rows = rows.child(
             self.setting_row("备注展示样式", cx)
-                .child(self.render_remark_style(cx)),
+                .child(self.render_remark_dropdown(cx)),
         );
         rows = rows.child(
             self.setting_row("全局快捷键", cx).child(
@@ -472,6 +483,8 @@ impl InboxApp {
             .child(
                 div()
                     .flex_1()
+                    .min_w_0()
+                    .truncate()
                     .text_color(theme.text())
                     .child(self.theme().name().to_string()),
             )
@@ -528,14 +541,14 @@ impl InboxApp {
                         )),
                 );
             }
-            container = container.child(menu);
+            container = container.child(gpui::deferred(menu).with_priority(1));
         }
         container
     }
 
     fn render_blur_close(&self, cx: &mut Context<Self>) -> impl IntoElement {
         let theme = self.theme();
-        let mut row = div().flex().gap_1();
+        let mut row = div().flex().items_center().gap_1();
         for option in BlurClose::ALL {
             let active = self.settings.blur_close() == option;
             row = row.child(
@@ -566,17 +579,133 @@ impl InboxApp {
                     .child(option.label().to_string()),
             );
         }
+        // 延迟收起：秒数可配置（1 ~ 60）
+        if self.settings.blur_close() == BlurClose::Delay {
+            let secs = self.settings.blur_delay_secs();
+            row = row.child(self.stepper_button("blur-dec", "−", Step::BlurDelay(-1), cx));
+            row = row.child(
+                div()
+                    .w(px(56.))
+                    .py_1()
+                    .rounded_md()
+                    .text_size(px(13.))
+                    .text_color(theme.text())
+                    .bg(theme.card())
+                    .border_1()
+                    .border_color(theme.border())
+                    .flex()
+                    .justify_center()
+                    .child(format!("{secs} 秒")),
+            );
+            row = row.child(self.stepper_button("blur-inc", "+", Step::BlurDelay(1), cx));
+        }
         row
     }
 
-    fn render_remark_style(&self, cx: &mut Context<Self>) -> impl IntoElement {
+    /// 备注展示样式：下拉选择
+    fn render_remark_dropdown(&self, cx: &mut Context<Self>) -> impl IntoElement {
         let theme = self.theme();
-        let mut row = div().flex().gap_1();
-        for option in RemarkStyle::ALL {
-            let active = self.settings.remark_style() == option;
+        let current = self.settings.remark_style();
+        let trigger = div()
+            .id("remark-dd-trigger")
+            .flex()
+            .items_center()
+            .gap_2()
+            .w(px(240.))
+            .px_3()
+            .py_2()
+            .rounded_lg()
+            .cursor_pointer()
+            .text_size(px(13.))
+            .bg(theme.card())
+            .border_1()
+            .when(self.remark_menu_open(), |el| {
+                el.border_color(theme.accent())
+            })
+            .when(!self.remark_menu_open(), |el| {
+                el.border_color(theme.border())
+            })
+            .on_click(cx.listener(|this, _: &ClickEvent, _, cx| {
+                let next = !this.remark_menu_open();
+                this.set_remark_menu_open(next);
+                cx.notify();
+            }))
+            .child(
+                div()
+                    .flex_1()
+                    .min_w_0()
+                    .truncate()
+                    .text_color(theme.text())
+                    .child(current.label().to_string()),
+            )
+            .child(div().text_size(px(10.)).text_color(theme.text_dim()).child(
+                if self.remark_menu_open() {
+                    "▲"
+                } else {
+                    "▼"
+                },
+            ));
+
+        let mut container = div().relative().w(px(240.)).child(trigger);
+        if self.remark_menu_open() {
+            let mut menu = div()
+                .id("remark-dd-menu")
+                .absolute()
+                .top_full()
+                .left_0()
+                .w_full()
+                .mt_1()
+                .rounded_lg()
+                .bg(theme.sidebar())
+                .border_1()
+                .border_color(theme.border())
+                .shadow_lg()
+                .p_1();
+            for option in RemarkStyle::ALL {
+                let active = self.settings.remark_style() == option;
+                menu = menu.child(
+                    div()
+                        .id(SharedString::from(format!("remark-opt-{:?}", option)))
+                        .flex()
+                        .items_center()
+                        .justify_between()
+                        .px_2()
+                        .py_1p5()
+                        .rounded_md()
+                        .cursor_pointer()
+                        .text_size(px(12.5))
+                        .text_color(theme.text())
+                        .when(active, |el| el.bg(theme.hover()))
+                        .hover(|s| s.bg(theme.hover()))
+                        .on_click(cx.listener(move |this, _: &ClickEvent, _, cx| {
+                            this.settings.set_remark_style(option);
+                            this.settings.save();
+                            this.set_remark_menu_open(false);
+                            cx.notify();
+                        }))
+                        .child(option.label().to_string())
+                        .child(div().text_size(px(11.)).text_color(theme.accent()).child(
+                            if active {
+                                "✓".to_string()
+                            } else {
+                                "".to_string()
+                            },
+                        )),
+                );
+            }
+            container = container.child(gpui::deferred(menu).with_priority(1));
+        }
+        container
+    }
+
+    fn render_retention(&self, cx: &mut Context<Self>) -> impl IntoElement {
+        let theme = self.theme();
+        let mut row = div().flex().items_center().gap_1();
+        for option in ClipRetention::OPTIONS {
+            let active = self.settings.clip_retention() == option;
             row = row.child(
                 div()
-                    .id(SharedString::from(format!("remark-{:?}", option)))
+                    .id(SharedString::from(format!("ret-{}", option.label())))
                     .px_2()
                     .py_1()
                     .rounded_md()
@@ -595,26 +724,27 @@ impl InboxApp {
                             .hover(|s| s.text_color(theme.text()))
                     })
                     .on_click(cx.listener(move |this, _: &ClickEvent, _, cx| {
-                        this.settings.set_remark_style(option);
+                        // 切到自定义时保留既有天数（无则 30）
+                        let next = match option {
+                            ClipRetention::Custom(_) => match this.settings.clip_retention() {
+                                ClipRetention::Custom(d) => ClipRetention::Custom(d),
+                                _ => ClipRetention::Custom(30),
+                            },
+                            other => other,
+                        };
+                        this.settings.set_clip_retention(next);
                         this.settings.save();
                         cx.notify();
                     }))
                     .child(option.label().to_string()),
             );
         }
-        row
-    }
-
-    fn render_retention(&self, cx: &mut Context<Self>) -> impl IntoElement {
-        let theme = self.theme();
-        div()
-            .flex()
-            .items_center()
-            .gap_2()
-            .child(self.stepper_button("retention-dec", "−", cx))
-            .child(
+        // 自定义模式：天数步进器，「天」为单位置于框外
+        if let ClipRetention::Custom(days) = self.settings.clip_retention() {
+            row = row.child(self.stepper_button("ret-dec", "−", Step::Retention(-1), cx));
+            row = row.child(
                 div()
-                    .w(px(60.))
+                    .w(px(48.))
                     .py_1()
                     .rounded_md()
                     .text_size(px(13.))
@@ -624,15 +754,25 @@ impl InboxApp {
                     .border_color(theme.border())
                     .flex()
                     .justify_center()
-                    .child(format!("{} 天", self.settings.clip_retention_days())),
-            )
-            .child(self.stepper_button("retention-inc", "+", cx))
+                    .child(days.to_string()),
+            );
+            row = row.child(self.stepper_button("ret-inc", "+", Step::Retention(1), cx));
+            row = row.child(
+                div()
+                    .text_size(px(12.))
+                    .text_color(theme.text_dim())
+                    .child("天"),
+            );
+        }
+        row
     }
 
+    /// 通用步进按钮（保留天数 / 延迟秒数）
     fn stepper_button(
         &self,
         id: &'static str,
         label: &'static str,
+        step: Step,
         cx: &mut Context<Self>,
     ) -> impl IntoElement {
         let theme = self.theme();
@@ -651,12 +791,22 @@ impl InboxApp {
             .border_1()
             .border_color(theme.border())
             .hover(|s| s.bg(theme.hover()))
-            .on_click(cx.listener(move |this, _: &ClickEvent, _, cx| {
-                let delta = if id.ends_with("inc") { 1 } else { -1 };
-                let next = (this.settings.clip_retention_days() as i32 + delta).clamp(1, 365);
-                this.settings.set_clip_retention_days(next as u32);
-                this.settings.save();
-                cx.notify();
+            .on_click(cx.listener(move |this, _: &ClickEvent, _, cx| match step {
+                Step::Retention(delta) => {
+                    if let ClipRetention::Custom(d) = this.settings.clip_retention() {
+                        let next = (d as i32 + delta).clamp(1, 365);
+                        this.settings
+                            .set_clip_retention(ClipRetention::Custom(next as u32));
+                        this.settings.save();
+                        cx.notify();
+                    }
+                }
+                Step::BlurDelay(delta) => {
+                    let next = (this.settings.blur_delay_secs() as i32 + delta).clamp(1, 60);
+                    this.settings.set_blur_delay_secs(next as u32);
+                    this.settings.save();
+                    cx.notify();
+                }
             }))
             .child(label.to_string())
     }

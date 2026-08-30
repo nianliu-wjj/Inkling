@@ -3,24 +3,73 @@
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
-/// 失焦自动收起策略
+/// 失焦自动收起策略（延迟模式配合 `blur_delay_secs` 使用）
 #[derive(Serialize, Deserialize, Clone, Copy, PartialEq, Eq, Debug)]
 pub enum BlurClose {
     #[serde(rename = "immediate")]
     Immediate,
-    #[serde(rename = "delay3s")]
-    Delay3s,
+    #[serde(rename = "delay", alias = "delay3s")]
+    Delay,
     #[serde(rename = "never")]
     Never,
 }
 
+impl Default for BlurClose {
+    fn default() -> Self {
+        BlurClose::Delay
+    }
+}
+
 impl BlurClose {
-    pub const ALL: [BlurClose; 3] = [BlurClose::Immediate, BlurClose::Delay3s, BlurClose::Never];
+    pub const ALL: [BlurClose; 3] = [BlurClose::Immediate, BlurClose::Delay, BlurClose::Never];
+
     pub fn label(&self) -> &'static str {
         match self {
             BlurClose::Immediate => "立即收起",
-            BlurClose::Delay3s => "延迟 3 秒收起",
+            BlurClose::Delay => "延迟收起",
             BlurClose::Never => "固定不收起",
+        }
+    }
+}
+
+/// 粘贴板保留策略
+#[derive(Serialize, Deserialize, Clone, Copy, PartialEq, Eq, Debug)]
+pub enum ClipRetention {
+    /// 永不过期
+    #[serde(rename = "never")]
+    Never,
+    /// 重启失效
+    #[serde(rename = "session")]
+    Session,
+    /// 当天有效
+    #[serde(rename = "today")]
+    Today,
+    /// 自定义天数
+    #[serde(rename = "custom")]
+    Custom(u32),
+}
+
+impl Default for ClipRetention {
+    fn default() -> Self {
+        ClipRetention::Custom(30)
+    }
+}
+
+impl ClipRetention {
+    /// 供分段选择器遍历的选项（自定义默认 30 天）
+    pub const OPTIONS: [ClipRetention; 4] = [
+        ClipRetention::Never,
+        ClipRetention::Session,
+        ClipRetention::Today,
+        ClipRetention::Custom(30),
+    ];
+
+    pub fn label(&self) -> &'static str {
+        match self {
+            ClipRetention::Never => "永不过期",
+            ClipRetention::Session => "重启失效",
+            ClipRetention::Today => "当天有效",
+            ClipRetention::Custom(_) => "自定义",
         }
     }
 }
@@ -36,8 +85,15 @@ pub enum RemarkStyle {
     Line,
 }
 
+impl Default for RemarkStyle {
+    fn default() -> Self {
+        RemarkStyle::Mixed
+    }
+}
+
 impl RemarkStyle {
     pub const ALL: [RemarkStyle; 3] = [RemarkStyle::Mixed, RemarkStyle::Icon, RemarkStyle::Line];
+
     pub fn label(&self) -> &'static str {
         match self {
             RemarkStyle::Mixed => "混合模式（超100字用图标）",
@@ -48,23 +104,42 @@ impl RemarkStyle {
 }
 
 crate::accessors! {
+    /// 应用设置
     #[derive(Serialize, Deserialize, Clone, Debug)]
     pub struct Settings {
+        /// 失焦自动收起策略
+        #[serde(default)]
         blur_close: BlurClose,
-        clip_retention_days: u32,
-        autostart: bool,
+        /// 延迟收起的秒数（1 ~ 60）
+        #[serde(default = "default_delay_secs")]
+        blur_delay_secs: u32,
+        /// 粘贴板保留策略
+        #[serde(default)]
+        clip_retention: ClipRetention,
+        /// 备注展示样式
+        #[serde(default)]
         remark_style: RemarkStyle,
+        /// 开机静默自启动
+        #[serde(default)]
+        autostart: bool,
+        /// 当前主题 id
+        #[serde(default)]
         theme_id: String,
     }
+}
+
+fn default_delay_secs() -> u32 {
+    3
 }
 
 impl Default for Settings {
     fn default() -> Self {
         Self {
-            blur_close: BlurClose::Delay3s,
-            clip_retention_days: 30,
-            autostart: false,
+            blur_close: BlurClose::Delay,
+            blur_delay_secs: 3,
+            clip_retention: ClipRetention::Custom(30),
             remark_style: RemarkStyle::Mixed,
+            autostart: false,
             theme_id: "dark".into(),
         }
     }
