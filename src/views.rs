@@ -541,12 +541,14 @@ fn todo_row(
         .mb_2()
         .bg(t.card())
         .when(overdue, |el| el.border_1().border_color(t.red()));
-    row = row.child(delete_controls(
-        t,
-        DeleteTarget::Todo(item_id.clone()),
-        confirmed,
-        cx,
-    ));
+    if !done {
+        row = row.child(delete_controls(
+            t,
+            DeleteTarget::Todo(item_id.clone()),
+            confirmed,
+            cx,
+        ));
+    }
     let priority_control = div()
         .relative()
         .child(if done {
