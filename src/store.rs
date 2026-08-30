@@ -193,6 +193,23 @@ fn now_string() -> String {
 pub fn default_due_at() -> String {
     (now_secs() + 86_400).to_string()
 }
+
+/// 将内部 Unix 秒时间戳转换为稳定、可读的本地日期时间文本。
+pub fn display_timestamp(timestamp: &str) -> String {
+    let Ok(seconds) = timestamp.parse::<i64>() else {
+        return timestamp.to_string();
+    };
+    let days = seconds.div_euclid(86_400);
+    let day_seconds = seconds.rem_euclid(86_400);
+    let hour = day_seconds / 3_600;
+    let minute = (day_seconds % 3_600) / 60;
+    format!(
+        "{} {:02}:{:02}",
+        crate::stats::civil_from_days(days),
+        hour,
+        minute
+    )
+}
 fn id(prefix: &str) -> String {
     format!(
         "{prefix}-{}-{}",

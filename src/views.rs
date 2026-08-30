@@ -39,7 +39,10 @@ fn note_card(t: &Theme, note: &Note) -> impl IntoElement {
         .gap_1()
         .text_size(px(10.))
         .text_color(t.text_dim())
-        .child(format!("归档 · {}", note.created_at()));
+        .child(format!(
+            "归档 · {}",
+            store::display_timestamp(&note.created_at())
+        ));
     for tag in note.tags().iter().take(3) {
         metadata = metadata.child(tag_chip(t, tag));
     }
@@ -139,7 +142,7 @@ fn clip_row(t: &Theme, clip: &ClipItem, cx: &mut Context<InboxApp>) -> impl Into
             div()
                 .text_size(px(10.))
                 .text_color(t.text_dim())
-                .child(clip.captured_at().clone()),
+                .child(store::display_timestamp(&clip.captured_at())),
         )
 }
 
@@ -263,13 +266,14 @@ fn priority_menu(t: &Theme, todo: &TodoItem, cx: &mut Context<InboxApp>) -> impl
 fn todo_row(
     t: &Theme,
     todo: &TodoItem,
-    index: usize,
     menu_open: Option<String>,
+    depth: usize,
     cx: &mut Context<InboxApp>,
 ) -> impl IntoElement {
     let done = todo.done();
     let overdue = store::is_overdue(todo);
     let item_id = todo.id().clone();
+    let completion_id = item_id.clone();
     let mut tags = div().flex().gap_1();
     for tag in todo.tags().iter().take(3) {
         tags = tags.child(tag_chip(t, tag));
@@ -283,7 +287,7 @@ fn todo_row(
             div()
                 .text_size(px(10.))
                 .text_color(if overdue { t.red() } else { t.text_dim() })
-                .child(format!("📅 {}", todo.due_at())),
+                .child(format!("📅 {}", store::display_timestamp(&todo.due_at()))),
         )
         .child(div().flex_1());
     let parent_id = todo.id().clone();
@@ -314,6 +318,7 @@ fn todo_row(
     }
     let mut row = div()
         .id(SharedString::from(format!("todo-{}", todo.id())))
+        .when(depth > 0, |el| el.ml(px((depth * 18) as f32)))
         .relative()
         .flex()
         .flex_col()
@@ -340,14 +345,39 @@ fn todo_row(
                     .when(!done, |el| {
                         el.cursor_pointer().on_click(cx.listener(
                             move |_, _: &ClickEvent, _, cx| {
-                                if store::toggle_todo(cx, index) {
+                                if store::complete_todo(cx, &completion_id) {
                                     cx.notify();
                                 }
                             },
                         ))
                     }),
             )
-            .child(priority_badge(t, todo, cx))
+            .child(if done {
+                div()
+                    .px_1p5()
+                    .py_0p5()
+                    .rounded_sm()
+                    .text_size(px(11.))
+                    .font_weight(FontWeight::SEMIBOLD)
+                    .bg(t.hover())
+                    .text_color(match todo.priority() {
+                        Priority::High => t.red(),
+                        Priority::Medium => t.gold(),
+                        Priority::Low => t.green(),
+                    })
+                    .child(format!(
+                        "{} {}",
+                        if matches!(todo.priority(), Priority::High) {
+                            "●"
+                        } else {
+                            "○"
+                        },
+                        todo.priority().label()
+                    ))
+                    .into_any_element()
+            } else {
+                priority_badge(t, todo, cx).into_any_element()
+            })
             .child(
                 div()
                     .flex_1()
@@ -375,15 +405,77 @@ pub fn todos(
     parent_target: Option<String>,
     cx: &mut Context<InboxApp>,
 ) -> impl IntoElement {
+    let mut grouped_overdue = std::collections::HashSet::new();
+    fn mark_overdue_group(
+        id: &str,
+        by_parent: &std::collections::HashMap<Option<String>, Vec<String>>,
+        grouped: &mut std::collections::HashSet<String>,
+    ) {
+        if !grouped.insert(id.to_string()) {
+            return;
+        }
+        if let Some(children) = by_parent.get(&Some(id.to_string())) {
+            for child in children {
+                mark_overdue_group(child, by_parent, grouped);
+            }
+        }
+    }
+    let mut by_parent: std::collections::HashMap<Option<String>, Vec<String>> =
+        std::collections::HashMap::new();
+    for todo in todos {
+        by_parent
+            .entry(todo.parent_id().clone())
+            .or_default()
+            .push(todo.id().clone());
+    }
+    for todo in todos.iter().filter(|todo| store::is_overdue(todo)) {
+        let mut current = Some(todo.id().clone());
+        while let Some(id) = current {
+            mark_overdue_group(&id, &by_parent, &mut grouped_overdue);
+            current = todos
+                .iter()
+                .find(|item| item.id() == id)
+                .and_then(|item| item.parent_id().clone());
+        }
+    }
+    let mut ordered = Vec::new();
+    fn flatten(
+        parent: Option<&str>,
+        depth: usize,
+        todos: &[TodoItem],
+        grouped: &std::collections::HashSet<String>,
+        ordered: &mut Vec<(TodoItem, usize, bool)>,
+    ) {
+        let mut children: Vec<TodoItem> = todos
+            .iter()
+            .filter(|todo| todo.parent_id().as_deref() == parent)
+            .cloned()
+            .collect();
+        children.sort_by_key(|todo| {
+            (
+                if grouped.contains(&todo.id()) { 0 } else { 1 },
+                todo.priority().rank(),
+                todo.due_at().clone(),
+                todo.created_at().clone(),
+            )
+        });
+        for todo in children {
+            let overdue_group = grouped.contains(&todo.id());
+            ordered.push((todo.clone(), depth, overdue_group));
+            let todo_id = todo.id().clone();
+            flatten(Some(&todo_id), depth + 1, todos, grouped, ordered);
+        }
+    }
+    flatten(None, 0, todos, &grouped_overdue, &mut ordered);
     let mut overdue_list = div().flex().flex_col();
     let mut normal_list = div().flex().flex_col();
     let mut has_overdue = false;
-    for (index, todo) in todos.iter().enumerate() {
-        if store::is_overdue(todo) {
+    for (todo, depth, overdue_group) in ordered {
+        if overdue_group {
             has_overdue = true;
-            overdue_list = overdue_list.child(todo_row(t, todo, index, menu_open.clone(), cx));
+            overdue_list = overdue_list.child(todo_row(t, &todo, menu_open.clone(), depth, cx));
         } else {
-            normal_list = normal_list.child(todo_row(t, todo, index, menu_open.clone(), cx));
+            normal_list = normal_list.child(todo_row(t, &todo, menu_open.clone(), depth, cx));
         }
     }
     let add_input = todo_input.clone();

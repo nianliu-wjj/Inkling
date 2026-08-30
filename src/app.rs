@@ -59,7 +59,30 @@ crate::accessors! {
         priority_menu_open: Option<String>,
         todo_input: Entity<TextInput>,
         todo_parent_target: Option<String>,
+        search_input: Entity<TextInput>,
+        search_query: String,
     }
+}
+
+fn searchable_note(note: &crate::store::Note, query: &str) -> bool {
+    note.content().to_lowercase().contains(query)
+        || note
+            .tags()
+            .iter()
+            .any(|tag| tag.to_lowercase().contains(query))
+}
+
+fn searchable_clip(clip: &crate::store::ClipItem, query: &str) -> bool {
+    clip.content().to_lowercase().contains(query) || clip.kind().to_lowercase().contains(query)
+}
+
+fn searchable_todo(todo: &crate::store::TodoItem, query: &str) -> bool {
+    todo.text().to_lowercase().contains(query)
+        || todo.remark().to_lowercase().contains(query)
+        || todo
+            .tags()
+            .iter()
+            .any(|tag| tag.to_lowercase().contains(query))
 }
 
 impl Focusable for InboxApp {
@@ -80,6 +103,20 @@ impl InboxApp {
                 cx,
             )
         });
+        let search_input = cx.new(|cx| {
+            TextInput::new(
+                "搜索文本、标签或备注…",
+                gpui::hsla(0.0, 0.0, 1.0, 0.35),
+                gpui::hsla(0.65, 0.08, 0.95, 1.0),
+                cx,
+            )
+        });
+        let observed_search = search_input.clone();
+        cx.observe(&observed_search, |this, input, cx| {
+            this.set_search_query(input.read(cx).content());
+            cx.notify();
+        })
+        .detach();
         Self {
             active_view: ActiveView::Notes,
             theme_index,
@@ -92,6 +129,8 @@ impl InboxApp {
             priority_menu_open: None,
             todo_input,
             todo_parent_target: None,
+            search_input,
+            search_query: String::new(),
         }
     }
 
@@ -386,30 +425,68 @@ impl InboxApp {
     // ── 主内容区 ────────────────────────────────
     fn render_content(&self, cx: &mut Context<Self>) -> impl IntoElement {
         let theme = self.theme();
-        let notes = crate::store::notes(cx);
-        let todos = crate::store::todos(cx);
-        div()
-            .flex_1()
-            .min_w_0()
-            .overflow_hidden()
-            .child(match self.active_view() {
-                ActiveView::Notes => views::notes(theme, &notes).into_any_element(),
-                ActiveView::Clips => {
-                    views::clips(theme, &crate::store::clips(cx), cx).into_any_element()
-                }
-                ActiveView::Todos => views::todos(
-                    theme,
-                    &todos,
-                    self.priority_menu_open(),
-                    self.todo_input.clone(),
-                    self.todo_parent_target(),
-                    cx,
-                )
-                .into_any_element(),
-                ActiveView::Stats => self.render_stats(cx).into_any_element(),
-                ActiveView::Settings => self.render_settings(cx).into_any_element(),
-                ActiveView::Day => self.render_day_detail(cx).into_any_element(),
-            })
+        let query = self.search_query.trim().to_lowercase();
+        let notes = crate::store::notes(cx)
+            .into_iter()
+            .filter(|note| query.is_empty() || searchable_note(note, &query))
+            .collect::<Vec<_>>();
+        let clips = crate::store::clips(cx)
+            .into_iter()
+            .filter(|clip| query.is_empty() || searchable_clip(clip, &query))
+            .collect::<Vec<_>>();
+        let todos = crate::store::todos(cx)
+            .into_iter()
+            .filter(|todo| query.is_empty() || searchable_todo(todo, &query))
+            .collect::<Vec<_>>();
+        let view = match self.active_view() {
+            ActiveView::Notes => views::notes(theme, &notes).into_any_element(),
+            ActiveView::Clips => views::clips(theme, &clips, cx).into_any_element(),
+            ActiveView::Todos => views::todos(
+                theme,
+                &todos,
+                self.priority_menu_open(),
+                self.todo_input.clone(),
+                self.todo_parent_target(),
+                cx,
+            )
+            .into_any_element(),
+            ActiveView::Stats => self.render_stats(cx).into_any_element(),
+            ActiveView::Settings => self.render_settings(cx).into_any_element(),
+            ActiveView::Day => self.render_day_detail(cx).into_any_element(),
+        };
+        let archive_view = matches!(
+            self.active_view(),
+            ActiveView::Notes | ActiveView::Clips | ActiveView::Todos
+        );
+        let mut container = div().flex().flex_col().flex_1().min_h_0().overflow_hidden();
+        if archive_view {
+            container = container.child(
+                div()
+                    .flex()
+                    .items_center()
+                    .gap_2()
+                    .px_4()
+                    .pt_3()
+                    .child(
+                        div()
+                            .text_size(px(11.))
+                            .text_color(theme.text_dim())
+                            .child("搜索归档"),
+                    )
+                    .child(
+                        div()
+                            .flex_1()
+                            .min_w_0()
+                            .h(px(30.))
+                            .rounded_md()
+                            .bg(theme.card())
+                            .border_1()
+                            .border_color(theme.border())
+                            .child(self.search_input.clone()),
+                    ),
+            );
+        }
+        container.child(view)
     }
 
     // ── 设置页 ──────────────────────────────────
