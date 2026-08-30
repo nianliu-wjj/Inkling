@@ -48,7 +48,6 @@ fn delete_controls(
     };
     let mut controls = div()
         .absolute()
-        .top_2()
         .right_2()
         .flex()
         .items_center()
@@ -56,6 +55,8 @@ fn delete_controls(
         .text_size(px(10.));
     if confirmed {
         controls = controls
+            .bottom_full()
+            .mb_1()
             .child(
                 div()
                     .id(SharedString::from(format!("delete-confirm-{target_key}")))
@@ -96,7 +97,7 @@ fn delete_controls(
                     .child("取消"),
             );
     } else {
-        controls = controls.child(
+        controls = controls.top_2().child(
             div()
                 .id(SharedString::from(format!("delete-request-{target_key}")))
                 .px_1p5()
