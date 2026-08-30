@@ -1,6 +1,8 @@
 //! 统计视图的日期运算与 SQLite 统计数据适配。
 //! 业务计数由 `store` 从持久化数据和幂等活动事件中聚合，本模块只负责日期网格与展示模型。
 
+use chrono::Datelike;
+
 crate::accessors! {
     /// 单日活跃度
     #[derive(Clone, Debug)]
@@ -100,11 +102,8 @@ pub fn current_month_grid() -> (Vec<Option<String>>, u32, i64, u32) {
 
 /// 今天距 1970-01-01 的天数
 pub fn days_from_today() -> i64 {
-    let secs = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .map(|d| d.as_secs() as i64)
-        .unwrap_or(0);
-    secs.div_euclid(86400)
+    let today = chrono::Local::now().date_naive();
+    days_from_civil(today.year() as i64, today.month(), today.day())
 }
 
 /// 天数 → YYYY-MM-DD（Howard Hinnant civil_from_days）

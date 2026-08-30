@@ -218,16 +218,10 @@ pub fn display_timestamp(timestamp: &str) -> String {
     let Ok(seconds) = timestamp.parse::<i64>() else {
         return timestamp.to_string();
     };
-    let days = seconds.div_euclid(86_400);
-    let day_seconds = seconds.rem_euclid(86_400);
-    let hour = day_seconds / 3_600;
-    let minute = (day_seconds % 3_600) / 60;
-    format!(
-        "{} {:02}:{:02}",
-        crate::stats::civil_from_days(days),
-        hour,
-        minute
-    )
+    chrono::DateTime::<chrono::Utc>::from_timestamp(seconds, 0)
+        .map(|value| value.with_timezone(&chrono::Local))
+        .map(|value| value.format("%Y-%m-%d %H:%M").to_string())
+        .unwrap_or_else(|| timestamp.to_string())
 }
 fn id(prefix: &str) -> String {
     format!(
