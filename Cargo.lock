@@ -2708,6 +2708,7 @@ name = "inkling"
 version = "0.1.0"
 dependencies = [
  "gpui",
+ "paste",
  "serde",
  "serde_json",
  "winreg",
