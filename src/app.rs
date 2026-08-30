@@ -1409,14 +1409,144 @@ impl InboxApp {
     // ── 日期详情 ────────────────────────────────
     fn render_day_detail(&self, cx: &mut Context<Self>) -> impl IntoElement {
         let theme = self.theme();
-        let stat: DayStat = self
+        let date = self
             .day_detail_date
-            .as_ref()
-            .map(|d| stats::day_stat(cx, d))
-            .unwrap_or_else(|| {
-                let today = stats::today_str();
-                stats::day_stat(cx, &today)
-            });
+            .clone()
+            .unwrap_or_else(stats::today_str);
+        let stat: DayStat = stats::day_stat(cx, &date);
+        let query = self.search_query.trim().to_lowercase();
+        enum DayItem {
+            Note(crate::store::Note),
+            Clip(crate::store::ClipItem),
+            Todo(crate::store::TodoItem),
+        }
+        let mut items = Vec::<(String, DayItem)>::new();
+        for note in crate::store::notes(cx) {
+            if crate::store::display_timestamp(&note.created_at()).starts_with(&date)
+                && (query.is_empty() || searchable_note(&note, &query))
+            {
+                items.push((note.created_at().clone(), DayItem::Note(note)));
+            }
+        }
+        for clip in crate::store::clips(cx) {
+            if crate::store::display_timestamp(&clip.captured_at()).starts_with(&date)
+                && (query.is_empty() || searchable_clip(&clip, &query))
+            {
+                items.push((clip.captured_at().clone(), DayItem::Clip(clip)));
+            }
+        }
+        for todo in crate::store::todos(cx) {
+            if crate::store::display_timestamp(&todo.due_at()).starts_with(&date)
+                && (query.is_empty() || searchable_todo(&todo, &query))
+            {
+                items.push((todo.due_at().clone(), DayItem::Todo(todo)));
+            }
+        }
+        items.sort_by(|a, b| a.0.cmp(&b.0));
+        let mut mixed = div().flex().flex_col().gap_2();
+        if items.is_empty() {
+            mixed = mixed.child(
+                div()
+                    .text_size(px(12.))
+                    .text_color(theme.text_dim())
+                    .child("当天没有匹配的归档记录"),
+            );
+        }
+        for (_, item) in items {
+            let row = match item {
+                DayItem::Note(note) => div()
+                    .border_l_2()
+                    .border_color(theme.accent())
+                    .p_3()
+                    .rounded_md()
+                    .bg(theme.card())
+                    .child(
+                        div()
+                            .text_size(px(11.))
+                            .text_color(theme.accent())
+                            .child("📝 笔记"),
+                    )
+                    .child(
+                        div()
+                            .mt_1()
+                            .text_color(theme.text())
+                            .child(note.content().clone()),
+                    )
+                    .child(
+                        div()
+                            .mt_1()
+                            .text_size(px(10.))
+                            .text_color(theme.text_dim())
+                            .child(if note.tags().is_empty() {
+                                "无标签".to_string()
+                            } else {
+                                note.tags()
+                                    .iter()
+                                    .map(|tag| format!("#{tag}"))
+                                    .collect::<Vec<_>>()
+                                    .join(" ")
+                            }),
+                    ),
+                DayItem::Clip(clip) => div()
+                    .border_l_2()
+                    .border_color(theme.gold())
+                    .p_3()
+                    .rounded_md()
+                    .bg(theme.card())
+                    .child(
+                        div()
+                            .text_size(px(11.))
+                            .text_color(theme.gold())
+                            .child(format!("📋 粘贴板 · {}", clip.kind())),
+                    )
+                    .child(
+                        div()
+                            .mt_1()
+                            .text_color(theme.text())
+                            .child(crate::views::clip_preview(&clip.content())),
+                    ),
+                DayItem::Todo(todo) => div()
+                    .border_l_2()
+                    .border_color(theme.green())
+                    .p_3()
+                    .rounded_md()
+                    .bg(theme.card())
+                    .child(
+                        div()
+                            .text_size(px(11.))
+                            .text_color(theme.green())
+                            .child(format!("✅ 待办 · {}优先级", todo.priority().label())),
+                    )
+                    .child(
+                        div()
+                            .mt_1()
+                            .text_color(if todo.done() {
+                                theme.text_dim()
+                            } else {
+                                theme.text()
+                            })
+                            .child(todo.text().clone()),
+                    )
+                    .child(
+                        div()
+                            .mt_1()
+                            .text_size(px(10.))
+                            .text_color(if crate::store::is_overdue(&todo) {
+                                theme.red()
+                            } else {
+                                theme.text_dim()
+                            })
+                            .child(if crate::store::is_overdue(&todo) {
+                                "逾期".to_string()
+                            } else if todo.done() {
+                                "已完成".to_string()
+                            } else {
+                                "未完成".to_string()
+                            }),
+                    ),
+            };
+            mixed = mixed.child(row);
+        }
 
         div()
             .flex()
@@ -1430,8 +1560,8 @@ impl InboxApp {
                     .text_color(theme.text())
                     .child(format!(
                         "📌 {} 的记录{}",
-                        stat.date(),
-                        if stat.date() == stats::today_str() {
+                        date,
+                        if date == stats::today_str() {
                             " · 今天"
                         } else {
                             ""
@@ -1442,55 +1572,20 @@ impl InboxApp {
                 div()
                     .text_size(px(12.))
                     .text_color(theme.text_dim())
-                    .child("来自侧边栏当月热力图 · 当前数据来自 SQLite 真实聚合"),
+                    .child("按时间混排笔记、剪贴板和待办；可使用归档搜索框过滤内容"),
             )
             .child(
                 div()
                     .flex()
-                    .flex_col()
-                    .gap_1()
-                    .p_3()
-                    .rounded_lg()
-                    .bg(theme.card())
-                    .border_1()
-                    .border_color(theme.border())
-                    .child(
-                        div()
-                            .text_size(px(12.5))
-                            .text_color(theme.text())
-                            .child(format!("📝 笔记 {} 条", stat.notes())),
-                    )
-                    .child(
-                        div()
-                            .text_size(px(12.5))
-                            .text_color(theme.text())
-                            .child(format!("📋 复制项 {} 条", stat.clips())),
-                    )
-                    .child(
-                        div()
-                            .flex()
-                            .gap_1()
-                            .text_size(px(12.5))
-                            .child(div().text_color(theme.text()).child(format!(
-                                "✅ 待办 {} 条（已完成 {}",
-                                stat.todos(),
-                                stat.done()
-                            )))
-                            .child(
-                                div()
-                                    .text_color(if stat.overdue() > 0 {
-                                        theme.red()
-                                    } else {
-                                        theme.text()
-                                    })
-                                    .child(if stat.overdue() > 0 {
-                                        format!("· 逾期 {}）", stat.overdue())
-                                    } else {
-                                        "）".to_string()
-                                    }),
-                            ),
-                    ),
+                    .gap_3()
+                    .text_size(px(11.))
+                    .text_color(theme.text_dim())
+                    .child(format!("📝 {}", stat.notes()))
+                    .child(format!("📋 {}", stat.clips()))
+                    .child(format!("✅ {} / 已完成 {}", stat.todos(), stat.done()))
+                    .child(format!("逾期 {}", stat.overdue())),
             )
+            .child(mixed)
     }
 }
 

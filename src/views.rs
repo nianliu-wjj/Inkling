@@ -116,7 +116,7 @@ fn delete_controls(
     controls
 }
 
-fn two_line_preview(text: &str) -> String {
+pub(crate) fn clip_preview(text: &str) -> String {
     const MAX_CHARS_PER_LINE: usize = 96;
     let mut lines = text
         .lines()
@@ -281,7 +281,7 @@ fn clip_row(
                 .min_w_0()
                 .text_size(px(13.))
                 .text_color(t.text())
-                .child(two_line_preview(&clip.content())),
+                .child(clip_preview(&clip.content())),
         )
         .child(
             div()
