@@ -239,6 +239,24 @@ fn tags_for(
     values
 }
 
+fn normalize_tags(tags: &[String], max_tags: usize, max_len: usize) -> Vec<String> {
+    let mut normalized = Vec::new();
+    for tag in tags {
+        let value = tag.trim();
+        if value.is_empty() {
+            continue;
+        }
+        let value = value.chars().take(max_len).collect::<String>();
+        if !normalized.iter().any(|existing| existing == &value) {
+            normalized.push(value);
+        }
+        if normalized.len() >= max_tags {
+            break;
+        }
+    }
+    normalized
+}
+
 fn load_store(path: &Path) -> rusqlite::Result<Store> {
     let conn = open_db(path)?;
     let mut notes = Vec::new();
@@ -545,6 +563,10 @@ pub fn save_draft(cx: &mut App, content: String) {
 }
 
 pub fn add_note(cx: &mut App, content: String) {
+    add_note_with_tags(cx, content, Vec::new());
+}
+
+pub fn add_note_with_tags(cx: &mut App, content: String, tags: Vec<String>) {
     let content = content.trim().to_string();
     if content.is_empty() {
         return;
@@ -584,6 +606,12 @@ pub fn add_note(cx: &mut App, content: String) {
             "INSERT INTO notes(id,content,storage_path,created_at,updated_at,archived_at) VALUES(?1,?2,?3,?4,?4,?4)",
             params![note_id, db_content, relative_path, now],
         )?;
+        for tag in normalize_tags(&tags, 3, 5) {
+            tx.execute(
+                "INSERT OR IGNORE INTO note_tags(note_id,tag) VALUES(?1,?2)",
+                params![note_id, tag],
+            )?;
+        }
         record_activity(&tx, "note_archived", &note_id)?;
         tx.execute("DELETE FROM note_drafts", [])?;
         tx.commit()?;
@@ -595,7 +623,7 @@ pub fn add_note(cx: &mut App, content: String) {
             Note {
                 id: note_id,
                 content,
-                tags: vec![],
+                tags: normalize_tags(&tags, 3, 5),
                 created_at: now.clone(),
                 updated_at: now,
             },
@@ -604,6 +632,45 @@ pub fn add_note(cx: &mut App, content: String) {
         s.draft_content.clear();
     } else if let Some(path) = absolute_path {
         let _ = std::fs::remove_file(path);
+    }
+}
+
+pub fn update_note(cx: &mut App, id: &str, content: String, tags: Vec<String>) -> bool {
+    let content = content.trim().to_string();
+    if content.is_empty() {
+        return false;
+    }
+    let tags = normalize_tags(&tags, 3, 5);
+    let s = store(cx);
+    let now = now_string();
+    let result = with_db(s, |conn| {
+        let tx = conn.transaction()?;
+        let changed = tx.execute(
+            "UPDATE notes SET content=?1,updated_at=?2 WHERE id=?3 AND storage_path IS NULL",
+            params![content, now, id],
+        )?;
+        if changed == 0 {
+            return Err(rusqlite::Error::QueryReturnedNoRows);
+        }
+        tx.execute("DELETE FROM note_tags WHERE note_id=?1", [id])?;
+        for tag in &tags {
+            tx.execute(
+                "INSERT OR IGNORE INTO note_tags(note_id,tag) VALUES(?1,?2)",
+                params![id, tag],
+            )?;
+        }
+        tx.commit()?;
+        Ok(())
+    });
+    if result.is_ok() {
+        if let Some(note) = s.notes.iter_mut().find(|note| note.id() == id) {
+            note.set_content(content);
+            note.set_tags(tags);
+            note.set_updated_at(now);
+        }
+        true
+    } else {
+        false
     }
 }
 
@@ -919,12 +986,41 @@ pub fn update_todo_text(cx: &mut App, id: &str, text: String) -> bool {
 }
 
 pub fn update_todo(cx: &mut App, item: &TodoItem) -> bool {
-    if item.done() {
+    if item.done() || item.text().trim().is_empty() {
         return false;
     }
     let s = store(cx);
     let now = now_string();
-    if with_db(s, |conn| { let tx = conn.transaction()?; tx.execute("UPDATE todos SET content=?1,due_at=?2,remind_at=?3,repeat_rule=?4,priority=?5,remark=?6,updated_at=?7 WHERE id=?8 AND status='open'", params![item.text(), item.due_at(), item.remind_at(), item.repeat_rule(), item.priority().as_str(), item.remark(), now, item.id()])?; tx.execute("DELETE FROM todo_tags WHERE todo_id=?1", [item.id()])?; for tag in item.tags() { tx.execute("INSERT OR IGNORE INTO todo_tags(todo_id,tag) VALUES(?1,?2)", params![item.id(), tag])?; } tx.commit()?; Ok(()) }).is_ok() { if let Some(todo) = s.todos.iter_mut().find(|todo| todo.id() == item.id()) { let mut copy = item.clone(); copy.set_updated_at(now); *todo = copy; } true } else { false }
+    let tags = normalize_tags(&item.tags(), 3, 10);
+    let remark = item.remark().chars().take(200).collect::<String>();
+    let result = with_db(s, |conn| {
+        let tx = conn.transaction()?;
+        let changed = tx.execute("UPDATE todos SET content=?1,due_at=?2,remind_at=?3,repeat_rule=?4,priority=?5,remark=?6,updated_at=?7 WHERE id=?8 AND status='open'", params![item.text(), item.due_at(), item.remind_at(), item.repeat_rule(), item.priority().as_str(), remark, now, item.id()])?;
+        if changed == 0 {
+            return Err(rusqlite::Error::QueryReturnedNoRows);
+        }
+        tx.execute("DELETE FROM todo_tags WHERE todo_id=?1", [item.id()])?;
+        for tag in &tags {
+            tx.execute(
+                "INSERT OR IGNORE INTO todo_tags(todo_id,tag) VALUES(?1,?2)",
+                params![item.id(), tag],
+            )?;
+        }
+        tx.commit()?;
+        Ok(())
+    });
+    if result.is_ok() {
+        if let Some(todo) = s.todos.iter_mut().find(|todo| todo.id() == item.id()) {
+            let mut copy = item.clone();
+            copy.set_tags(tags);
+            copy.set_remark(remark);
+            copy.set_updated_at(now);
+            *todo = copy;
+        }
+        true
+    } else {
+        false
+    }
 }
 
 pub fn note_by_id(cx: &mut App, id: &str) -> Option<Note> {
