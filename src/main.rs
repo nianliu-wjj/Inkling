@@ -24,6 +24,7 @@ use gpui::{
 fn main() {
     Application::new().run(|cx: &mut App| {
         let settings = settings::Settings::load();
+        let silent_autostart = std::env::args().any(|arg| arg == "--autostart");
         store::init(cx);
         store::apply_clip_retention(cx, settings.clip_retention());
         cx.bind_keys(key_bindings());
@@ -31,28 +32,32 @@ fn main() {
         summon::init(cx);
         reminder::init(cx);
 
-        let bounds = Bounds::centered(None, size(px(880.), px(680.)), cx);
-        let window = cx
-            .open_window(
-                WindowOptions {
-                    window_bounds: Some(WindowBounds::Windowed(bounds)),
-                    titlebar: Some(TitlebarOptions {
-                        title: Some("Inkling".into()),
-                        appears_transparent: true,
+        // 通过 Windows Run 注册表启动时只驻留后台，不抢占焦点，也不自动打开主窗口。
+        // 用户仍可通过全局快捷键、触顶感应或提醒窗口唤起需要的界面。
+        if !silent_autostart {
+            let bounds = Bounds::centered(None, size(px(880.), px(680.)), cx);
+            let window = cx
+                .open_window(
+                    WindowOptions {
+                        window_bounds: Some(WindowBounds::Windowed(bounds)),
+                        titlebar: Some(TitlebarOptions {
+                            title: Some("Inkling".into()),
+                            appears_transparent: true,
+                            ..Default::default()
+                        }),
                         ..Default::default()
-                    }),
-                    ..Default::default()
-                },
-                |_, cx| cx.new(|cx| InboxApp::new(settings.clone(), cx)),
-            )
-            .expect("打开主窗口失败");
+                    },
+                    |_, cx| cx.new(|cx| InboxApp::new(settings.clone(), cx)),
+                )
+                .expect("打开主窗口失败");
 
-        window
-            .update(cx, |view, window, _cx| {
-                window.focus(&view.focus_handle(_cx));
-            })
-            .ok();
+            window
+                .update(cx, |view, window, _cx| {
+                    window.focus(&view.focus_handle(_cx));
+                })
+                .ok();
 
-        cx.activate(true);
+            cx.activate(true);
+        }
     });
 }

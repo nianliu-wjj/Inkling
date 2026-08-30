@@ -3,7 +3,8 @@
 
 use gpui::{
     actions, div, prelude::*, px, App, ClickEvent, Context, Entity, FocusHandle, Focusable,
-    FontWeight, InteractiveElement, IntoElement, KeyBinding, ParentElement, PathBuilder, Render,
+    FontWeight, InteractiveElement, IntoElement, KeyBinding, MouseButton, MouseDownEvent,
+    MouseMoveEvent, MouseUpEvent, ParentElement, PathBuilder, Render,
     Rgba, SharedString, StatefulInteractiveElement, Styled, Window, WindowControlArea,
 };
 
@@ -84,6 +85,8 @@ crate::accessors! {
         search_query: String,
         delete_target: Option<DeleteTarget>,
         sidebar_collapsed: bool,
+        sidebar_width: f32,
+        sidebar_dragging: bool,
         export_status: Option<String>,
     }
 }
@@ -119,6 +122,7 @@ impl InboxApp {
     pub fn new(settings: Settings, cx: &mut Context<Self>) -> Self {
         let theme_index = crate::theme::theme_index_by_id(&settings.theme_id())
             .unwrap_or(crate::theme::DEFAULT_THEME);
+        let sidebar_width = settings.sidebar_width().clamp(110, 280) as f32;
         let todo_input = cx.new(|cx| {
             TextInput::new(
                 "新增待办，回车后点击添加…",
@@ -243,6 +247,8 @@ impl InboxApp {
             search_query: String::new(),
             delete_target: None,
             sidebar_collapsed: false,
+            sidebar_width,
+            sidebar_dragging: false,
             export_status: None,
         }
     }
@@ -345,11 +351,78 @@ impl InboxApp {
     }
 
     // ── 侧边栏 ──────────────────────────────────
+    fn sidebar_mouse_down(
+        &mut self,
+        event: &MouseDownEvent,
+        _: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        if event.button == MouseButton::Left {
+            self.set_sidebar_dragging(true);
+            if self.sidebar_collapsed() {
+                self.set_sidebar_collapsed(false);
+                self.set_sidebar_width(160.);
+            }
+            cx.notify();
+        }
+    }
+
+    fn sidebar_mouse_move(
+        &mut self,
+        event: &MouseMoveEvent,
+        _: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        if !self.sidebar_dragging() {
+            return;
+        }
+        let width = f32::from(event.position.x);
+        if width < 110.0 {
+            self.set_sidebar_collapsed(true);
+        } else {
+            self.set_sidebar_collapsed(false);
+            self.set_sidebar_width(width.clamp(110.0, 280.0));
+        }
+        cx.notify();
+    }
+
+    fn sidebar_mouse_up(
+        &mut self,
+        _: &MouseUpEvent,
+        _: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        if self.sidebar_dragging() {
+            self.set_sidebar_dragging(false);
+            if !self.sidebar_collapsed() {
+                self.settings.set_sidebar_width(self.sidebar_width().round() as u32);
+                self.settings.save();
+            }
+            cx.notify();
+        }
+    }
+
+    fn render_sidebar_resizer(&self, cx: &mut Context<Self>) -> impl IntoElement {
+        let theme = self.theme();
+        div()
+            .id("sidebar-resizer")
+            .w(px(6.))
+            .h_full()
+            .flex_shrink_0()
+            .cursor_pointer()
+            .bg(theme.bg())
+            .hover(|el| el.bg(theme.accent()))
+            .on_mouse_down(MouseButton::Left, cx.listener(Self::sidebar_mouse_down))
+            .on_mouse_move(cx.listener(Self::sidebar_mouse_move))
+            .on_mouse_up(MouseButton::Left, cx.listener(Self::sidebar_mouse_up))
+            .on_mouse_up_out(MouseButton::Left, cx.listener(Self::sidebar_mouse_up))
+    }
+
     fn render_sidebar(&self, cx: &mut Context<Self>) -> impl IntoElement {
         let theme = self.theme();
         let collapsed = self.sidebar_collapsed();
         let mut sidebar = div()
-            .w(px(if collapsed { 52. } else { 160. }))
+            .w(px(if collapsed { 52. } else { self.sidebar_width() }))
             .h_full()
             .flex_shrink_0()
             .flex()
@@ -1950,6 +2023,7 @@ impl Render for InboxApp {
                     .flex_1()
                     .min_h_0()
                     .child(self.render_sidebar(cx))
+                    .child(self.render_sidebar_resizer(cx))
                     .child(self.render_content(cx)),
             )
     }

@@ -125,11 +125,18 @@ crate::accessors! {
         /// 当前主题 id
         #[serde(default)]
         theme_id: String,
+        /// 侧边栏宽度（110 ~ 280，单位为逻辑像素）
+        #[serde(default = "default_sidebar_width")]
+        sidebar_width: u32,
     }
 }
 
 fn default_delay_secs() -> u32 {
     3
+}
+
+fn default_sidebar_width() -> u32 {
+    160
 }
 
 impl Default for Settings {
@@ -141,6 +148,7 @@ impl Default for Settings {
             remark_style: RemarkStyle::Mixed,
             autostart: false,
             theme_id: "dark".into(),
+            sidebar_width: 160,
         }
     }
 }
@@ -186,9 +194,14 @@ impl Settings {
                     .map_err(|e| e.to_string())?
                     .display()
                     .to_string();
-                key.set_value("Inkling", &exe).map_err(|e| e.to_string())?;
+                let command = format!("\"{}\" --autostart", exe);
+                key.set_value("Inkling", &command).map_err(|e| e.to_string())?;
             } else {
-                key.delete_value("Inkling").map_err(|e| e.to_string())?;
+                if let Err(error) = key.delete_value("Inkling") {
+                    if error.kind() != std::io::ErrorKind::NotFound {
+                        return Err(error.to_string());
+                    }
+                }
             }
         }
         #[cfg(not(windows))]
