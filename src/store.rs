@@ -693,7 +693,8 @@ fn clip_date(timestamp: &str) -> String {
     timestamp
         .parse::<i64>()
         .ok()
-        .map(|seconds| crate::stats::civil_from_days(seconds.div_euclid(86_400)))
+        .and_then(|seconds| chrono::DateTime::<chrono::Utc>::from_timestamp(seconds, 0))
+        .map(|value| value.with_timezone(&chrono::Local).format("%Y-%m-%d").to_string())
         .unwrap_or_default()
 }
 
