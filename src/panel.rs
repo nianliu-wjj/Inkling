@@ -7,8 +7,7 @@
 
 use gpui::{
     actions, div, prelude::*, px, rgba, AnimationExt, App, ClickEvent, Context, Entity, Focusable,
-    ClipboardEntry, FontWeight, IntoElement, ParentElement, Render, Rgba, SharedString, Styled, Window,
-    WindowBackgroundAppearance, WindowBounds, WindowKind, WindowOptions,
+    ClipboardEntry, FontWeight, IntoElement, ParentElement, Render, SharedString, Styled, Window,
 };
 
 use crate::settings::{BlurClose, Settings};
