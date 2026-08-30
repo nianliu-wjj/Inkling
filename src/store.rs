@@ -243,18 +243,23 @@ fn load_store(path: &Path) -> rusqlite::Result<Store> {
     let conn = open_db(path)?;
     let mut notes = Vec::new();
     let mut stmt = conn.prepare(
-        "SELECT id, content, created_at, updated_at FROM notes ORDER BY archived_at DESC",
+        "SELECT id, content, storage_path, created_at, updated_at FROM notes ORDER BY archived_at DESC",
     )?;
     let rows = stmt.query_map([], |r| {
         Ok((
             r.get::<_, String>(0)?,
             r.get::<_, String>(1)?,
-            r.get::<_, String>(2)?,
+            r.get::<_, Option<String>>(2)?,
             r.get::<_, String>(3)?,
+            r.get::<_, String>(4)?,
         ))
     })?;
     for row in rows {
-        let (id, content, created_at, updated_at) = row?;
+        let (id, db_content, storage_path, created_at, updated_at) = row?;
+        let content = storage_path
+            .as_deref()
+            .and_then(|relative| std::fs::read_to_string(app_data_dir().join(relative)).ok())
+            .unwrap_or(db_content);
         notes.push(Note {
             tags: tags_for(&conn, "note_tags", "note_id", &id)?,
             id,
@@ -547,8 +552,58 @@ pub fn add_note(cx: &mut App, content: String) {
     let s = store(cx);
     let note_id = id("note");
     let now = now_string();
-    if with_db(s, |conn| { let tx = conn.transaction()?; tx.execute("INSERT INTO notes(id,content,created_at,updated_at,archived_at) VALUES(?1,?2,?3,?3,?3)", params![note_id, content, now])?; record_activity(&tx, "note_archived", &note_id)?; tx.execute("DELETE FROM note_drafts", [])?; tx.commit()?; Ok(()) }).is_ok() {
-        s.notes.insert(0, Note { id: note_id, content, tags: vec![], created_at: now.clone(), updated_at: now }); s.draft_id = None; s.draft_content.clear();
+    let large_note = content.len() > 1_048_576;
+    let relative_path = large_note.then(|| format!("notes/{note_id}.md"));
+    let absolute_path = relative_path
+        .as_deref()
+        .map(|relative| app_data_dir().join(relative));
+
+    // 大笔记先以临时文件原子落盘，数据库事务失败时清理，避免出现“索引存在但正文丢失”。
+    if let Some(path) = absolute_path.as_ref() {
+        if let Some(parent) = path.parent() {
+            if std::fs::create_dir_all(parent).is_err() {
+                s.last_error = Some("无法创建大笔记存储目录".into());
+                return;
+            }
+        }
+        let tmp = path.with_extension("md.tmp");
+        if std::fs::write(&tmp, &content).is_err() || std::fs::rename(&tmp, path).is_err() {
+            let _ = std::fs::remove_file(&tmp);
+            s.last_error = Some("大笔记落盘失败".into());
+            return;
+        }
+    }
+    let db_content = if large_note {
+        String::new()
+    } else {
+        content.clone()
+    };
+    let result = with_db(s, |conn| {
+        let tx = conn.transaction()?;
+        tx.execute(
+            "INSERT INTO notes(id,content,storage_path,created_at,updated_at,archived_at) VALUES(?1,?2,?3,?4,?4,?4)",
+            params![note_id, db_content, relative_path, now],
+        )?;
+        record_activity(&tx, "note_archived", &note_id)?;
+        tx.execute("DELETE FROM note_drafts", [])?;
+        tx.commit()?;
+        Ok(())
+    });
+    if result.is_ok() {
+        s.notes.insert(
+            0,
+            Note {
+                id: note_id,
+                content,
+                tags: vec![],
+                created_at: now.clone(),
+                updated_at: now,
+            },
+        );
+        s.draft_id = None;
+        s.draft_content.clear();
+    } else if let Some(path) = absolute_path {
+        let _ = std::fs::remove_file(path);
     }
 }
 
@@ -751,6 +806,17 @@ pub fn set_priority(cx: &mut App, id: &str, priority: Priority) -> bool {
 
 pub fn delete_note(cx: &mut App, id: &str) -> bool {
     let s = store(cx);
+    let storage_path: Option<String> = {
+        let path = s.db_path.clone().unwrap_or_else(db_path);
+        open_db(&path).ok().and_then(|conn| {
+            conn.query_row("SELECT storage_path FROM notes WHERE id=?1", [id], |row| {
+                row.get(0)
+            })
+            .optional()
+            .ok()
+            .flatten()
+        })
+    };
     let deleted = with_db(s, |conn| {
         let changed = conn.execute("DELETE FROM notes WHERE id=?1", [id])?;
         if changed == 0 {
@@ -759,6 +825,9 @@ pub fn delete_note(cx: &mut App, id: &str) -> bool {
         Ok(())
     });
     if deleted.is_ok() {
+        if let Some(relative) = storage_path {
+            let _ = std::fs::remove_file(app_data_dir().join(relative));
+        }
         s.notes.retain(|note| note.id() != id);
         true
     } else {

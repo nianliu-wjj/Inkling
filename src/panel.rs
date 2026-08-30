@@ -138,6 +138,33 @@ impl PanelApp {
     }
 }
 
+fn two_line_preview(text: &str) -> String {
+    const MAX_CHARS_PER_LINE: usize = 96;
+    let mut lines = text
+        .lines()
+        .take(3)
+        .map(|line| {
+            let mut value = line.chars().take(MAX_CHARS_PER_LINE).collect::<String>();
+            if line.chars().count() > MAX_CHARS_PER_LINE {
+                value.push('…');
+            }
+            value
+        })
+        .collect::<Vec<_>>();
+    let truncated = lines.len() > 2;
+    lines.truncate(2);
+    if truncated {
+        if let Some(last) = lines.last_mut() {
+            last.push('…');
+        }
+    }
+    if lines.is_empty() {
+        "（空内容）".into()
+    } else {
+        lines.join("\n")
+    }
+}
+
 impl Render for PanelApp {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         // 失焦收起检查（每帧）
@@ -210,8 +237,8 @@ impl Render for PanelApp {
                                 div()
                                     .text_size(px(12.5))
                                     .text_color(theme.text())
-                                    .truncate()
-                                    .child(clip.clone()),
+                                    .whitespace_normal()
+                                    .child(two_line_preview(&clip)),
                             ),
                     );
                 }
@@ -235,11 +262,12 @@ impl Render for PanelApp {
             PanelMode::Todos => {
                 let todos = store::todos(cx);
                 let mut list = div().flex().flex_col().gap_1p5();
-                for (index, todo) in todos.iter().enumerate() {
+                for todo in todos.iter() {
                     let todo = todo.clone();
+                    let todo_id = todo.id().clone();
                     list = list.child(
                         div()
-                            .id(SharedString::from(format!("pt-{index}")))
+                            .id(SharedString::from(format!("pt-{}", todo.id())))
                             .flex()
                             .items_center()
                             .gap_2()
@@ -248,10 +276,12 @@ impl Render for PanelApp {
                             .bg(theme.card())
                             .cursor_pointer()
                             .hover(|s| s.bg(theme.hover()))
-                            .on_click(cx.listener(move |_, _: &ClickEvent, _, cx| {
-                                store::toggle_todo(cx, index);
-                                cx.notify();
-                            }))
+                            .when(!todo.done(), |el| {
+                                el.on_click(cx.listener(move |_, _: &ClickEvent, _, cx| {
+                                    store::complete_todo(cx, &todo_id);
+                                    cx.notify();
+                                }))
+                            })
                             .child(
                                 div()
                                     .w(px(14.))

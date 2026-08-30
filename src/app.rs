@@ -1398,7 +1398,7 @@ impl InboxApp {
                 div()
                     .text_size(px(12.))
                     .text_color(theme.text_dim())
-                    .child("来自侧边栏当月热力图 · 数据接入 SQLite 后将列出当日全部条目"),
+                    .child("来自侧边栏当月热力图 · 当前数据来自 SQLite 真实聚合"),
             )
             .child(
                 div()

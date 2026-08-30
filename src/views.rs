@@ -115,6 +115,33 @@ fn delete_controls(
     controls
 }
 
+fn two_line_preview(text: &str) -> String {
+    const MAX_CHARS_PER_LINE: usize = 96;
+    let mut lines = text
+        .lines()
+        .take(3)
+        .map(|line| {
+            let mut value = line.chars().take(MAX_CHARS_PER_LINE).collect::<String>();
+            if line.chars().count() > MAX_CHARS_PER_LINE {
+                value.push('…');
+            }
+            value
+        })
+        .collect::<Vec<_>>();
+    let truncated = lines.len() > 2;
+    lines.truncate(2);
+    if truncated {
+        if let Some(last) = lines.last_mut() {
+            last.push('…');
+        }
+    }
+    if lines.is_empty() {
+        "（空内容）".into()
+    } else {
+        lines.join("\n")
+    }
+}
+
 fn note_card(
     t: &Theme,
     note: &Note,
@@ -250,7 +277,7 @@ fn clip_row(
                 .min_w_0()
                 .text_size(px(13.))
                 .text_color(t.text())
-                .child(clip.content().clone()),
+                .child(two_line_preview(&clip.content())),
         )
         .child(
             div()

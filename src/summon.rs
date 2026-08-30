@@ -17,10 +17,10 @@ use crate::settings::Settings;
 const PANEL_W: f32 = 480.0;
 const PANEL_H: f32 = 380.0;
 /// 触顶感应：顶部感应带高度与水平半宽
-const HOT_Y: f64 = 2.0;
-const HOT_HALF_W: f64 = 240.0;
+const HOT_Y: f64 = 80.0;
+const HOT_HALF_W: f64 = 120.0;
 /// 触顶需要停留的时长
-const HOVER_MS: u64 = 120;
+const HOVER_MS: u64 = 100;
 /// 收起后多久内不再因触顶呼出
 const REOPEN_COOLDOWN_MS: u64 = 600;
 
