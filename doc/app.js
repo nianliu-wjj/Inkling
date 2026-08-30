@@ -467,12 +467,14 @@
 
   // 共享渲染器：viewDate 为查看日；面板传当天，归档页随日期切换
   // 逾期规则：待办自身逾期，或其任一子任务逾期 → 整体（含全部子任务，含已完成）归入当日列表顶部逾期区
-  // q 非空时进入搜索模式：跨全部日期模糊匹配（含子任务文本），结果显示所属日期
-  function renderTodoList(el, viewDate, q = '') {
-    if (q) {
-      const needle = q.toLowerCase();
+  // q 非空 + todayOnly=false：归档跨日期搜索模式（含子任务文本，结果显示所属日期）
+  // prio：优先级过滤（'all' = 全部）；todayOnly=true：仅当日视图范围（面板），q 在当日范围内过滤
+  function renderTodoList(el, viewDate, q = '', prio = 'all', todayOnly = false) {
+    const pool = todos.filter(t => prio === 'all' || t.priority === prio);
+    if (q && q.trim() && !todayOnly) {
+      const needle = q.trim().toLowerCase();
       const match = (t) => t.text.toLowerCase().includes(needle);
-      const hits = todos.filter(t => match(t) || t.children.some(match))
+      const hits = pool.filter(t => match(t) || t.children.some(match))
         .sort((a, b) => b.date.localeCompare(a.date) ||
           PRIORITY_ORDER[a.priority] - PRIORITY_ORDER[b.priority]);
       el.innerHTML = hits.map(t => {
@@ -484,16 +486,19 @@
       }).join('') || `<div class="todo-empty">未找到匹配「${escapeHtml(q)}」的待办事项</div>`;
       return;
     }
-    const pulled = todos.filter(t =>
-      isOverdue(t, viewDate) || t.children.some(c => isOverdue(c, viewDate)));
+    const needle = (q || '').trim().toLowerCase();
+    const hit = (t) => !needle || t.text.toLowerCase().includes(needle) || t.children.some(c => c.text.toLowerCase().includes(needle));
+    const pulled = pool.filter(t =>
+      hit(t) && (isOverdue(t, viewDate) || t.children.some(c => isOverdue(c, viewDate))));
     const pulledIds = new Set(pulled.map(t => t.id));
-    const normal = todos.filter(t => t.date === viewDate && !pulledIds.has(t.id));
+    const normal = pool.filter(t => t.date === viewDate && !pulledIds.has(t.id) && hit(t));
     const pulledHtml = pulled.length
       ? `<li class="todo-section">⚠️ 逾期事项 · 按完成时间与优先级置顶（${pulled.length} 项）</li>` +
         sortOverdue(pulled).map(t => todoItemHTML(t, viewDate)).join('')
       : '';
     const normalHtml = normal.length ? sortTodos(normal).map(t => todoItemHTML(t, viewDate)).join('') : '';
-    el.innerHTML = (pulledHtml + normalHtml) || `<div class="todo-empty">该日暂无待办事项</div>`;
+    const emptyMsg = needle ? `未找到匹配「${escapeHtml(q.trim())}」的当日待办` : `该日暂无${prio === 'all' ? '' : PRIORITY[prio].label + '优先级'}待办事项`;
+    el.innerHTML = (pulledHtml + normalHtml) || `<div class="todo-empty">${emptyMsg}</div>`;
   }
 
   // ── 重复提醒下拉选择 ──────────────────────────
@@ -823,9 +828,9 @@
     });
   }
 
-  // 面板：锁死当天（归档若开着则带搜索词同步刷新）；数据变化同步侧边栏迷你热力图与日期详情
+  // 面板：当日视图 + 搜索/优先级过滤（归档若开着则带搜索词同步刷新）；数据变化同步迷你热力图与日期详情
   function renderTodos() {
-    renderTodoList($('todoList'), todayStr());
+    renderTodoList($('todoList'), todayStr(), $('todoPanelSearch').value, $('todoPrioFilter').value, true);
     const arch = document.getElementById('archiveTodoList');
     if (arch) renderTodoList(arch, archiveViewDate, ($('todoArchiveSearch').value || '').trim());
     renderMiniHeat();
@@ -835,14 +840,10 @@
   bindTodoList($('todoList'), () => todayStr());           // 面板事件委托（锁死当天）
   bindTodoList($('archive-todos'), () => archiveViewDate); // 归档事件委托（委托到外部容器，内部列表动态渲染）
 
-  $('todoInput').addEventListener('keydown', (e) => {
-    if (e.key === 'Enter' && e.target.value.trim()) {
-      const prefill = e.target.value.replace(/^- \[[ x]\] ?/, '');
-      e.target.value = '';
-      openTodoEditor({ mode: 'create', prefillText: prefill });   // 弹窗：文本框+日期(默认今天)+时间
-    }
-  });
-  $('todoDueBtn').addEventListener('click', () => openTodoEditor({ mode: 'create' }));   // 打开新建弹窗设置完成时间
+  // 面板待办：搜索框与优先级过滤器
+  $('todoPanelSearch').addEventListener('input', renderTodos);
+  $('todoPrioFilter').addEventListener('change', renderTodos);
+  $('todoDueBtn').addEventListener('click', () => openTodoEditor({ mode: 'create' }));   // 新增待办（弹窗内设置完成时间）
 
   // 归档页日期切换（默认当天；面板不可切日期）
   function switchTodoDate(offset) {

@@ -100,15 +100,16 @@
     <!-- 🟢 待办模式 -->
     <section class="panel-page hidden" id="page-todo">
       <div class="todo-input-row">
-        <input class="search-input" id="todoInput" placeholder="- [ ] 输入待办，回车创建…（仅当日）">
-        <select id="todoPriority" class="prio-select" title="优先级">
+        <input class="search-input" id="todoPanelSearch" placeholder="🔍 搜索当日待办…">
+        <select id="todoPrioFilter" class="prio-select" title="按优先级过滤">
+          <option value="all" selected>全部</option>
           <option value="high">🔴 高</option>
-          <option value="medium" selected>🟡 中</option>
+          <option value="medium">🟡 中</option>
           <option value="low">🟢 低</option>
         </select>
-        <button class="btn tiny" id="todoDueBtn" title="设置完成时间（新建待办）">📅</button>
+        <button class="btn tiny" id="todoDueBtn" title="新增待办事项（可设置完成时间）">📅</button>
       </div>
-      <div class="todo-panel-hint">仅展示当日待办 · 逾期事项自动置顶 · 点击优先级徽章可调整 · 悬浮卡片显示操作按钮</div>
+      <div class="todo-panel-hint">搜索 / 优先级过滤当日待办 · 逾期事项自动置顶 · 点击优先级徽章可调整 · 点击 📅 新增待办</div>
       <ul class="todo-list" id="todoList"></ul>
     </section>
   </div>
@@ -358,6 +359,6 @@
   <div id="toast" class="hidden"></div>
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
-  <script src="app.js?v=1.8"></script>
+  <script src="app.js?v=1.9"></script>
 </body>
 </html>
