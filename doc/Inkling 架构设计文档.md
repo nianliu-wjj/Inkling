@@ -1,11 +1,11 @@
 # Inkling 架构设计文档
 
-> **版本**：v2.1（对齐需求规格 v1.2；已完成文档审查第一轮）
-> **日期**：2026-08-29
-> **文档状态**：审查中；实现前必须先完成数据模型、提醒语义与窗口边界确认
-> **技术栈**：Tauri 2 + Rust + Vue 3 + TypeScript + UnoCSS + Vite + SQLite(rusqlite) + GSAP
+> **版本**：v2.2（切换为 Rust + GPUI 实现路线）
+> **日期**：2026-08-30
+> **文档状态**：实现中；需求规则沿用 v1.2，窗口与渲染层按 GPUI 适配
+> **技术栈**：Rust 2021 + GPUI 0.2 + SQLite(rusqlite) + serde/serde_json + global-hotkey + device_query
 > **关联文档**：[Inkling（念头捕手）需求规格说明书](./Inkling（念头捕手）需求规格说明书.md)
-> **原型说明**：`doc/index.html` 为静态交互原型，使用原生 HTML/CSS/JavaScript 与 CDN GSAP，不等同于本架构的 Tauri/Vue/Rust 实现。
+> **原型说明**：`doc/index.html` 为静态交互原型，使用原生 HTML/CSS/JavaScript 与 CDN GSAP；正式实现保留当前 Rust + GPUI 桌面架构，不再迁移到 Tauri/Vue。
 
 ---
 
@@ -49,6 +49,15 @@
 │            / stats_scheduler / file_store                  │
 └────────────────────────────────────────────────────────────┘
 ```
+
+
+## 1.3 GPUI 实现约束（2026-08-30 冻结）
+
+- 主窗口、顶部呼出面板、置顶浮窗和提醒浮窗均使用 GPUI `Window`；主窗口内部通过 `ActiveView` 承载归档、统计、设置和日期详情，不额外创建业务设置窗口。
+- 业务数据访问统一经过 `src/store.rs`，UI 不直接操作 SQLite；Store 负责迁移、事务、草稿、文件落盘和内存快照刷新。
+- GPUI 不提供浏览器 DOM/CSS，原型中的 CSS 主题令牌、GSAP 和 HTML tooltip 统一映射为 Rust `Theme`、GPUI 动画与 GPUI 交互元素。
+- 系统能力通过独立模块封装：`summon` 负责全局快捷键/触顶，`clipboard` 能力由 Store 与 GPUI 剪贴板接口衔接，开机启动由 `settings` 负责。
+- 若 GPUI 当前版本缺少某个平台能力，必须提供可编译的降级实现和用户可见错误提示，不得用静态示例数据冒充持久化结果。
 
 ### 1.2 数据流
 
