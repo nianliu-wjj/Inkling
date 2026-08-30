@@ -191,6 +191,34 @@ impl InboxApp {
             .bg(theme.sidebar())
             .border_r_1()
             .border_color(theme.border())
+            .child(
+                div()
+                    .id("summon-panel")
+                    .flex()
+                    .items_center()
+                    .justify_between()
+                    .px_2()
+                    .py_1p5()
+                    .mb_1()
+                    .rounded_md()
+                    .text_size(px(12.5))
+                    .cursor_pointer()
+                    .bg(theme.card())
+                    .border_1()
+                    .border_color(theme.border())
+                    .text_color(theme.text())
+                    .hover(|s| s.border_color(theme.accent()))
+                    .on_click(|_: &ClickEvent, _, cx| {
+                        crate::summon::toggle_panel(cx);
+                    })
+                    .child("⚡ 呼出面板")
+                    .child(
+                        div()
+                            .text_size(px(10.))
+                            .text_color(theme.text_dim())
+                            .child("Ctrl+Shift+Space"),
+                    ),
+            )
             .child(self.nav_item("nav-notes", "📝 笔记", ActiveView::Notes, cx))
             .child(self.nav_item("nav-clips", "📋 粘贴板", ActiveView::Clips, cx))
             .child(self.nav_item("nav-todos", "✅ 待办", ActiveView::Todos, cx))
@@ -343,14 +371,16 @@ impl InboxApp {
     // ── 主内容区 ────────────────────────────────
     fn render_content(&self, cx: &mut Context<Self>) -> impl IntoElement {
         let theme = self.theme();
+        let notes = crate::store::notes(cx);
+        let todos = crate::store::todos(cx);
         div()
             .flex_1()
             .min_w_0()
             .overflow_hidden()
             .child(match self.active_view() {
-                ActiveView::Notes => views::notes(theme).into_any_element(),
+                ActiveView::Notes => views::notes(theme, &notes).into_any_element(),
                 ActiveView::Clips => views::clips(theme).into_any_element(),
-                ActiveView::Todos => views::todos(theme).into_any_element(),
+                ActiveView::Todos => views::todos(theme, &todos).into_any_element(),
                 ActiveView::Stats => self.render_stats(cx).into_any_element(),
                 ActiveView::Settings => self.render_settings(cx).into_any_element(),
                 ActiveView::Day => self.render_day_detail(cx).into_any_element(),
