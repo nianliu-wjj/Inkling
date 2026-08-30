@@ -187,6 +187,10 @@ fn now_secs() -> u64 {
 fn now_string() -> String {
     now_secs().to_string()
 }
+
+pub fn default_due_at() -> String {
+    (now_secs() + 86_400).to_string()
+}
 fn id(prefix: &str) -> String {
     format!(
         "{prefix}-{}-{}",

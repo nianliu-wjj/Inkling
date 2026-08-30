@@ -40,26 +40,35 @@ impl Focusable for PanelApp {
 
 impl PanelApp {
     pub fn new(settings: Settings, cx: &mut Context<Self>) -> Self {
+        let draft = store::draft(cx);
         // 打开面板：捕获当前剪贴板（置顶去重）
         if let Some(text) = cx.read_from_clipboard().and_then(|item| item.text()) {
             store::push_clip(cx, text);
         }
+        let note_input = cx.new(|cx| {
+            TextInput::new(
+                "此刻在想什么？直接写下来…",
+                gpui::hsla(0.0, 0.0, 1.0, 0.35),
+                gpui::hsla(0.65, 0.08, 0.95, 1.0),
+                cx,
+            )
+        });
+        if !draft.is_empty() {
+            note_input.update(cx, |input, cx| input.set_content(draft, cx));
+        }
         Self {
             mode: PanelMode::Notes,
-            note_input: cx.new(|cx| {
-                TextInput::new(
-                    "此刻在想什么？直接写下来…",
-                    gpui::hsla(0.0, 0.0, 1.0, 0.35),
-                    gpui::hsla(0.65, 0.08, 0.95, 1.0),
-                    cx,
-                )
-            }),
+            note_input,
             blur_at: None,
             settings,
         }
     }
 
-    fn close(&self, window: &mut Window, cx: &mut App) {
+    fn close(&mut self, window: &mut Window, cx: &mut App) {
+        let content = self.note_input.read(cx).content();
+        if !content.trim().is_empty() {
+            store::save_draft(cx, content);
+        }
         crate::summon::close_panel(window, cx);
     }
 
@@ -96,9 +105,9 @@ impl PanelApp {
     }
 
     fn theme(&self) -> &'static Theme {
-        crate::theme::THEMES
-            .get(crate::theme::theme_index_by_id("dark").unwrap_or(0))
-            .unwrap()
+        let index = crate::theme::theme_index_by_id(&self.settings.theme_id())
+            .unwrap_or(crate::theme::DEFAULT_THEME);
+        &crate::theme::THEMES[index]
     }
 
     // ── 失焦自动收起（策略来自设置） ────────────
@@ -160,8 +169,7 @@ impl Render for PanelApp {
                                     return;
                                 }
                                 store::add_note(cx, content);
-                                this.note_input
-                                    .update(cx, |input, cx| input.clear(window, cx));
+                                this.note_input.update(cx, |input, cx| input.clear(cx));
                                 this.close(window, cx);
                             }))
                             .child("归档念头 ↵"),
@@ -180,8 +188,8 @@ impl Render for PanelApp {
                     );
                 }
                 for (index, clip) in clips.iter().enumerate() {
-                    let clip_text = clip.clone();
-                    let clip = clip.clone();
+                    let clip_text = clip.content().clone();
+                    let clip = clip.content().clone();
                     list = list.child(
                         div()
                             .id(SharedString::from(format!("clip-{index}")))

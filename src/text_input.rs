@@ -98,6 +98,14 @@ impl TextInput {
         self.content.to_string()
     }
 
+    /// 设置输入内容（用于恢复 SQLite 草稿）
+    pub fn set_content(&mut self, content: String, cx: &mut Context<Self>) {
+        self.content = content.into();
+        let end = self.content.len();
+        self.selected_range = end..end;
+        cx.notify();
+    }
+
     /// 清空输入
     pub fn clear(&mut self, cx: &mut Context<Self>) {
         self.content = "".into();

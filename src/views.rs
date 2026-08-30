@@ -1,10 +1,16 @@
-//! 三大视图（笔记 / 粘贴板 / 待办）与统计的静态示例内容。
-//! 基础阶段先以主题令牌渲染示例卡片，数据层（SQLite）在后续里程碑接入。
+//! 主窗口归档视图：使用共享 Store 的真实数据渲染。
 
-use gpui::{div, prelude::*, px, FontWeight, IntoElement, ParentElement, Rgba, Styled};
+use gpui::{
+    div, prelude::*, px, ClickEvent, Context, Entity, FontWeight, IntoElement, ParentElement,
+    SharedString, StatefulInteractiveElement, Styled,
+};
 
-use crate::store::{Note, TodoItem};
-use crate::theme::Theme;
+use crate::{
+    app::InboxApp,
+    store::{self, ClipItem, Note, Priority, TodoItem},
+    text_input::TextInput,
+    theme::Theme,
+};
 
 fn section_title(t: &Theme, s: &str) -> impl IntoElement {
     div()
@@ -26,10 +32,16 @@ fn tag_chip(t: &Theme, label: &str) -> impl IntoElement {
         .child(format!("#{label}"))
 }
 
-fn note_card(t: &Theme, text: &str, tags: &[&str]) -> impl IntoElement {
-    let mut tags_row = div().flex().flex_row().gap_1();
-    for tag in tags {
-        tags_row = tags_row.child(tag_chip(t, tag));
+fn note_card(t: &Theme, note: &Note) -> impl IntoElement {
+    let mut metadata = div()
+        .flex()
+        .items_center()
+        .gap_1()
+        .text_size(px(10.))
+        .text_color(t.text_dim())
+        .child(format!("归档 · {}", note.created_at()));
+    for tag in note.tags().iter().take(3) {
+        metadata = metadata.child(tag_chip(t, tag));
     }
     div()
         .flex()
@@ -44,17 +56,43 @@ fn note_card(t: &Theme, text: &str, tags: &[&str]) -> impl IntoElement {
             div()
                 .text_size(px(13.))
                 .text_color(t.text())
-                .child(text.to_string()),
+                .child(render_markdown_lite(&note.content(), t)),
         )
-        .child(tags_row)
+        .child(metadata)
+}
+
+fn render_markdown_lite(text: &str, t: &Theme) -> impl IntoElement {
+    // GPUI 当前没有 DOM Markdown 渲染器；先提供安全的轻量展示：按行保留换行，
+    // 并用次要色标识常见代码行，避免把原始内容误当 HTML。
+    let mut wrapper = div().flex().flex_col().gap_1();
+    for line in text.lines() {
+        wrapper = wrapper.child(
+            div()
+                .when(line.trim_start().starts_with("```"), |el| {
+                    el.text_color(t.accent()).font_weight(FontWeight::SEMIBOLD)
+                })
+                .child(line.to_string()),
+        );
+    }
+    wrapper
 }
 
 pub fn notes(t: &Theme, notes: &[Note]) -> impl IntoElement {
     let mut list = div().flex().flex_col().gap_2();
+    if notes.is_empty() {
+        list = list.child(
+            div()
+                .text_color(t.text_dim())
+                .text_size(px(12.))
+                .child("还没有归档笔记，请从顶部呼出面板开始记录。"),
+        );
+    }
     for note in notes {
-        list = list.child(note_card(t, &note.content().clone(), &[]));
+        list = list.child(note_card(t, note));
     }
     div()
+        .id("notes-view")
+        .overflow_y_scroll()
         .flex()
         .flex_col()
         .p_4()
@@ -62,8 +100,10 @@ pub fn notes(t: &Theme, notes: &[Note]) -> impl IntoElement {
         .child(list)
 }
 
-fn clip_row(t: &Theme, kind: &str, kind_color: Rgba, text: &str) -> impl IntoElement {
+fn clip_row(t: &Theme, clip: &ClipItem, cx: &mut Context<InboxApp>) -> impl IntoElement {
+    let text = clip.content().clone();
     div()
+        .id(SharedString::from(format!("clip-{}", clip.id())))
         .flex()
         .items_center()
         .gap_2()
@@ -71,6 +111,12 @@ fn clip_row(t: &Theme, kind: &str, kind_color: Rgba, text: &str) -> impl IntoEle
         .rounded_lg()
         .mb_2()
         .bg(t.card())
+        .cursor_pointer()
+        .hover(|s| s.bg(t.hover()))
+        .on_click(cx.listener(move |_, _: &ClickEvent, _, cx| {
+            cx.write_to_clipboard(gpui::ClipboardItem::new_string(text.clone()));
+            cx.notify();
+        }))
         .child(
             div()
                 .px_1p5()
@@ -78,8 +124,8 @@ fn clip_row(t: &Theme, kind: &str, kind_color: Rgba, text: &str) -> impl IntoEle
                 .rounded_sm()
                 .text_size(px(11.))
                 .bg(t.hover())
-                .text_color(kind_color)
-                .child(kind.to_string()),
+                .text_color(t.accent())
+                .child(clip.kind().clone()),
         )
         .child(
             div()
@@ -87,139 +133,288 @@ fn clip_row(t: &Theme, kind: &str, kind_color: Rgba, text: &str) -> impl IntoEle
                 .min_w_0()
                 .text_size(px(13.))
                 .text_color(t.text())
-                .child(text.to_string()),
+                .child(clip.content().clone()),
+        )
+        .child(
+            div()
+                .text_size(px(10.))
+                .text_color(t.text_dim())
+                .child(clip.captured_at().clone()),
         )
 }
 
-pub fn clips(t: &Theme) -> impl IntoElement {
+pub fn clips(t: &Theme, clips: &[ClipItem], cx: &mut Context<InboxApp>) -> impl IntoElement {
+    let mut list = div().flex().flex_col();
+    if clips.is_empty() {
+        list = list.child(
+            div()
+                .text_color(t.text_dim())
+                .text_size(px(12.))
+                .child("暂无剪贴板历史，复制任意内容后会自动捕获。"),
+        );
+    }
+    for clip in clips {
+        list = list.child(clip_row(t, clip, cx));
+    }
     div()
+        .id("clips-view")
+        .overflow_y_scroll()
         .flex()
         .flex_col()
         .p_4()
         .child(section_title(t, "📋 粘贴板"))
-        .child(clip_row(
-            t,
-            "文本",
-            t.accent(),
-            "把鼠标移到屏幕顶部中央试试 —— Inkling 的核心交互",
-        ))
-        .child(clip_row(
-            t,
-            "链接",
-            t.green(),
-            "https://tauri.app/zh-cn/v2/guides/",
-        ))
-        .child(clip_row(
-            t,
-            "代码",
-            t.gold(),
-            "fn top_center(size: &PhysicalSize<u32>)",
-        ))
+        .child(list)
 }
 
-fn prio_badge(t: &Theme, label: &str, color: Rgba) -> impl IntoElement {
+fn priority_badge(t: &Theme, todo: &TodoItem, cx: &mut Context<InboxApp>) -> impl IntoElement {
+    let priority = todo.priority();
+    let id = todo.id().clone();
+    let color = match priority {
+        Priority::High => t.red(),
+        Priority::Medium => t.gold(),
+        Priority::Low => t.green(),
+    };
     div()
+        .id(SharedString::from(format!("priority-{}", todo.id())))
         .px_1p5()
+        .py_0p5()
         .rounded_sm()
         .text_size(px(11.))
         .font_weight(FontWeight::SEMIBOLD)
         .bg(t.hover())
         .text_color(color)
-        .child(label.to_string())
+        .cursor_pointer()
+        .on_click(cx.listener(move |this, _: &ClickEvent, _, cx| {
+            if this.priority_menu_open() == Some(id.clone()) {
+                this.set_priority_menu_open(None);
+            } else {
+                this.set_priority_menu_open(Some(id.clone()));
+            }
+            cx.notify();
+        }))
+        .child(format!(
+            "{} {}",
+            if matches!(priority, Priority::High) {
+                "●"
+            } else {
+                "○"
+            },
+            priority.label()
+        ))
 }
 
-fn todo_row(t: &Theme, prio: (&str, Rgba), text: &str, done: bool, due: &str) -> impl IntoElement {
-    let mut row = div()
+fn priority_menu(t: &Theme, todo: &TodoItem, cx: &mut Context<InboxApp>) -> impl IntoElement {
+    let id = todo.id().clone();
+    let mut menu = div()
+        .id(SharedString::from(format!("priority-menu-{}", todo.id())))
+        .absolute()
+        .top_full()
+        .left_0()
+        .mt_1()
         .flex()
-        .items_center()
-        .gap_2()
+        .gap_1()
+        .p_1()
+        .rounded_md()
+        .bg(t.sidebar())
+        .border_1()
+        .border_color(t.border())
+        .shadow_lg();
+    for priority in [Priority::High, Priority::Medium, Priority::Low] {
+        let selected = priority == todo.priority();
+        let item_id = id.clone();
+        menu = menu.child(
+            div()
+                .id(SharedString::from(format!(
+                    "prio-{}-{}",
+                    id,
+                    priority.as_str()
+                )))
+                .px_2()
+                .py_1()
+                .rounded_sm()
+                .text_size(px(11.))
+                .cursor_pointer()
+                .text_color(match priority {
+                    Priority::High => t.red(),
+                    Priority::Medium => t.gold(),
+                    Priority::Low => t.green(),
+                })
+                .when(selected, |el| {
+                    el.bg(t.hover()).font_weight(FontWeight::SEMIBOLD)
+                })
+                .hover(|s| s.bg(t.hover()))
+                .on_click(cx.listener(move |this, _: &ClickEvent, _, cx| {
+                    if store::set_priority(cx, &item_id, priority) {
+                        this.set_priority_menu_open(None);
+                        cx.notify();
+                    }
+                }))
+                .child(format!(
+                    "{} {}{}",
+                    priority.label(),
+                    if selected { "✓" } else { "" },
+                    if selected { "" } else { "" }
+                )),
+        );
+    }
+    menu
+}
+
+fn todo_row(
+    t: &Theme,
+    todo: &TodoItem,
+    index: usize,
+    menu_open: Option<String>,
+    cx: &mut Context<InboxApp>,
+) -> impl IntoElement {
+    let done = todo.done();
+    let overdue = store::is_overdue(todo);
+    let item_id = todo.id().clone();
+    let mut tags = div().flex().gap_1();
+    for tag in todo.tags().iter().take(3) {
+        tags = tags.child(tag_chip(t, tag));
+    }
+    let mut bottom = div().flex().items_center().gap_1().child(tags).child(
+        div()
+            .text_size(px(10.))
+            .text_color(if overdue { t.red() } else { t.text_dim() })
+            .child(format!("📅 {}", todo.due_at())),
+    );
+    if let Some(remark) = (!todo.remark().is_empty()).then(|| todo.remark()) {
+        bottom = bottom.child(div().text_size(px(10.)).text_color(t.text_dim()).child(
+            if remark.len() > 100 {
+                "📝".to_string()
+            } else {
+                remark
+            },
+        ));
+    }
+    let mut row = div()
+        .id(SharedString::from(format!("todo-{}", todo.id())))
+        .relative()
+        .flex()
+        .flex_col()
+        .gap_1()
         .p_3()
         .rounded_lg()
         .mb_2()
-        .bg(t.card());
-    // 复选框
+        .bg(t.card())
+        .when(overdue, |el| el.border_1().border_color(t.red()));
     row = row.child(
         div()
-            .w(px(14.))
-            .h(px(14.))
-            .rounded_sm()
-            .border_1()
-            .border_color(t.text_dim())
-            .when(done, |el| el.bg(t.green()).border_color(t.green())),
+            .flex()
+            .items_center()
+            .gap_2()
+            .child(
+                div()
+                    .id(SharedString::from(format!("check-{}", todo.id())))
+                    .w(px(16.))
+                    .h(px(16.))
+                    .rounded_sm()
+                    .border_1()
+                    .border_color(if done { t.green() } else { t.text_dim() })
+                    .when(done, |el| el.bg(t.green()).text_color(t.bg()).child("✓"))
+                    .when(!done, |el| {
+                        el.cursor_pointer().on_click(cx.listener(
+                            move |_, _: &ClickEvent, _, cx| {
+                                if store::toggle_todo(cx, index) {
+                                    cx.notify();
+                                }
+                            },
+                        ))
+                    }),
+            )
+            .child(priority_badge(t, todo, cx))
+            .child(
+                div()
+                    .flex_1()
+                    .min_w_0()
+                    .text_size(px(13.))
+                    .text_color(if done { t.text_dim() } else { t.text() })
+                    .when(done, |el| {
+                        el.child(div().line_through().child(todo.text().clone()))
+                    })
+                    .when(!done, |el| el.child(todo.text().clone())),
+            ),
     );
-    row = row.child(prio_badge(t, prio.0, prio.1));
-    row = row.child(
-        div()
-            .flex_1()
-            .min_w_0()
-            .text_size(px(13.))
-            .text_color(t.text())
-            .when(done, |el| {
-                el.text_color(t.text_dim())
-                    .child(div().line_through().child(text.to_string()))
-            })
-            .when(!done, |el| el.child(text.to_string())),
-    );
-    row = row.child(
-        div()
-            .text_size(px(11.))
-            .text_color(t.gold())
-            .child(format!("📅 {due}")),
-    );
+    row = row.child(bottom);
+    if !done && menu_open.as_deref() == Some(item_id.as_str()) {
+        row = row.child(priority_menu(t, todo, cx));
+    }
     row
 }
 
-pub fn todos(t: &Theme, todos: &[TodoItem]) -> impl IntoElement {
-    let mut list = div().flex().flex_col();
-    for todo in todos {
-        let color = if todo.done() { t.green() } else { t.gold() };
-        let label = if todo.done() { "低" } else { "中" };
-        list = list.child(todo_row(
-            t,
-            (label, color),
-            todo.text().as_str(),
-            todo.done(),
-            "当日",
-        ));
+pub fn todos(
+    t: &Theme,
+    todos: &[TodoItem],
+    menu_open: Option<String>,
+    todo_input: Entity<TextInput>,
+    cx: &mut Context<InboxApp>,
+) -> impl IntoElement {
+    let mut overdue_list = div().flex().flex_col();
+    let mut normal_list = div().flex().flex_col();
+    let mut has_overdue = false;
+    for (index, todo) in todos.iter().enumerate() {
+        if store::is_overdue(todo) {
+            has_overdue = true;
+            overdue_list = overdue_list.child(todo_row(t, todo, index, menu_open.clone(), cx));
+        } else {
+            normal_list = normal_list.child(todo_row(t, todo, index, menu_open.clone(), cx));
+        }
     }
-    div()
+    let add_input = todo_input.clone();
+    let add_bar = div()
+        .flex()
+        .items_center()
+        .gap_2()
+        .mb_3()
+        .child(div().flex_1().min_w_0().child(todo_input))
+        .child(
+            div()
+                .id("add-todo")
+                .px_3()
+                .py_1p5()
+                .rounded_md()
+                .bg(t.accent())
+                .text_color(t.bg())
+                .text_size(px(12.))
+                .font_weight(FontWeight::SEMIBOLD)
+                .cursor_pointer()
+                .hover(|s| s.opacity(0.8))
+                .on_click(cx.listener(move |_, _: &ClickEvent, _, cx| {
+                    let text = add_input.read(cx).content();
+                    if store::add_todo(cx, text, store::default_due_at(), None).is_some() {
+                        add_input.update(cx, |input, cx| input.clear(cx));
+                        cx.notify();
+                    }
+                }))
+                .child("＋新增待办"),
+        );
+    let mut body = div()
+        .id("todos-view")
+        .overflow_y_scroll()
         .flex()
         .flex_col()
         .p_4()
-        .child(section_title(t, "✅ 待办（当日）"))
-        .child(list)
-}
-
-#[allow(dead_code)]
-pub fn stats(t: &Theme) -> impl IntoElement {
-    div()
-        .flex()
-        .flex_col()
-        .gap_3()
-        .p_4()
-        .child(section_title(t, "📊 使用统计"))
-        .child(
-            div()
-                .flex()
-                .items_center()
-                .gap_2()
-                .p_4()
-                .rounded_lg()
-                .bg(t.card())
-                .text_color(t.text_dim())
-                .text_size(px(13.))
-                .child("每日活跃度热力图（基础阶段占位，后续接入 SQLite 统计数据）"),
-        )
-        .child(
-            div()
-                .flex()
-                .items_center()
-                .gap_2()
-                .p_4()
-                .rounded_lg()
-                .bg(t.card())
-                .text_color(t.text_dim())
-                .text_size(px(13.))
-                .child("近 6 个月趋势折线图（占位）"),
-        )
+        .child(section_title(t, "✅ 待办"))
+        .child(add_bar);
+    if has_overdue {
+        body = body
+            .child(
+                div()
+                    .text_size(px(12.))
+                    .font_weight(FontWeight::SEMIBOLD)
+                    .text_color(t.red())
+                    .child("逾期事项"),
+            )
+            .child(overdue_list);
+    }
+    body.child(
+        div()
+            .text_size(px(12.))
+            .font_weight(FontWeight::SEMIBOLD)
+            .text_color(t.text_dim())
+            .child("计划事项"),
+    )
+    .child(normal_list)
 }

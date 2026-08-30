@@ -2,13 +2,14 @@
 //! 对应原型 `doc/index.html` 的「Inkling 单窗口（左右结构）」布局。
 
 use gpui::{
-    actions, div, prelude::*, px, App, ClickEvent, Context, FocusHandle, Focusable, FontWeight,
-    InteractiveElement, IntoElement, KeyBinding, ParentElement, PathBuilder, Render, Rgba,
-    SharedString, StatefulInteractiveElement, Styled, Window, WindowControlArea,
+    actions, div, prelude::*, px, App, ClickEvent, Context, Entity, FocusHandle, Focusable,
+    FontWeight, InteractiveElement, IntoElement, KeyBinding, ParentElement, PathBuilder, Render,
+    Rgba, SharedString, StatefulInteractiveElement, Styled, Window, WindowControlArea,
 };
 
 use crate::settings::{BlurClose, ClipRetention, RemarkStyle, Settings};
 use crate::stats::{self, DayStat};
+use crate::text_input::TextInput;
 use crate::theme::{Theme, THEMES};
 use crate::views;
 
@@ -55,6 +56,8 @@ crate::accessors! {
         remark_menu_open: bool,
         day_detail_date: Option<String>,
         autostart_error: Option<String>,
+        priority_menu_open: Option<String>,
+        todo_input: Entity<TextInput>,
     }
 }
 
@@ -68,6 +71,14 @@ impl InboxApp {
     pub fn new(settings: Settings, cx: &mut Context<Self>) -> Self {
         let theme_index = crate::theme::theme_index_by_id(&settings.theme_id())
             .unwrap_or(crate::theme::DEFAULT_THEME);
+        let todo_input = cx.new(|cx| {
+            TextInput::new(
+                "新增待办，回车后点击添加…",
+                gpui::hsla(0.0, 0.0, 1.0, 0.35),
+                gpui::hsla(0.65, 0.08, 0.95, 1.0),
+                cx,
+            )
+        });
         Self {
             active_view: ActiveView::Notes,
             theme_index,
@@ -77,6 +88,8 @@ impl InboxApp {
             remark_menu_open: false,
             day_detail_date: None,
             autostart_error: None,
+            priority_menu_open: None,
+            todo_input,
         }
     }
 
@@ -379,8 +392,17 @@ impl InboxApp {
             .overflow_hidden()
             .child(match self.active_view() {
                 ActiveView::Notes => views::notes(theme, &notes).into_any_element(),
-                ActiveView::Clips => views::clips(theme).into_any_element(),
-                ActiveView::Todos => views::todos(theme, &todos).into_any_element(),
+                ActiveView::Clips => {
+                    views::clips(theme, &crate::store::clips(cx), cx).into_any_element()
+                }
+                ActiveView::Todos => views::todos(
+                    theme,
+                    &todos,
+                    self.priority_menu_open(),
+                    self.todo_input.clone(),
+                    cx,
+                )
+                .into_any_element(),
                 ActiveView::Stats => self.render_stats(cx).into_any_element(),
                 ActiveView::Settings => self.render_settings(cx).into_any_element(),
                 ActiveView::Day => self.render_day_detail(cx).into_any_element(),
