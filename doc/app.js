@@ -538,7 +538,7 @@
     hidePrioMenu();
     prioMenuTodoId = t.id; prioMenuCard = cardEl;
     const menu = $('prioMenu');
-    const opt = (p) => `<div class="prio-opt ${p}" data-prio="${p}"><span class="prio-dot"></span>${PRIORITY[p].label}优先级</div>`;
+    const opt = (p) => `<div class="prio-opt ${p}" data-prio="${p}"><span class="prio-dot"></span>${PRIORITY[p].label}</div>`;
     const up = [], down = [];
     if (t.priority === 'low') { up.push('high', 'medium'); }
     else if (t.priority === 'medium') { up.push('high'); down.push('low'); }
