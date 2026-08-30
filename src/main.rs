@@ -25,6 +25,7 @@ fn main() {
         let silent_autostart = std::env::args().any(|arg| arg == "--autostart");
         store::init(cx);
         store::apply_clip_retention(cx, settings.clip_retention());
+        store::start_clip_retention_scheduler(cx);
         cx.bind_keys(key_bindings());
         cx.bind_keys(text_input::key_bindings());
         summon::init(cx);

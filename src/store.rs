@@ -8,14 +8,14 @@ use std::{
     hash::{Hash, Hasher},
     path::{Path, PathBuf},
     sync::atomic::{AtomicU64, Ordering},
-    time::{SystemTime, UNIX_EPOCH},
+    time::{Duration, SystemTime, UNIX_EPOCH},
 };
 
 use gpui::{App, Global, Image, ImageFormat};
 use rusqlite::{params, Connection, OptionalExtension};
 use serde::{Deserialize, Serialize};
 
-use crate::settings::ClipRetention;
+use crate::settings::{ClipRetention, Settings};
 
 static ID_SEQ: AtomicU64 = AtomicU64::new(1);
 
@@ -715,6 +715,26 @@ pub fn clips(cx: &mut App) -> Vec<ClipItem> {
     clips
 }
 
+/// 启动长期驻留期间的剪贴板保留策略清理。
+///
+/// `Session` 只在启动时执行一次，`Never` 不需要调度；当天和自定义天数
+/// 每 15 分钟检查一次，覆盖跨天和应用长时间不重启的场景。
+pub fn start_clip_retention_scheduler(cx: &mut App) {
+    cx.spawn(async move |cx| loop {
+        cx.update(|cx| {
+            let retention = Settings::load().clip_retention();
+            if !matches!(retention, ClipRetention::Never | ClipRetention::Session) {
+                apply_clip_retention(cx, retention);
+            }
+        })
+        .ok();
+        cx.background_executor()
+            .timer(Duration::from_secs(15 * 60))
+            .await;
+    })
+    .detach();
+}
+
 /// 根据设置清理剪贴板历史。清理同时作用于 SQLite 和内存快照，避免重启前后看到不同数据。
 pub fn apply_clip_retention(cx: &mut App, retention: ClipRetention) {
     let s = store(cx);
@@ -1118,11 +1138,15 @@ pub fn push_clip(cx: &mut App, content: String) {
 /// 持久化剪贴板图片。图片文件使用内容哈希命名，数据库只保存元数据和文件路径。
 pub fn push_clip_image(cx: &mut App, image: Image) {
     const MAX_IMAGE_BYTES: usize = 20 * 1024 * 1024;
-    if image.bytes.is_empty() || image.bytes.len() > MAX_IMAGE_BYTES {
+    let s = store(cx);
+    if image.bytes.is_empty() {
+        s.last_error = Some("剪贴板图片为空，已忽略".into());
         return;
     }
-
-    let s = store(cx);
+    if image.bytes.len() > MAX_IMAGE_BYTES {
+        s.last_error = Some("剪贴板图片超过 20 MiB，已忽略".into());
+        return;
+    }
     let hash = hash_bytes(&image.bytes);
     let captured = now_string();
     let clip_id = id("clip");
