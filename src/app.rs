@@ -62,6 +62,7 @@ crate::accessors! {
         theme_menu_open: bool,
         remark_menu_open: bool,
         day_detail_date: Option<String>,
+        day_filter: String,
         autostart_error: Option<String>,
         priority_menu_open: Option<String>,
         todo_input: Entity<TextInput>,
@@ -220,6 +221,7 @@ impl InboxApp {
             theme_menu_open: false,
             remark_menu_open: false,
             day_detail_date: None,
+            day_filter: "all".into(),
             autostart_error: None,
             priority_menu_open: None,
             todo_input,
@@ -1575,21 +1577,24 @@ impl InboxApp {
         }
         let mut items = Vec::<(String, DayItem)>::new();
         for note in crate::store::notes(cx) {
-            if crate::store::display_timestamp(&note.created_at()).starts_with(&date)
+            if (self.day_filter == "all" || self.day_filter == "note")
+                && crate::store::display_timestamp(&note.created_at()).starts_with(&date)
                 && (query.is_empty() || searchable_note(&note, &query))
             {
                 items.push((note.created_at().clone(), DayItem::Note(note)));
             }
         }
         for clip in crate::store::clips(cx) {
-            if crate::store::display_timestamp(&clip.captured_at()).starts_with(&date)
+            if (self.day_filter == "all" || self.day_filter == "clip")
+                && crate::store::display_timestamp(&clip.captured_at()).starts_with(&date)
                 && (query.is_empty() || searchable_clip(&clip, &query))
             {
                 items.push((clip.captured_at().clone(), DayItem::Clip(clip)));
             }
         }
         for todo in crate::store::todos(cx) {
-            if crate::store::display_timestamp(&todo.due_at()).starts_with(&date)
+            if (self.day_filter == "all" || self.day_filter == "todo")
+                && crate::store::display_timestamp(&todo.due_at()).starts_with(&date)
                 && (query.is_empty() || searchable_todo(&todo, &query))
             {
                 items.push((todo.due_at().clone(), DayItem::Todo(todo)));
@@ -1607,149 +1612,267 @@ impl InboxApp {
         }
         for (_, item) in items {
             let row = match item {
-                DayItem::Note(note) => div()
-                    .border_l_2()
-                    .border_color(theme.accent())
-                    .p_3()
-                    .rounded_md()
-                    .bg(theme.card())
-                    .child(
-                        div()
-                            .text_size(px(11.))
-                            .text_color(theme.accent())
-                            .child("📝 笔记"),
-                    )
-                    .child(
-                        div()
-                            .mt_1()
-                            .text_color(theme.text())
-                            .child(note.content().clone()),
-                    )
-                    .child(
-                        div()
-                            .mt_1()
-                            .text_size(px(10.))
-                            .text_color(theme.text_dim())
-                            .child(if note.tags().is_empty() {
-                                "无标签".to_string()
-                            } else {
-                                note.tags()
-                                    .iter()
-                                    .map(|tag| format!("#{tag}"))
-                                    .collect::<Vec<_>>()
-                                    .join(" ")
-                            }),
-                    ),
-                DayItem::Clip(clip) => div()
-                    .border_l_2()
-                    .border_color(theme.gold())
-                    .p_3()
-                    .rounded_md()
-                    .bg(theme.card())
-                    .child(
-                        div()
-                            .text_size(px(11.))
-                            .text_color(theme.gold())
-                            .child(format!("📋 粘贴板 · {}", clip.kind())),
-                    )
-                    .child(
-                        div()
-                            .mt_1()
-                            .text_color(theme.text())
-                            .child(crate::views::clip_preview(&clip.content())),
-                    ),
-                DayItem::Todo(todo) => div()
-                    .border_l_2()
-                    .border_color(theme.green())
-                    .p_3()
-                    .rounded_md()
-                    .bg(theme.card())
-                    .child(
-                        div()
-                            .text_size(px(11.))
-                            .text_color(theme.green())
-                            .child(format!("✅ 待办 · {}优先级", todo.priority().label())),
-                    )
-                    .child(
-                        div()
-                            .mt_1()
-                            .text_color(if todo.done() {
-                                theme.text_dim()
-                            } else {
-                                theme.text()
-                            })
-                            .child(todo.text().clone()),
-                    )
-                    .child(
-                        div()
-                            .mt_1()
-                            .text_size(px(10.))
-                            .text_color(if crate::store::is_overdue(&todo) {
-                                theme.red()
-                            } else {
-                                theme.text_dim()
-                            })
-                            .child(if crate::store::is_overdue(&todo) {
-                                "逾期".to_string()
-                            } else if todo.done() {
-                                "已完成".to_string()
-                            } else {
-                                "未完成".to_string()
-                            }),
-                    )
-                    .child(
-                        div()
-                            .mt_1()
-                            .text_size(px(10.))
-                            .text_color(theme.text_dim())
-                            .child(format!(
-                                "📅 计划 {}{}{}",
-                                crate::store::display_timestamp(&todo.due_at()),
-                                todo.remind_at()
-                                    .as_ref()
-                                    .map(|value| format!(" · ⏰ {}", crate::store::display_timestamp(value)))
-                                    .unwrap_or_default(),
-                                todo.repeat_rule()
-                                    .as_deref()
-                                    .map(|rule| if rule == "daily" { " · 🔁 每天" } else { " · 🔁 每周" })
-                                    .unwrap_or(""),
-                            )),
-                    )
-                    .child(
-                        div()
-                            .mt_1()
-                            .text_size(px(10.))
-                            .text_color(theme.text_dim())
-                            .child(if todo.tags().is_empty() {
-                                "无标签".to_string()
-                            } else {
-                                todo.tags()
-                                    .iter()
-                                    .map(|tag| format!("#{tag}"))
-                                    .collect::<Vec<_>>()
-                                    .join(" ")
-                            }),
-                    )
-                    .when(!todo.remark().is_empty(), |el| {
-                        el.child(
+                DayItem::Note(note) => {
+                    let note_id = note.id().clone();
+                    let edit_id = note.id().clone();
+                    let edit_content = note.content().clone();
+                    let edit_tags = note.tags().join(", ");
+                    let edit_input = self.note_edit_input.clone();
+                    let edit_tags_input = self.note_edit_tags_input.clone();
+                    let actions = div()
+                        .flex()
+                        .items_center()
+                        .justify_end()
+                        .gap_1()
+                        .child(
+                            div()
+                                .id(SharedString::from(format!("day-edit-note-{}", note.id())))
+                                .px_2()
+                                .py_1()
+                                .rounded_md()
+                                .text_size(px(10.))
+                                .text_color(theme.accent())
+                                .cursor_pointer()
+                                .hover(|el| el.bg(theme.hover()))
+                                .on_click(cx.listener(move |this, _: &ClickEvent, _, cx| {
+                                    edit_input.update(cx, |input, cx| {
+                                        input.set_content(edit_content.clone(), cx)
+                                    });
+                                    edit_tags_input.update(cx, |input, cx| {
+                                        input.set_content(edit_tags.clone(), cx)
+                                    });
+                                    this.set_note_edit_id(Some(edit_id.clone()));
+                                    this.set_active_view(ActiveView::Notes);
+                                    cx.notify();
+                                }))
+                                .child("✏️ 编辑"),
+                        );
+                    div()
+                        .relative()
+                        .border_l_2()
+                        .border_color(theme.accent())
+                        .p_3()
+                        .rounded_md()
+                        .bg(theme.card())
+                        .child(crate::views::delete_controls(
+                            theme,
+                            DeleteTarget::Note(note_id),
+                            self.delete_target() == Some(DeleteTarget::Note(note.id().clone())),
+                            cx,
+                        ))
+                        .child(
+                            div()
+                                .text_size(px(11.))
+                                .text_color(theme.accent())
+                                .child("📝 笔记"),
+                        )
+                        .child(
+                            div()
+                                .mt_1()
+                                .text_color(theme.text())
+                                .child(crate::views::render_markdown_lite(&note.content(), theme)),
+                        )
+                        .child(
                             div()
                                 .mt_1()
                                 .text_size(px(10.))
                                 .text_color(theme.text_dim())
-                                .child(format!("📝 {}", todo.remark())),
+                                .child(if note.tags().is_empty() {
+                                    "无标签".to_string()
+                                } else {
+                                    note.tags()
+                                        .iter()
+                                        .map(|tag| format!("#{tag}"))
+                                        .collect::<Vec<_>>()
+                                        .join(" ")
+                                }),
                         )
-                    })
-                    .when(todo.parent_id().is_some(), |el| {
-                        el.child(
+                        .child(actions)
+                }
+                DayItem::Clip(clip) => {
+                    let clip_id = clip.id().clone();
+                    let edit_id = clip.id().clone();
+                    let edit_content = clip.content().clone();
+                    let edit_input = self.clip_edit_input.clone();
+                    let actions = div()
+                        .flex()
+                        .items_center()
+                        .justify_end()
+                        .gap_1()
+                        .child(
+                            div()
+                                .id(SharedString::from(format!("day-edit-clip-{}", clip.id())))
+                                .px_2()
+                                .py_1()
+                                .rounded_md()
+                                .text_size(px(10.))
+                                .text_color(theme.accent())
+                                .cursor_pointer()
+                                .hover(|el| el.bg(theme.hover()))
+                                .on_click(cx.listener(move |this, _: &ClickEvent, _, cx| {
+                                    edit_input.update(cx, |input, cx| {
+                                        input.set_content(edit_content.clone(), cx)
+                                    });
+                                    this.set_clip_edit_id(Some(edit_id.clone()));
+                                    this.set_active_view(ActiveView::Clips);
+                                    cx.notify();
+                                }))
+                                .child("✏️ 编辑"),
+                        );
+                    div()
+                        .relative()
+                        .border_l_2()
+                        .border_color(theme.gold())
+                        .p_3()
+                        .rounded_md()
+                        .bg(theme.card())
+                        .child(crate::views::delete_controls(
+                            theme,
+                            DeleteTarget::Clip(clip_id),
+                            self.delete_target() == Some(DeleteTarget::Clip(clip.id().clone())),
+                            cx,
+                        ))
+                        .child(
+                            div()
+                                .text_size(px(11.))
+                                .text_color(theme.gold())
+                                .child(format!("📋 粘贴板 · {}", clip.kind())),
+                        )
+                        .child(
+                            div()
+                                .mt_1()
+                                .text_color(theme.text())
+                                .child(crate::views::clip_preview(&clip.content())),
+                        )
+                        .child(actions)
+                }
+                DayItem::Todo(todo) => {
+                    let todo_id = todo.id().clone();
+                    let edit_id = todo.id().clone();
+                    let edit_content = todo.text().clone();
+                    let edit_due = todo.due_at().clone();
+                    let edit_remind = todo.remind_at().clone().unwrap_or_default();
+                    let edit_repeat = todo.repeat_rule().clone().unwrap_or_default();
+                    let edit_tags = todo.tags().join(", ");
+                    let edit_remark = todo.remark().clone();
+                    let meta_content = self.todo_edit_input.clone();
+                    let meta_due = self.todo_meta_due_input.clone();
+                    let meta_remind = self.todo_meta_remind_input.clone();
+                    let meta_repeat = self.todo_meta_repeat_input.clone();
+                    let meta_tags = self.todo_meta_tags_input.clone();
+                    let meta_remark = self.todo_meta_remark_input.clone();
+                    let mut actions = div().flex().items_center().justify_end().gap_1();
+                    if !todo.done() {
+                        actions = actions.child(
+                            div()
+                                .id(SharedString::from(format!("day-edit-todo-{}", todo.id())))
+                                .px_2()
+                                .py_1()
+                                .rounded_md()
+                                .text_size(px(10.))
+                                .text_color(theme.accent())
+                                .cursor_pointer()
+                                .hover(|el| el.bg(theme.hover()))
+                                .on_click(cx.listener(move |this, _: &ClickEvent, _, cx| {
+                                    meta_content.update(cx, |input, cx| input.set_content(edit_content.clone(), cx));
+                                    meta_due.update(cx, |input, cx| input.set_content(edit_due.clone(), cx));
+                                    meta_remind.update(cx, |input, cx| input.set_content(edit_remind.clone(), cx));
+                                    meta_repeat.update(cx, |input, cx| input.set_content(edit_repeat.clone(), cx));
+                                    meta_tags.update(cx, |input, cx| input.set_content(edit_tags.clone(), cx));
+                                    meta_remark.update(cx, |input, cx| input.set_content(edit_remark.clone(), cx));
+                                    this.set_todo_meta_id(Some(edit_id.clone()));
+                                    this.set_active_view(ActiveView::Todos);
+                                    cx.notify();
+                                }))
+                                .child("⚙ 详情"),
+                        );
+                    }
+                    let delete_target = DeleteTarget::Todo(todo_id);
+                    div()
+                        .relative()
+                        .border_l_2()
+                        .border_color(theme.green())
+                        .p_3()
+                        .rounded_md()
+                        .bg(theme.card())
+                        .when(!todo.done(), |el| {
+                            el.child(crate::views::delete_controls(
+                                theme,
+                                delete_target.clone(),
+                                self.delete_target() == Some(DeleteTarget::Todo(todo.id().clone())),
+                                cx,
+                            ))
+                        })
+                        .child(
+                            div()
+                                .text_size(px(11.))
+                                .text_color(theme.green())
+                                .child(format!("✅ 待办 · {}优先级", todo.priority().label())),
+                        )
+                        .child(
+                            div()
+                                .mt_1()
+                                .text_color(if todo.done() { theme.text_dim() } else { theme.text() })
+                                .when(todo.done(), |el| el.line_through())
+                                .child(todo.text().clone()),
+                        )
+                        .child(
+                            div()
+                                .mt_1()
+                                .text_size(px(10.))
+                                .text_color(if crate::store::is_overdue(&todo) { theme.red() } else { theme.text_dim() })
+                                .child(if crate::store::is_overdue(&todo) { "逾期" } else if todo.done() { "已完成" } else { "未完成" }),
+                        )
+                        .child(
                             div()
                                 .mt_1()
                                 .text_size(px(10.))
                                 .text_color(theme.text_dim())
-                                .child(format!("子任务 · 父级 {}", todo.parent_id().as_deref().unwrap_or(""))),
+                                .child(format!(
+                                    "📅 计划 {}{}{}",
+                                    crate::store::display_timestamp(&todo.due_at()),
+                                    todo.remind_at().as_ref().map(|value| format!(" · ⏰ {}", crate::store::display_timestamp(value))).unwrap_or_default(),
+                                    todo.repeat_rule().as_deref().map(|rule| if rule == "daily" { " · 🔁 每天" } else { " · 🔁 每周" }).unwrap_or(""),
+                                )),
                         )
-                    }),
+                        .child(
+                            div()
+                                .mt_1()
+                                .text_size(px(10.))
+                                .text_color(theme.text_dim())
+                                .child(if todo.tags().is_empty() { "无标签".to_string() } else { todo.tags().iter().map(|tag| format!("#{tag}")).collect::<Vec<_>>().join(" ") }),
+                        )
+                        .when(!todo.remark().is_empty(), |el| {
+                            el.child(div().mt_1().text_size(px(10.)).text_color(theme.text_dim()).child(format!("📝 {}", todo.remark())))
+                        })
+                        .when(todo.parent_id().is_some(), |el| {
+                            el.child(div().mt_1().text_size(px(10.)).text_color(theme.text_dim()).child(format!("子任务 · 父级 {}", todo.parent_id().as_deref().unwrap_or(""))))
+                        })
+                        .child(actions)
+                }
             };
             mixed = mixed.child(row);
+        }
+        let mut filter_bar = div().flex().items_center().gap_1();
+        for (key, label) in [("all", "全部"), ("note", "笔记"), ("clip", "粘贴板"), ("todo", "待办")] {
+            let selected = self.day_filter == key;
+            let filter_key = key.to_string();
+            filter_bar = filter_bar.child(
+                div()
+                    .id(SharedString::from(format!("day-filter-{key}")))
+                    .px_2()
+                    .py_1()
+                    .rounded_md()
+                    .text_size(px(10.))
+                    .when(selected, |el| el.bg(theme.accent()).text_color(theme.bg()))
+                    .when(!selected, |el| el.bg(theme.hover()).text_color(theme.text_dim()))
+                    .cursor_pointer()
+                    .on_click(cx.listener(move |this, _: &ClickEvent, _, cx| {
+                        this.set_day_filter(filter_key.clone());
+                        cx.notify();
+                    }))
+                    .child(label),
+            );
         }
 
         div()
@@ -1771,6 +1894,15 @@ impl InboxApp {
                             ""
                         }
                     )),
+            )
+            .child(filter_bar)
+            .child(
+                div()
+                    .flex()
+                    .items_center()
+                    .gap_2()
+                    .child(div().text_size(px(11.)).text_color(theme.text_dim()).child("搜索详情"))
+                    .child(div().flex_1().min_w_0().h(px(30.)).child(self.search_input.clone())),
             )
             .child(
                 div()

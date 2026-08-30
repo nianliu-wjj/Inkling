@@ -59,7 +59,7 @@ fn tag_chip(t: &Theme, label: &str) -> impl IntoElement {
         .child(format!("#{label}"))
 }
 
-fn delete_controls(
+pub(crate) fn delete_controls(
     t: &Theme,
     target: DeleteTarget,
     confirmed: bool,
@@ -331,7 +331,7 @@ fn note_card(
         .child(actions)
 }
 
-fn render_markdown_lite(text: &str, t: &Theme) -> impl IntoElement {
+pub(crate) fn render_markdown_lite(text: &str, t: &Theme) -> impl IntoElement {
     // GPUI 当前没有 DOM Markdown 渲染器；先提供安全的轻量展示：按行保留换行，
     // 并用次要色标识常见代码行，避免把原始内容误当 HTML。
     let mut wrapper = div().flex().flex_col().gap_1();
