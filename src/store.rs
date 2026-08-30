@@ -617,6 +617,7 @@ pub fn complete_todo(cx: &mut App, id: &str) -> bool {
         return false;
     }
     let completed = now_string();
+    let mut completed_ids = vec![item.id().clone()];
     let result = with_db(s, |conn| {
         let tx = conn.transaction()?;
         let changed = tx.execute(
@@ -627,14 +628,45 @@ pub fn complete_todo(cx: &mut App, id: &str) -> bool {
             return Err(rusqlite::Error::QueryReturnedNoRows);
         }
         record_activity(&tx, "todo_completed", &item.id())?;
+
+        // 子任务全部完成后，沿父级链自动完成父待办；整个状态转移与子任务完成处于同一事务。
+        let mut parent = item.parent_id().clone();
+        while let Some(parent_id) = parent {
+            let has_open_child: bool = tx.query_row(
+                "SELECT EXISTS(SELECT 1 FROM todos WHERE parent_id=?1 AND status='open')",
+                [&parent_id],
+                |row| row.get(0),
+            )?;
+            if has_open_child {
+                break;
+            }
+            let parent_changed = tx.execute(
+                "UPDATE todos SET status='done',completed_at=?1,updated_at=?1 WHERE id=?2 AND status='open'",
+                params![completed, parent_id],
+            )?;
+            if parent_changed == 0 {
+                break;
+            }
+            record_activity(&tx, "todo_completed", &parent_id)?;
+            completed_ids.push(parent_id.clone());
+            parent = tx
+                .query_row(
+                    "SELECT parent_id FROM todos WHERE id=?1",
+                    [&parent_id],
+                    |row| row.get(0),
+                )
+                .optional()?;
+        }
         tx.commit()?;
         Ok(())
     });
     if result.is_ok() {
-        if let Some(value) = s.todos.iter_mut().find(|value| value.id() == item.id()) {
-            value.set_done(true);
-            value.set_completed_at(Some(completed.clone()));
-            value.set_updated_at(completed);
+        for completed_id in completed_ids {
+            if let Some(value) = s.todos.iter_mut().find(|value| value.id() == completed_id) {
+                value.set_done(true);
+                value.set_completed_at(Some(completed.clone()));
+                value.set_updated_at(completed.clone());
+            }
         }
         true
     } else {
@@ -657,24 +689,8 @@ pub fn add_todo(
     let now = now_string();
     let result = with_db(s, |conn| {
         let tx = conn.transaction()?;
-        let parent_due: Option<String> = parent_id.as_ref().and_then(|parent| {
-            tx.query_row("SELECT due_at FROM todos WHERE id=?1", [parent], |r| {
-                r.get(0)
-            })
-            .optional()
-            .ok()
-            .flatten()
-        });
-        let final_due = parent_due
-            .map(|parent| {
-                if parent > due_at {
-                    parent
-                } else {
-                    due_at.clone()
-                }
-            })
-            .unwrap_or_else(|| due_at.clone());
-        tx.execute("INSERT INTO todos(id,content,due_at,status,priority,parent_id,created_at,updated_at) VALUES(?1,?2,?3,'open','medium',?4,?5,?5)", params![todo_id, text, final_due, parent_id, now])?;
+        // 子任务使用自己的计划完成时间；父级仅顺延到 max(原父级时间, 新子任务时间)。
+        tx.execute("INSERT INTO todos(id,content,due_at,status,priority,parent_id,created_at,updated_at) VALUES(?1,?2,?3,'open','medium',?4,?5,?5)", params![todo_id, text, due_at, parent_id, now])?;
         if let Some(parent) = parent_id.as_ref() {
             tx.execute("UPDATE todos SET status='open',completed_at=NULL,due_at=CASE WHEN due_at<?1 THEN ?1 ELSE due_at END,updated_at=?2 WHERE id=?3", params![due_at, now, parent])?;
         }
@@ -708,10 +724,13 @@ pub fn set_priority(cx: &mut App, id: &str, priority: Priority) -> bool {
     let s = store(cx);
     let now = now_string();
     if with_db(s, |conn| {
-        conn.execute(
+        let changed = conn.execute(
             "UPDATE todos SET priority=?1,updated_at=?2 WHERE id=?3 AND status='open'",
             params![priority.as_str(), now, id],
         )?;
+        if changed == 0 {
+            return Err(rusqlite::Error::QueryReturnedNoRows);
+        }
         Ok(())
     })
     .is_ok()
