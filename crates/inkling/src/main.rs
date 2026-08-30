@@ -3,6 +3,8 @@
 //! 基础功能阶段：单窗口（标题栏 / 侧边栏 / 三视图 / 设置与统计入口 / 多主题）。
 
 mod app;
+mod settings;
+mod stats;
 mod theme;
 mod views;
 
@@ -12,6 +14,7 @@ use gpui::{px, size, App, Application, Bounds, TitlebarOptions, WindowBounds, Wi
 
 fn main() {
     Application::new().run(|cx: &mut App| {
+        let settings = settings::Settings::load();
         cx.bind_keys(key_bindings());
 
         let bounds = Bounds::centered(None, size(px(880.), px(680.)), cx);
@@ -26,7 +29,7 @@ fn main() {
                     }),
                     ..Default::default()
                 },
-                |_, cx| cx.new(|cx| InboxApp::new(cx)),
+                |_, cx| cx.new(|cx| InboxApp::new(settings, cx)),
             )
             .expect("打开主窗口失败");
 

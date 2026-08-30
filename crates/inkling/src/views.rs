@@ -226,6 +226,7 @@ pub fn todos(t: &Theme) -> impl IntoElement {
         ))
 }
 
+#[allow(dead_code)]
 pub fn stats(t: &Theme) -> impl IntoElement {
     div()
         .flex()
