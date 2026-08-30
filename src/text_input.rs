@@ -1,21 +1,21 @@
+//! 文本输入组件（多行渲染）— 改造自 gpui `examples/input.rs`。
+//!
+//! 支持：光标定位 / 选区 / 退格 / 全选 / 复制粘贴 / HOME+END / 中文 IME，
+//! 文本按宽度自动换行，光标随换行移动。
+
 use std::ops::Range;
 
 use gpui::{
-    actions, black, div, fill, hsla, opaque_grey, point, prelude::*, px, relative, rgb, rgba, size,
-    white, yellow, App, Application, Bounds, ClipboardItem, Context, CursorStyle, ElementId,
-    ElementInputHandler, Entity, EntityInputHandler, FocusHandle, Focusable, GlobalElementId, Hsla,
-    KeyBinding, Keystroke, LayoutId, MouseButton, MouseDownEvent, MouseMoveEvent, MouseUpEvent,
-    PaintQuad, Pixels, Point, ShapedLine, SharedString, Style, TextRun, UTF16Selection,
-    UnderlineStyle, Window, WindowBounds, WindowOptions,
+    actions, div, fill, point, prelude::*, px, relative, App, Bounds, ClickEvent, Context,
+    CursorStyle, ElementId, ElementInputHandler, Entity, EntityInputHandler, FocusHandle,
+    Focusable, GlobalElementId, Hsla, KeyBinding, Keystroke, LayoutId, MouseButton, MouseDownEvent,
+    MouseMoveEvent, MouseUpEvent, PaintQuad, Pixels, Point, ShapedLine, SharedString, Style,
+    TextAlign, TextRun, UTF16Selection, UnderlineStyle, Window, WrappedLine,
 };
 use unicode_segmentation::*;
 
 /// 文本输入键位（面板窗口启动时绑定）
 pub fn key_bindings() -> Vec<KeyBinding> {
-    use crate::text_input::{
-        Backspace, Copy, Cut, Delete, End, Home, Left, Paste, Right, SelectAll, SelectLeft,
-        SelectRight,
-    };
     vec![
         KeyBinding::new("backspace", Backspace, None),
         KeyBinding::new("delete", Delete, None),
@@ -48,11 +48,10 @@ actions!(
         SelectAll,
         Home,
         End,
-        ShowCharacterPalette,
         Paste,
         Cut,
         Copy,
-        Quit,
+        ShowCharacterPalette,
     ]
 );
 
@@ -62,10 +61,11 @@ pub struct TextInput {
     placeholder: SharedString,
     placeholder_color: Hsla,
     text_color: Hsla,
+    line_height: Pixels,
     selected_range: Range<usize>,
     selection_reversed: bool,
     marked_range: Option<Range<usize>>,
-    last_layout: Option<ShapedLine>,
+    last_layout: Option<WrappedLine>,
     last_bounds: Option<Bounds<Pixels>>,
     is_selecting: bool,
 }
@@ -83,6 +83,7 @@ impl TextInput {
             placeholder: placeholder.to_string().into(),
             placeholder_color,
             text_color,
+            line_height: px(24.),
             selected_range: 0..0,
             selection_reversed: false,
             marked_range: None,
@@ -98,8 +99,10 @@ impl TextInput {
     }
 
     /// 清空输入
-    pub fn clear(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        self.replace_text_in_range(None, "", window, cx)
+    pub fn clear(&mut self, cx: &mut Context<Self>) {
+        self.content = "".into();
+        self.selected_range = 0..0;
+        cx.notify();
     }
 
     fn left(&mut self, _: &Left, _: &mut Window, cx: &mut Context<Self>) {
@@ -123,7 +126,7 @@ impl TextInput {
     }
 
     fn select_right(&mut self, _: &SelectRight, _: &mut Window, cx: &mut Context<Self>) {
-        self.select_to(self.next_boundary(self.cursor_offset()), cx);
+        self.select_to(self.next_boundary(self.selected_range.end), cx);
     }
 
     fn select_all(&mut self, _: &SelectAll, _: &mut Window, cx: &mut Context<Self>) {
@@ -136,7 +139,7 @@ impl TextInput {
     }
 
     fn end(&mut self, _: &End, _: &mut Window, cx: &mut Context<Self>) {
-        self.move_to(self.content.len(), cx);
+        self.move_to(self.content.len(), cx)
     }
 
     fn backspace(&mut self, _: &Backspace, window: &mut Window, cx: &mut Context<Self>) {
@@ -189,20 +192,21 @@ impl TextInput {
 
     fn paste(&mut self, _: &Paste, window: &mut Window, cx: &mut Context<Self>) {
         if let Some(text) = cx.read_from_clipboard().and_then(|item| item.text()) {
-            self.replace_text_in_range(None, &text.replace("\n", " "), window, cx);
+            self.replace_text_in_range(None, &text, window, cx);
         }
     }
 
     fn copy(&mut self, _: &Copy, _: &mut Window, cx: &mut Context<Self>) {
         if !self.selected_range.is_empty() {
-            cx.write_to_clipboard(ClipboardItem::new_string(
+            cx.write_to_clipboard(gpui::ClipboardItem::new_string(
                 self.content[self.selected_range.clone()].to_string(),
             ));
         }
     }
+
     fn cut(&mut self, _: &Cut, window: &mut Window, cx: &mut Context<Self>) {
         if !self.selected_range.is_empty() {
-            cx.write_to_clipboard(ClipboardItem::new_string(
+            cx.write_to_clipboard(gpui::ClipboardItem::new_string(
                 self.content[self.selected_range.clone()].to_string(),
             ));
             self.replace_text_in_range(None, "", window, cx)
@@ -237,7 +241,9 @@ impl TextInput {
         if position.y > bounds.bottom() {
             return self.content.len();
         }
-        line.closest_index_for_x(position.x - bounds.left())
+        match line.closest_index_for_position(position - bounds.origin, self.line_height) {
+            Ok(index) | Err(index) => index,
+        }
     }
 
     fn select_to(&mut self, offset: usize, cx: &mut Context<Self>) {
@@ -304,16 +310,6 @@ impl TextInput {
             .grapheme_indices(true)
             .find_map(|(idx, _)| (idx > offset).then_some(idx))
             .unwrap_or(self.content.len())
-    }
-
-    fn reset(&mut self) {
-        self.content = "".into();
-        self.selected_range = 0..0;
-        self.selection_reversed = false;
-        self.marked_range = None;
-        self.last_layout = None;
-        self.last_bounds = None;
-        self.is_selecting = false;
     }
 }
 
@@ -403,8 +399,10 @@ impl EntityInputHandler for TextInput {
             .as_ref()
             .map(|range_utf16| self.range_from_utf16(range_utf16))
             .map(|new_range| new_range.start + range.start..new_range.end + range.end)
-            .unwrap_or_else(|| range.start + new_text.len()..range.start + new_text.len());
-
+            .unwrap_or_else(|| {
+                let cursor = range.start + new_text.len();
+                cursor..cursor
+            });
         cx.notify();
     }
 
@@ -419,12 +417,12 @@ impl EntityInputHandler for TextInput {
         let range = self.range_from_utf16(&range_utf16);
         Some(Bounds::from_corners(
             point(
-                bounds.left() + last_layout.x_for_index(range.start),
+                bounds.left() + last_layout.unwrapped_layout.x_for_index(range.start),
                 bounds.top(),
             ),
             point(
-                bounds.left() + last_layout.x_for_index(range.end),
-                bounds.bottom(),
+                bounds.left() + last_layout.unwrapped_layout.x_for_index(range.end),
+                bounds.top() + self.line_height,
             ),
         ))
     }
@@ -439,8 +437,52 @@ impl EntityInputHandler for TextInput {
         let last_layout = self.last_layout.as_ref()?;
 
         assert_eq!(last_layout.text, self.content);
-        let utf8_index = last_layout.index_for_x(point.x - line_point.x)?;
+        let utf8_index = last_layout
+            .unwrapped_layout
+            .index_for_x(point.x - line_point.x)?;
         Some(self.offset_to_utf16(utf8_index))
+    }
+}
+
+impl Render for TextInput {
+    fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+        div()
+            .flex()
+            .key_context("TextInput")
+            .track_focus(&self.focus_handle(cx))
+            .cursor(CursorStyle::IBeam)
+            .on_action(cx.listener(Self::backspace))
+            .on_action(cx.listener(Self::delete))
+            .on_action(cx.listener(Self::left))
+            .on_action(cx.listener(Self::right))
+            .on_action(cx.listener(Self::select_left))
+            .on_action(cx.listener(Self::select_right))
+            .on_action(cx.listener(Self::select_all))
+            .on_action(cx.listener(Self::home))
+            .on_action(cx.listener(Self::end))
+            .on_action(cx.listener(Self::show_character_palette))
+            .on_action(cx.listener(Self::paste))
+            .on_action(cx.listener(Self::cut))
+            .on_action(cx.listener(Self::copy))
+            .on_mouse_down(MouseButton::Left, cx.listener(Self::on_mouse_down))
+            .on_mouse_up(MouseButton::Left, cx.listener(Self::on_mouse_up))
+            .on_mouse_up_out(MouseButton::Left, cx.listener(Self::on_mouse_up))
+            .on_mouse_move(cx.listener(Self::on_mouse_move))
+            .line_height(self.line_height)
+            .text_size(px(14.))
+            .text_color(self.text_color)
+            .child(
+                div()
+                    .w_full()
+                    .min_h(self.line_height)
+                    .child(TextElement { input: cx.entity() }),
+            )
+    }
+}
+
+impl Focusable for TextInput {
+    fn focus_handle(&self, _: &App) -> FocusHandle {
+        self.focus_handle.clone()
     }
 }
 
@@ -449,15 +491,14 @@ struct TextElement {
 }
 
 struct PrepaintState {
-    line: Option<ShapedLine>,
+    line: Option<WrappedLine>,
     cursor: Option<PaintQuad>,
-    selection: Option<PaintQuad>,
 }
 
 impl IntoElement for TextElement {
     type Element = Self;
 
-    fn into_element(self) -> Self::Element {
+    fn into_element(self) -> Self {
         self
     }
 }
@@ -483,8 +524,44 @@ impl Element for TextElement {
     ) -> (LayoutId, Self::RequestLayoutState) {
         let mut style = Style::default();
         style.size.width = relative(1.).into();
-        style.size.height = window.line_height().into();
-        (window.request_layout(style, [], cx), ())
+        let input = self.input.clone();
+        let line_height = window.line_height();
+        (
+            window.request_measured_layout(style, move |known, available, window, cx| {
+                let input = input.read(cx);
+                let content = if input.content.is_empty() {
+                    input.placeholder.clone()
+                } else {
+                    input.content.clone()
+                };
+                let style = window.text_style();
+                let font_size = style.font_size.to_pixels(window.rem_size());
+                let wrap_width = match available.width {
+                    gpui::AvailableSpace::Definite(w) => w,
+                    _ => known.width.unwrap_or(px(400.)),
+                }
+                .max(px(40.));
+                let run = TextRun {
+                    len: content.len(),
+                    font: style.font(),
+                    color: style.color,
+                    background_color: None,
+                    underline: None,
+                    strikethrough: None,
+                };
+                match window.text_system().shape_text(
+                    content,
+                    font_size,
+                    &[run],
+                    Some(wrap_width),
+                    None,
+                ) {
+                    Ok(lines) => lines[0].size(line_height),
+                    Err(_) => gpui::size(px(40.), line_height),
+                }
+            }),
+            (),
+        )
     }
 
     fn prepaint(
@@ -500,6 +577,7 @@ impl Element for TextElement {
         let content = input.content.clone();
         let selected_range = input.selected_range.clone();
         let cursor = input.cursor_offset();
+        let line_height = input.line_height;
         let style = window.text_style();
 
         let (display_text, text_color) = if content.is_empty() {
@@ -533,7 +611,7 @@ impl Element for TextElement {
                 },
                 TextRun {
                     len: display_text.len() - marked_range.end,
-                    ..run
+                    ..run.clone()
                 },
             ]
             .into_iter()
@@ -544,44 +622,50 @@ impl Element for TextElement {
         };
 
         let font_size = style.font_size.to_pixels(window.rem_size());
-        let line = window
+        let wrapped = window
             .text_system()
-            .shape_line(display_text, font_size, &runs, None);
+            .shape_text(
+                display_text,
+                font_size,
+                &runs,
+                Some(bounds.size.width),
+                None,
+            )
+            .expect("shape_text 失败")
+            .pop()
+            .unwrap();
 
-        let cursor_pos = line.x_for_index(cursor);
-        let (selection, cursor) = if selected_range.is_empty() {
-            (
-                None,
-                Some(fill(
-                    Bounds::new(
-                        point(bounds.left() + cursor_pos, bounds.top()),
-                        size(px(2.), bounds.bottom() - bounds.top()),
-                    ),
-                    gpui::blue(),
-                )),
-            )
+        // 光标定位：UTF-8 偏移 → 视觉行 / 行内 x
+        let unwrapped = &wrapped.unwrapped_layout;
+        let mut line_ix = 0usize;
+        let mut line_start = 0usize;
+        for boundary in wrapped.wrap_boundaries() {
+            let boundary_utf8 = glyph_boundary_to_utf8(&unwrapped.runs, boundary.glyph_ix);
+            if boundary_utf8 <= cursor {
+                line_ix += 1;
+                line_start = boundary_utf8;
+            } else {
+                break;
+            }
+        }
+        let cursor_x = unwrapped.x_for_index(cursor) - unwrapped.x_for_index(line_start);
+        let cursor_y = line_ix as f32 * line_height;
+
+        let cursor = if selected_range.is_empty() {
+            Some(fill(
+                gpui::Bounds::new(
+                    point(bounds.left() + cursor_x, bounds.top() + cursor_y),
+                    gpui::size(px(2.), line_height),
+                ),
+                gpui::hsla(0.58, 0.9, 0.75, 1.0),
+            ))
         } else {
-            (
-                Some(fill(
-                    Bounds::from_corners(
-                        point(
-                            bounds.left() + line.x_for_index(selected_range.start),
-                            bounds.top(),
-                        ),
-                        point(
-                            bounds.left() + line.x_for_index(selected_range.end),
-                            bounds.bottom(),
-                        ),
-                    ),
-                    rgba(0x3311ff30),
-                )),
-                None,
-            )
+            None
         };
+
         PrepaintState {
-            line: Some(line),
+            line: Some(wrapped),
             cursor,
-            selection,
         }
     }
 
@@ -601,18 +685,19 @@ impl Element for TextElement {
             ElementInputHandler::new(bounds, self.input.clone()),
             cx,
         );
-        if let Some(selection) = prepaint.selection.take() {
-            window.paint_quad(selection)
+        if let Some(cursor) = prepaint.cursor.take() {
+            window.paint_quad(cursor);
         }
         let line = prepaint.line.take().unwrap();
-        line.paint(bounds.origin, window.line_height(), window, cx)
-            .unwrap();
-
-        if focus_handle.is_focused(window) {
-            if let Some(cursor) = prepaint.cursor.take() {
-                window.paint_quad(cursor);
-            }
-        }
+        line.paint(
+            bounds.origin,
+            window.line_height(),
+            TextAlign::Left,
+            None,
+            window,
+            cx,
+        )
+        .unwrap();
 
         self.input.update(cx, |input, _cx| {
             input.last_layout = Some(line);
@@ -621,44 +706,18 @@ impl Element for TextElement {
     }
 }
 
-impl Render for TextInput {
-    fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-        div()
-            .flex()
-            .key_context("TextInput")
-            .track_focus(&self.focus_handle(cx))
-            .cursor(CursorStyle::IBeam)
-            .on_action(cx.listener(Self::backspace))
-            .on_action(cx.listener(Self::delete))
-            .on_action(cx.listener(Self::left))
-            .on_action(cx.listener(Self::right))
-            .on_action(cx.listener(Self::select_left))
-            .on_action(cx.listener(Self::select_right))
-            .on_action(cx.listener(Self::select_all))
-            .on_action(cx.listener(Self::home))
-            .on_action(cx.listener(Self::end))
-            .on_action(cx.listener(Self::show_character_palette))
-            .on_action(cx.listener(Self::paste))
-            .on_action(cx.listener(Self::cut))
-            .on_action(cx.listener(Self::copy))
-            .on_mouse_down(MouseButton::Left, cx.listener(Self::on_mouse_down))
-            .on_mouse_up(MouseButton::Left, cx.listener(Self::on_mouse_up))
-            .on_mouse_up_out(MouseButton::Left, cx.listener(Self::on_mouse_up))
-            .on_mouse_move(cx.listener(Self::on_mouse_move))
-            .line_height(px(24.))
-            .text_size(px(14.))
-            .child(
-                div()
-                    .h(px(32.))
-                    .w_full()
-                    .px_2()
-                    .child(TextElement { input: cx.entity() }),
-            )
+/// 换行边界（glyph 序号）→ 源文本 UTF-8 偏移
+fn glyph_boundary_to_utf8(runs: &[gpui::ShapedRun], glyph_ix: usize) -> usize {
+    let mut consumed = 0usize;
+    for run in runs {
+        if glyph_ix < consumed + run.glyphs.len() {
+            return run.glyphs[glyph_ix - consumed].index;
+        }
+        consumed += run.glyphs.len();
     }
-}
-
-impl Focusable for TextInput {
-    fn focus_handle(&self, _: &App) -> FocusHandle {
-        self.focus_handle.clone()
-    }
+    // 边界位于文本末尾：返回最后一个字形之后的偏移
+    runs.last()
+        .and_then(|run| run.glyphs.last())
+        .map(|glyph| glyph.index)
+        .unwrap_or(0)
 }
