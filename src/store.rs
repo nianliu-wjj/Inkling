@@ -1376,12 +1376,33 @@ pub fn update_todo(cx: &mut App, item: &TodoItem) -> bool {
     if item.done() || item.text().trim().is_empty() {
         return false;
     }
+    if item.due_at().parse::<u64>().is_err()
+        || item
+            .remind_at()
+            .as_ref()
+            .is_some_and(|value| value.parse::<u64>().is_err())
+    {
+        return false;
+    }
     let s = store(cx);
     let now = now_string();
     let tags = normalize_tags(&item.tags(), 3, 10);
     let remark = item.remark().chars().take(200).collect::<String>();
     let result = with_db(s, |conn| {
         let tx = conn.transaction()?;
+        if let Some(parent_id) = item.parent_id().as_ref() {
+            let parent_due: String =
+                tx.query_row("SELECT due_at FROM todos WHERE id=?1", [parent_id], |row| {
+                    row.get(0)
+                })?;
+            if item.due_at().parse::<u64>().unwrap_or(u64::MAX)
+                > parent_due.parse::<u64>().unwrap_or(0)
+            {
+                return Err(rusqlite::Error::InvalidParameterName(
+                    "child due_at cannot exceed parent due_at".into(),
+                ));
+            }
+        }
         let changed = tx.execute("UPDATE todos SET content=?1,due_at=?2,remind_at=?3,repeat_rule=?4,priority=?5,remark=?6,updated_at=?7 WHERE id=?8 AND status='open'", params![item.text(), item.due_at(), item.remind_at(), item.repeat_rule(), item.priority().as_str(), remark, now, item.id()])?;
         if changed == 0 {
             return Err(rusqlite::Error::QueryReturnedNoRows);

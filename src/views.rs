@@ -680,6 +680,113 @@ fn priority_menu(t: &Theme, todo: &TodoItem, cx: &mut Context<InboxApp>) -> impl
     menu
 }
 
+fn todo_meta_editor(
+    t: &Theme,
+    todo: &TodoItem,
+    content_input: Entity<TextInput>,
+    due_input: Entity<TextInput>,
+    remind_input: Entity<TextInput>,
+    tags_input: Entity<TextInput>,
+    remark_input: Entity<TextInput>,
+    cx: &mut Context<InboxApp>,
+) -> impl IntoElement {
+    let todo_id = todo.id().clone();
+    let original_todo = todo.clone();
+    let save_content = content_input.clone();
+    let save_due = due_input.clone();
+    let save_remind = remind_input.clone();
+    let save_tags = tags_input.clone();
+    let save_remark = remark_input.clone();
+    let cancel_inputs = [
+        content_input.clone(),
+        due_input.clone(),
+        remind_input.clone(),
+        tags_input.clone(),
+        remark_input.clone(),
+    ];
+    div()
+        .mt_2()
+        .p_2()
+        .rounded_md()
+        .bg(t.bg())
+        .border_1()
+        .border_color(t.border())
+        .flex()
+        .flex_col()
+        .gap_1()
+        .child(
+            div()
+                .text_size(px(11.))
+                .font_weight(FontWeight::SEMIBOLD)
+                .text_color(t.text())
+                .child("待办详情"),
+        )
+        .child(div().h(px(30.)).child(content_input))
+        .child(div().h(px(30.)).child(due_input))
+        .child(div().h(px(30.)).child(remind_input))
+        .child(div().h(px(30.)).child(tags_input))
+        .child(div().h(px(30.)).child(remark_input))
+        .child(
+            div()
+                .flex()
+                .items_center()
+                .gap_1()
+                .child(
+                    div()
+                        .id(SharedString::from(format!("save-meta-todo-{todo_id}")))
+                        .px_2()
+                        .py_1()
+                        .rounded_md()
+                        .bg(t.accent())
+                        .text_color(t.bg())
+                        .text_size(px(10.))
+                        .cursor_pointer()
+                        .on_click(cx.listener(move |this, _: &ClickEvent, _, cx| {
+                            let mut candidate = original_todo.clone();
+                            let content = save_content.read(cx).content().trim().to_string();
+                            let due = save_due.read(cx).content().trim().to_string();
+                            let remind = save_remind.read(cx).content().trim().to_string();
+                            let tags = save_tags
+                                .read(cx)
+                                .content()
+                                .split(',')
+                                .map(|value| value.trim().to_string())
+                                .filter(|value| !value.is_empty())
+                                .collect();
+                            let remark = save_remark.read(cx).content().chars().take(200).collect();
+                            candidate.set_text(content);
+                            candidate.set_due_at(due);
+                            candidate.set_remind_at((!remind.is_empty()).then_some(remind));
+                            candidate.set_tags(tags);
+                            candidate.set_remark(remark);
+                            if store::update_todo(cx, &candidate) {
+                                this.set_todo_meta_id(None);
+                                cx.notify();
+                            }
+                        }))
+                        .child("保存详情"),
+                )
+                .child(
+                    div()
+                        .id(SharedString::from(format!("cancel-meta-todo-{todo_id}")))
+                        .px_2()
+                        .py_1()
+                        .rounded_md()
+                        .text_size(px(10.))
+                        .text_color(t.text_dim())
+                        .cursor_pointer()
+                        .on_click(cx.listener(move |this, _: &ClickEvent, _, cx| {
+                            this.set_todo_meta_id(None);
+                            for input in cancel_inputs.iter() {
+                                input.update(cx, |input, cx| input.clear(cx));
+                            }
+                            cx.notify();
+                        }))
+                        .child("取消"),
+                ),
+        )
+}
+
 fn todo_row(
     t: &Theme,
     todo: &TodoItem,
@@ -688,6 +795,11 @@ fn todo_row(
     delete_target: Option<DeleteTarget>,
     edit_input: Entity<TextInput>,
     edit_id: Option<String>,
+    meta_id: Option<String>,
+    meta_due_input: Entity<TextInput>,
+    meta_remind_input: Entity<TextInput>,
+    meta_tags_input: Entity<TextInput>,
+    meta_remark_input: Entity<TextInput>,
     cx: &mut Context<InboxApp>,
 ) -> impl IntoElement {
     let done = todo.done();
@@ -770,6 +882,45 @@ fn todo_row(
             }))
             .child("📌 置顶"),
     );
+    if !done {
+        let meta_id_for_click = item_id.clone();
+        let meta_content = edit_input.clone();
+        let meta_due = meta_due_input.clone();
+        let meta_remind = meta_remind_input.clone();
+        let meta_tags = meta_tags_input.clone();
+        let meta_remark = meta_remark_input.clone();
+        let current_text = todo.text().clone();
+        let current_due = todo.due_at().clone();
+        let current_remind = todo.remind_at().clone().unwrap_or_default();
+        let current_tags = todo.tags().join(", ");
+        let current_remark = todo.remark().clone();
+        bottom = bottom.child(
+            div()
+                .id(SharedString::from(format!("detail-todo-{}", todo.id())))
+                .px_1p5()
+                .py_0p5()
+                .rounded_sm()
+                .text_size(px(10.))
+                .text_color(t.accent())
+                .cursor_pointer()
+                .hover(|s| s.bg(t.hover()))
+                .on_click(cx.listener(move |this, _: &ClickEvent, _, cx| {
+                    meta_content
+                        .update(cx, |input, cx| input.set_content(current_text.clone(), cx));
+                    meta_due.update(cx, |input, cx| input.set_content(current_due.clone(), cx));
+                    meta_remind.update(cx, |input, cx| {
+                        input.set_content(current_remind.clone(), cx)
+                    });
+                    meta_tags.update(cx, |input, cx| input.set_content(current_tags.clone(), cx));
+                    meta_remark.update(cx, |input, cx| {
+                        input.set_content(current_remark.clone(), cx)
+                    });
+                    this.set_todo_meta_id(Some(meta_id_for_click.clone()));
+                    cx.notify();
+                }))
+                .child("⚙ 详情"),
+        );
+    }
     if let Some(remark) = (!todo.remark().is_empty()).then(|| todo.remark()) {
         bottom = bottom.child(div().text_size(px(10.)).text_color(t.text_dim()).child(
             if remark.len() > 100 {
@@ -878,7 +1029,7 @@ fn todo_row(
                 .flex()
                 .items_center()
                 .gap_1()
-                .child(div().flex_1().h(px(30.)).child(edit_input))
+                .child(div().flex_1().h(px(30.)).child(edit_input.clone()))
                 .child(
                     div()
                         .id(SharedString::from(format!("save-todo-{}", item_id)))
@@ -915,6 +1066,18 @@ fn todo_row(
                 ),
         );
     }
+    if !done && meta_id.as_deref() == Some(item_id.as_str()) {
+        row = row.child(todo_meta_editor(
+            t,
+            todo,
+            edit_input,
+            meta_due_input,
+            meta_remind_input,
+            meta_tags_input,
+            meta_remark_input,
+            cx,
+        ));
+    }
     row
 }
 
@@ -925,6 +1088,11 @@ pub fn todos(
     todo_input: Entity<TextInput>,
     edit_input: Entity<TextInput>,
     edit_id: Option<String>,
+    meta_id: Option<String>,
+    meta_due_input: Entity<TextInput>,
+    meta_remind_input: Entity<TextInput>,
+    meta_tags_input: Entity<TextInput>,
+    meta_remark_input: Entity<TextInput>,
     parent_target: Option<String>,
     delete_target: Option<DeleteTarget>,
     cx: &mut Context<InboxApp>,
@@ -1005,6 +1173,11 @@ pub fn todos(
                 delete_target.clone(),
                 edit_input.clone(),
                 edit_id.clone(),
+                meta_id.clone(),
+                meta_due_input.clone(),
+                meta_remind_input.clone(),
+                meta_tags_input.clone(),
+                meta_remark_input.clone(),
                 cx,
             ));
         } else {
@@ -1016,6 +1189,11 @@ pub fn todos(
                 delete_target.clone(),
                 edit_input.clone(),
                 edit_id.clone(),
+                meta_id.clone(),
+                meta_due_input.clone(),
+                meta_remind_input.clone(),
+                meta_tags_input.clone(),
+                meta_remark_input.clone(),
                 cx,
             ));
         }
