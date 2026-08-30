@@ -4,10 +4,10 @@
   "version": "0.1.0",
   "identifier": "com.inkling.capture",
   "build": {
-    "beforeDevCommand": "npm --prefix ../web run dev",
-    "beforeBuildCommand": "npm --prefix ../web run build",
+    "beforeDevCommand": "npm --prefix .. run dev",
+    "beforeBuildCommand": "npm --prefix .. run build",
     "devUrl": "http://localhost:1420",
-    "frontendDist": "../web/dist"
+    "frontendDist": "../dist"
   },
   "app": {
     "windows": [

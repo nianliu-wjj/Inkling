@@ -54,12 +54,12 @@
 
 ### 1.3 当前分支实现状态
 
-本分支从提交 `65bb5fd5fdec81be991a36d9c31d6ab57f5129ba` 创建，正式实现采用 Tauri 2 + Vue 3 + TypeScript + Vite；原 `doc/` 静态原型仅作为视觉和交互参考。当前已落地的实现边界如下：
+本分支从提交 `65bb5fd5fdec81be991a36d9c31d6ab57f5129ba` 创建，正式实现采用 Tauri 2 + Vue 3 + TypeScript + Vite，遵循 Tauri 标准目录：项目根目录放置前端源码与 npm 工程，`src-tauri/` 放置 Rust 后端和 Tauri 配置；原 `doc/` 静态原型仅作为视觉和交互参考。当前已落地的实现边界如下：
 
 | 层次 | 当前实现 | 说明 |
 | --- | --- | --- |
-| 前端 | `web/` Vue 单页应用 | 笔记、剪贴板、待办、统计、设置均在同一窗口内切换；优先级使用锚定式三选一 Popover |
-| IPC | `web/src/api.ts` + Tauri commands | 渲染进程不直接访问 SQLite |
+| 前端 | 根目录 `src/` Vue 单页应用 | 笔记、剪贴板、待办、统计、设置均在同一窗口内切换；优先级使用锚定式三选一 Popover |
+| IPC | `src/api.ts` + Tauri commands | 渲染进程不直接访问 SQLite |
 | 数据 | `src-tauri/src/main.rs` + SQLite WAL | 已包含 notes、tags、clipboard_entries、todos、todo_tags、settings 表 |
 | 文件 | Tauri `app_data_dir/notes/` | 笔记超过 1MB 时使用临时文件替换并保存相对路径；从外置文件恢复为小文本时清理旧文件 |
 | 领域约束 | Rust command 层 | 子任务层级、最多 5 个子任务、已完成项只允许新增子任务、优先级限制和统计逾期日期口径在后端校验 |

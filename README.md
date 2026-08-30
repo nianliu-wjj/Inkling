@@ -8,7 +8,7 @@
 - **目标平台**：macOS、Windows
 - **当前限制**：核心捕获闭环、系统托盘、全局快捷键、开机启动、文本剪贴板监听和本地 SQLite 已接入；顶部感应区/多窗口、提醒调度、置顶浮窗、导出、图片剪贴板和自动化测试仍在后续阶段补齐
 
-> ℹ️ `doc/index.html` 仍是独立的视觉和交互参考原型；当前分支的正式 UI 位于 `web/`，桌面端 Rust 入口位于 `src-tauri/`。原型中未实现的系统能力不会被当作已交付功能。
+> ℹ️ `doc/index.html` 仍是独立的视觉和交互参考原型；当前分支的正式 UI 位于项目根目录 `src/`，桌面端 Rust 入口位于 `src-tauri/`。原型中未实现的系统能力不会被当作已交付功能。
 
 ## 目录
 
@@ -65,9 +65,11 @@ Inkling 面向需要随手记录和整理信息的桌面用户，核心目标是
 ```text
 D:\Inkling\
 ├─ README.md
-├─ web/                                # Vue 3 + TypeScript + Vite 前端
-│  ├─ src/App.vue                      # 单窗口业务视图与交互
-│  └─ src/api.ts                       # Tauri invoke IPC 封装
+├─ src/                                # Vue 3 + TypeScript + Vite 前端（根目录）
+│  ├─ App.vue                          # 单窗口业务视图与交互
+│  └─ api.ts                           # Tauri invoke IPC 封装
+├─ index.html                          # Vite 前端入口
+├─ package.json                        # 前端与 Tauri CLI 脚本
 ├─ src-tauri/                          # Tauri 2 + Rust 后端
 │  ├─ src/main.rs                      # SQLite、领域校验和 IPC commands
 │  ├─ tauri.conf.json                  # 桌面窗口、CSP 与构建配置
@@ -86,20 +88,20 @@ D:\Inkling\
 环境要求：Node.js 20+、npm 10+、Rust stable、Windows WebView2（Windows）或 macOS WebKit。首次安装依赖：
 
 ```powershell
-npm install --prefix web
+npm install
 cargo check --manifest-path src-tauri/Cargo.toml
 ```
 
 启动 Tauri 开发应用：
 
 ```powershell
-web\node_modules\.bin\tauri dev --config src-tauri/tauri.conf.json
+npx tauri dev --config src-tauri/tauri.conf.json
 ```
 
 构建前端和桌面安装包：
 
 ```powershell
-web\node_modules\.bin\tauri build --config src-tauri/tauri.conf.json
+npx tauri build --config src-tauri/tauri.conf.json
 ```
 
 数据默认保存于 Tauri `app_data_dir`，包括 `inkling.sqlite3` 和大笔记 `notes/` 目录；不会写入源码目录。

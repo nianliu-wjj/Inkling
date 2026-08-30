@@ -1,6 +1,6 @@
 # Ignore generated frontend and desktop build artifacts
 node_modules/
-web/dist/
+dist/
 src-tauri/target/
 *.log
 .DS_Store
