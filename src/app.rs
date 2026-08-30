@@ -65,6 +65,8 @@ crate::accessors! {
         autostart_error: Option<String>,
         priority_menu_open: Option<String>,
         todo_input: Entity<TextInput>,
+        todo_edit_input: Entity<TextInput>,
+        todo_edit_id: Option<String>,
         todo_parent_target: Option<String>,
         search_input: Entity<TextInput>,
         search_query: String,
@@ -111,6 +113,14 @@ impl InboxApp {
                 cx,
             )
         });
+        let todo_edit_input = cx.new(|cx| {
+            TextInput::new(
+                "修改待办内容…",
+                gpui::hsla(0.0, 0.0, 1.0, 0.35),
+                gpui::hsla(0.65, 0.08, 0.95, 1.0),
+                cx,
+            )
+        });
         let search_input = cx.new(|cx| {
             TextInput::new(
                 "搜索文本、标签或备注…",
@@ -136,6 +146,8 @@ impl InboxApp {
             autostart_error: None,
             priority_menu_open: None,
             todo_input,
+            todo_edit_input,
+            todo_edit_id: None,
             todo_parent_target: None,
             search_input,
             search_query: String::new(),
@@ -459,6 +471,8 @@ impl InboxApp {
                 &todos,
                 self.priority_menu_open(),
                 self.todo_input.clone(),
+                self.todo_edit_input.clone(),
+                self.todo_edit_id(),
                 self.todo_parent_target(),
                 self.delete_target(),
                 cx,

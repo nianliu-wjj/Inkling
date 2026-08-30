@@ -422,6 +422,8 @@ fn todo_row(
     menu_open: Option<String>,
     depth: usize,
     delete_target: Option<DeleteTarget>,
+    edit_input: Entity<TextInput>,
+    edit_id: Option<String>,
     cx: &mut Context<InboxApp>,
 ) -> impl IntoElement {
     let done = todo.done();
@@ -445,23 +447,49 @@ fn todo_row(
                 .child(format!("📅 {}", store::display_timestamp(&todo.due_at()))),
         )
         .child(div().flex_1());
-    let parent_id = todo.id().clone();
-    bottom = bottom.child(
-        div()
-            .id(SharedString::from(format!("add-child-{}", todo.id())))
-            .px_1p5()
-            .py_0p5()
-            .rounded_sm()
-            .text_size(px(10.))
-            .text_color(t.accent())
-            .cursor_pointer()
-            .hover(|s| s.bg(t.hover()))
-            .on_click(cx.listener(move |this, _: &ClickEvent, _, cx| {
-                this.set_todo_parent_target(Some(parent_id.clone()));
-                cx.notify();
-            }))
-            .child("＋子任务"),
-    );
+    if todo.parent_id().is_none() {
+        let parent_id = todo.id().clone();
+        bottom = bottom.child(
+            div()
+                .id(SharedString::from(format!("add-child-{}", todo.id())))
+                .px_1p5()
+                .py_0p5()
+                .rounded_sm()
+                .text_size(px(10.))
+                .text_color(t.accent())
+                .cursor_pointer()
+                .hover(|s| s.bg(t.hover()))
+                .on_click(cx.listener(move |this, _: &ClickEvent, _, cx| {
+                    this.set_todo_parent_target(Some(parent_id.clone()));
+                    cx.notify();
+                }))
+                .child("＋子任务"),
+        );
+    }
+    if !done {
+        let edit_id_for_click = item_id.clone();
+        let edit_text_for_click = todo.text().clone();
+        let edit_input_for_click = edit_input.clone();
+        bottom = bottom.child(
+            div()
+                .id(SharedString::from(format!("edit-todo-{}", todo.id())))
+                .px_1p5()
+                .py_0p5()
+                .rounded_sm()
+                .text_size(px(10.))
+                .text_color(t.accent())
+                .cursor_pointer()
+                .hover(|s| s.bg(t.hover()))
+                .on_click(cx.listener(move |this, _: &ClickEvent, _, cx| {
+                    edit_input_for_click.update(cx, |input, cx| {
+                        input.set_content(edit_text_for_click.clone(), cx)
+                    });
+                    this.set_todo_edit_id(Some(edit_id_for_click.clone()));
+                    cx.notify();
+                }))
+                .child("✏️ 编辑"),
+        );
+    }
     if let Some(remark) = (!todo.remark().is_empty()).then(|| todo.remark()) {
         bottom = bottom.child(div().text_size(px(10.)).text_color(t.text_dim()).child(
             if remark.len() > 100 {
@@ -559,6 +587,52 @@ fn todo_row(
             ),
     );
     row = row.child(bottom);
+    if !done && edit_id.as_deref() == Some(item_id.as_str()) {
+        let save_id = item_id.clone();
+        let save_input = edit_input.clone();
+        let cancel_input = edit_input.clone();
+        row = row.child(
+            div()
+                .flex()
+                .items_center()
+                .gap_1()
+                .child(div().flex_1().h(px(30.)).child(edit_input))
+                .child(
+                    div()
+                        .id(SharedString::from(format!("save-todo-{}", item_id)))
+                        .px_2()
+                        .py_1()
+                        .rounded_md()
+                        .bg(t.accent())
+                        .text_color(t.bg())
+                        .cursor_pointer()
+                        .on_click(cx.listener(move |this, _: &ClickEvent, _, cx| {
+                            let content = save_input.read(cx).content();
+                            if store::update_todo_text(cx, &save_id, content) {
+                                this.set_todo_edit_id(None);
+                                save_input.update(cx, |input, cx| input.clear(cx));
+                                cx.notify();
+                            }
+                        }))
+                        .child("保存"),
+                )
+                .child(
+                    div()
+                        .id(SharedString::from(format!("cancel-todo-{}", item_id)))
+                        .px_2()
+                        .py_1()
+                        .rounded_md()
+                        .text_color(t.text_dim())
+                        .cursor_pointer()
+                        .on_click(cx.listener(move |this, _: &ClickEvent, _, cx| {
+                            this.set_todo_edit_id(None);
+                            cancel_input.update(cx, |input, cx| input.clear(cx));
+                            cx.notify();
+                        }))
+                        .child("取消"),
+                ),
+        );
+    }
     row
 }
 
@@ -567,6 +641,8 @@ pub fn todos(
     todos: &[TodoItem],
     menu_open: Option<String>,
     todo_input: Entity<TextInput>,
+    edit_input: Entity<TextInput>,
+    edit_id: Option<String>,
     parent_target: Option<String>,
     delete_target: Option<DeleteTarget>,
     cx: &mut Context<InboxApp>,
@@ -645,6 +721,8 @@ pub fn todos(
                 menu_open.clone(),
                 depth,
                 delete_target.clone(),
+                edit_input.clone(),
+                edit_id.clone(),
                 cx,
             ));
         } else {
@@ -654,6 +732,8 @@ pub fn todos(
                 menu_open.clone(),
                 depth,
                 delete_target.clone(),
+                edit_input.clone(),
+                edit_id.clone(),
                 cx,
             ));
         }

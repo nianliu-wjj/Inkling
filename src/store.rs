@@ -886,6 +886,38 @@ pub fn delete_todo(cx: &mut App, id: &str) -> bool {
     }
 }
 
+pub fn update_todo_text(cx: &mut App, id: &str, text: String) -> bool {
+    let text = text.trim().to_string();
+    if text.is_empty() {
+        return false;
+    }
+    let s = store(cx);
+    let now = now_string();
+    let result = with_db(s, |conn| {
+        let changed = conn.execute(
+            "UPDATE todos SET content=?1,updated_at=?2 WHERE id=?3 AND status='open'",
+            params![text, now, id],
+        )?;
+        if changed == 0 {
+            return Err(rusqlite::Error::QueryReturnedNoRows);
+        }
+        Ok(())
+    });
+    if result.is_ok() {
+        if let Some(todo) = s
+            .todos
+            .iter_mut()
+            .find(|todo| todo.id() == id && !todo.done())
+        {
+            todo.set_text(text);
+            todo.set_updated_at(now);
+        }
+        true
+    } else {
+        false
+    }
+}
+
 pub fn update_todo(cx: &mut App, item: &TodoItem) -> bool {
     if item.done() {
         return false;
