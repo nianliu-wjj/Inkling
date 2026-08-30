@@ -3,5 +3,5 @@
   "identifier": "default",
   "description": "Inkling 默认窗口权限",
   "windows": ["main"],
-  "permissions": ["core:default"]
+  "permissions": ["core:default", "global-shortcut:default", "clipboard-manager:default", "autostart:default", "notification:default", "opener:default"]
 }

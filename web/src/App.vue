@@ -40,15 +40,18 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref, watch } from 'vue'
+import { computed, onMounted, onUnmounted, reactive, ref, watch } from 'vue'
 import { api } from './api'
+import { readText, writeText } from '@tauri-apps/plugin-clipboard-manager'
+import { enable as enableAutostart, disable as disableAutostart } from '@tauri-apps/plugin-autostart'
+import { listen } from '@tauri-apps/api/event'
 import type { ActivityDay, ClipboardEntry, Note, Priority, Settings, Todo, View } from './types'
 
 const captureModes = [{ key: 'note' as const, icon: '🔴', label: '笔记' }, { key: 'clipboard' as const, icon: '🟡', label: '剪贴板' }, { key: 'todo' as const, icon: '🟢', label: '待办' }]
 const captureMode = ref<'note' | 'clipboard' | 'todo'>('note')
 const view = ref<View>('notes'); const loading = ref(false); const message = ref(''); const toast = ref(''); const search = ref('')
 const notes = ref<Note[]>([]); const clips = ref<ClipboardEntry[]>([]); const todos = ref<Todo[]>([]); const activity = ref<ActivityDay[]>([])
-const noteDraft = ref(''); const noteTags = ref(''); let draftTimer: number | undefined
+const noteDraft = ref(''); let clipboardTimer: number | undefined; let lastClipboard = ''; const noteTags = ref(''); let draftTimer: number | undefined
 const todoEditor = ref(false); const activeTodo = ref<string | null>(null); const activePriority = ref<string | null>(null); const clipEditor = ref<ClipboardEntry | null>(null)
 const settings = reactive<Settings>({ collapse_policy: '3s', clipboard_retention_days: 30, start_on_boot: false, shortcut: 'Ctrl+Shift+Space', remark_style: 'mixed', theme: 'dark' })
 const todoForm = reactive({ content: '', due_at: toLocalInput(new Date(Date.now() + 3600000)), remind_at: '', priority: 'medium' as Priority, remark: '', tagsText: '', parent_id: null as string | null })
@@ -71,8 +74,8 @@ function newNote() { noteDraft.value = ''; noteTags.value = ''; editingNoteId.va
 function editNote(note: Note) { view.value = 'notes'; noteDraft.value = note.content; noteTags.value = note.tags.join(','); editingNoteId.value = note.id }
 const editingNoteId = ref<string | undefined>()
 async function removeNote(note: Note) { if (!window.confirm('确认删除该笔记？')) return; await run(async () => { await api.notes.remove(note.id); notes.value = notes.value.filter(x => x.id !== note.id) }, '笔记已删除') }
-async function captureClipboard() { const content = await navigator.clipboard?.readText().catch(() => '') || ''; if (!content) { notify('当前剪贴板没有可读取的文本'); return } const clip = await run(() => api.clipboard.capture(content), '已捕获当前剪贴板'); clips.value = [clip, ...clips.value.filter(x => x.id !== clip.id)] }
-async function pasteClip(clip: ClipboardEntry) { await navigator.clipboard?.writeText(clip.content); await api.clipboard.pin(clip.id, true); clip.pinned = true; notify('已复制并置顶') }
+async function captureClipboard() { const content = await readText().catch(() => navigator.clipboard?.readText().catch(() => '') || '') || ''; if (!content) { notify('当前剪贴板没有可读取的文本'); return } const clip = await run(() => api.clipboard.capture(content), '已捕获当前剪贴板'); clips.value = [clip, ...clips.value.filter(x => x.id !== clip.id)] }
+async function pasteClip(clip: ClipboardEntry) { await writeText(clip.content).catch(() => navigator.clipboard?.writeText(clip.content)); await api.clipboard.pin(clip.id, true); clip.pinned = true; notify('已复制并置顶') }
 async function toggleClipPin(clip: ClipboardEntry) { await run(() => api.clipboard.pin(clip.id, !clip.pinned)); clip.pinned = !clip.pinned }
 function editClip(clip: ClipboardEntry) { clipEditor.value = { ...clip } }
 async function saveClipEdit() { if (!clipEditor.value) return; await run(async () => { await api.clipboard.update(clipEditor.value!.id, clipEditor.value!.content); const current = clips.value.find(x => x.id === clipEditor.value!.id); if (current) Object.assign(current, clipEditor.value, { preview: clipEditor.value!.content.slice(0, 240), modified_at: new Date().toISOString() }); clipEditor.value = null }, '剪贴板条目已更新') }
@@ -84,7 +87,7 @@ async function addChild(todo: Todo) { const content = window.prompt('请输入�
 function changePriority(todo: Todo) { if (todo.status === 'done') { notify('已完成待办不可变更优先级'); return } activePriority.value = activePriority.value === todo.id ? null : todo.id }
 async function selectPriority(todo: Todo, priority: Priority) { if (priority === todo.priority) { activePriority.value = null; return } await run(() => api.todos.priority(todo.id, priority), '优先级已更新'); todo.priority = priority; activePriority.value = null }
 async function removeTodo(todo: Todo) { if (!window.confirm('确认删除该待办？')) return; await api.todos.remove(todo.id); todos.value = todos.value.filter(x => x.id !== todo.id && x.parent_id !== todo.id) }
-async function saveSettings() { await run(() => api.settings.save({ ...settings }), '设置已保存') }
+async function saveSettings() { await run(async () => { await api.settings.save({ ...settings }); if (settings.start_on_boot) await enableAutostart().catch(() => undefined); else await disableAutostart().catch(() => undefined) }, '设置已保存') }
 function childrenOf(id: string) { return todos.value.filter(x => x.parent_id === id) }
 function parseTags(input: string) { return input.split(/[,，]/).map(x => x.trim()).filter(Boolean) }
 function priorityLabel(priority: Priority) { return ({ high: '高', medium: '中', low: '低' } as Record<Priority, string>)[priority] }
@@ -93,11 +96,14 @@ function formatTime(value: string) { return new Intl.DateTimeFormat('zh-CN', { m
 function formatDue(value: string) { return new Intl.DateTimeFormat('zh-CN', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }).format(new Date(value)) }
 function toLocalInput(value: Date) { const offset = value.getTimezoneOffset(); return new Date(value.getTime() - offset * 60000).toISOString().slice(0, 16) }
 function renderMarkdown(value: string) { return value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>').replace(/`(.+?)`/g, '<code>$1</code>').replace(/\n/g, '<br>') }
+async function pollClipboard() { const content = await readText().catch(() => ''); if (!content || content === lastClipboard) return; lastClipboard = content; const clip = await api.clipboard.capture(content, content.startsWith('http') ? 'link' : content.includes('\n') ? 'code' : 'text').catch(() => null); if (clip && !clips.value.some(item => item.id === clip.id)) clips.value.unshift(clip) }
 function heatLevel(day: ActivityDay) { const total = day.notes + day.clips + day.todos; return `level-${total === 0 ? 0 : total < 3 ? 1 : total < 7 ? 2 : 3}` }
 function switchCapture(mode: 'note' | 'clipboard' | 'todo') { captureMode.value = mode; view.value = mode === 'note' ? 'notes' : mode === 'clipboard' ? 'clips' : 'todos' }
 watch(() => settings.theme, value => document.documentElement.dataset.theme = value, { immediate: true })
-onMounted(() => { document.addEventListener('keydown', event => { if (event.key === 'Escape') activePriority.value = null }); document.addEventListener('click', () => { activePriority.value = null }); void refresh().catch(() => notify('当前需要在 Tauri 应用中运行才能访问本地数据库')) })
+onMounted(() => { document.addEventListener('keydown', event => { if (event.key === 'Escape') activePriority.value = null }); document.addEventListener('click', () => { activePriority.value = null }); void listen<string>('navigate', event => { if (event.payload === 'notes' || event.payload === 'clips' || event.payload === 'todos' || event.payload === 'stats' || event.payload === 'settings') view.value = event.payload }).catch(() => undefined); void refresh().catch(() => notify('当前需要在 Tauri 应用中运行才能访问本地数据库')); clipboardTimer = window.setInterval(() => { void pollClipboard() }, 500) })
+onUnmounted(() => { if (clipboardTimer) window.clearInterval(clipboardTimer) })
 </script>
+
 
 
 

@@ -5,7 +5,12 @@ use rusqlite::{params, Connection, OptionalExtension};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::{fs, path::PathBuf, sync::Mutex};
-use tauri::{Manager, State};
+use tauri::{
+    menu::{Menu, MenuItem, PredefinedMenuItem},
+    tray::TrayIconBuilder,
+    Emitter, Manager, State,
+};
+use tauri_plugin_global_shortcut::{GlobalShortcutExt, ShortcutState};
 use uuid::Uuid;
 
 const MAX_NOTE_BYTES: usize = 1_048_576;
@@ -293,20 +298,33 @@ fn save_note(input: NoteInput, state: State<'_, AppState>) -> Result<Note, Strin
         .as_ref()
         .map(|x| x.0.clone())
         .unwrap_or_else(|| timestamp.clone());
+    let old_file_path = existing
+        .as_ref()
+        .and_then(|x| (!x.1.is_empty()).then_some(x.1.clone()));
     let tags = normalized_tags(&input.tags);
     let (content, file_path) = if input.content.len() > MAX_NOTE_BYTES && !input.draft {
         let relative = format!("notes/{id}.md");
         let target = store.data_dir.join(&relative);
         let temp = target.with_extension("md.tmp");
         fs::write(&temp, input.content.as_bytes()).map_err(|e| format!("写入大笔记失败: {e}"))?;
-        fs::rename(&temp, &target).map_err(|e| format!("提交大笔记失败: {e}"))?;
+        if let Err(error) = fs::rename(&temp, &target) {
+            if target.exists() {
+                fs::remove_file(&target).map_err(|e| format!("替换大笔记失败: {e}"))?;
+                fs::rename(&temp, &target)
+                    .map_err(|e| format!("提交大笔记失败: {e}; 原始错误: {error}"))?;
+            } else {
+                return Err(format!("提交大笔记失败: {error}"));
+            }
+        }
         (String::new(), Some(relative))
     } else {
-        (
-            input.content.clone(),
-            existing.and_then(|x| if x.1.is_empty() { None } else { Some(x.1) }),
-        )
+        (input.content.clone(), None)
     };
+    if let Some(old_path) = old_file_path {
+        if file_path.as_deref() != Some(old_path.as_str()) {
+            let _ = fs::remove_file(store.data_dir.join(old_path));
+        }
+    }
     store.db.execute("INSERT INTO notes(id, content, plain_text, file_path, is_draft, created_at, updated_at) VALUES(?,?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET content=excluded.content, plain_text=excluded.plain_text, file_path=excluded.file_path, is_draft=excluded.is_draft, updated_at=excluded.updated_at", params![id, content, input.content, file_path, input.draft as i64, created_at, timestamp]).map_err(db_err)?;
     store.replace_tags("note_tags", "note_id", &id, &tags)?;
     store.note(&id)
@@ -364,18 +382,35 @@ fn save_clipboard(
     let store = state.0.lock().map_err(|_| "数据库锁已损坏".to_string())?;
     let hash = hash_content(&content);
     let timestamp = now();
-    let id: String = store
+    if let Some(existing_id) = store
         .db
         .query_row(
             "SELECT id FROM clipboard_entries WHERE content_hash=?",
             [&hash],
-            |r| r.get(0),
+            |r| r.get::<_, String>(0),
         )
         .optional()
         .map_err(db_err)?
-        .unwrap_or_else(|| Uuid::new_v4().to_string());
-    store.db.execute("INSERT INTO clipboard_entries(id, content_type, content, preview, content_hash, copied_at, modified_at) VALUES(?,?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET content=excluded.content, content_type=excluded.content_type, preview=excluded.preview, modified_at=excluded.modified_at", params![id, content_type, content, content.chars().take(240).collect::<String>(), hash, timestamp, timestamp]).map_err(db_err)?;
-    store.db.query_row("SELECT id, content_type, content, preview, pinned, copied_at, modified_at FROM clipboard_entries WHERE id=?", [&id], |r| Ok(ClipboardEntry { id: r.get(0)?, content_type: r.get(1)?, content: r.get(2)?, preview: r.get(3)?, pinned: r.get::<_, i64>(4)? != 0, copied_at: r.get(5)?, modified_at: r.get(6)? })).map_err(db_err)
+    {
+        return store
+            .db
+            .query_row(
+                "SELECT id, content_type, content, preview, pinned, copied_at, modified_at FROM clipboard_entries WHERE id=?",
+                [&existing_id],
+                |r| Ok(ClipboardEntry { id: r.get(0)?, content_type: r.get(1)?, content: r.get(2)?, preview: r.get(3)?, pinned: r.get::<_, i64>(4)? != 0, copied_at: r.get(5)?, modified_at: r.get(6)? }),
+            )
+            .map_err(db_err);
+    }
+    let id = Uuid::new_v4().to_string();
+    store.db.execute(
+        "INSERT INTO clipboard_entries(id, content_type, content, preview, content_hash, copied_at, modified_at) VALUES(?,?,?,?,?,?,?)",
+        params![id, content_type, content, content.chars().take(240).collect::<String>(), hash, timestamp, timestamp],
+    ).map_err(db_err)?;
+    store.db.query_row(
+        "SELECT id, content_type, content, preview, pinned, copied_at, modified_at FROM clipboard_entries WHERE id=?",
+        [&id],
+        |r| Ok(ClipboardEntry { id: r.get(0)?, content_type: r.get(1)?, content: r.get(2)?, preview: r.get(3)?, pinned: r.get::<_, i64>(4)? != 0, copied_at: r.get(5)?, modified_at: r.get(6)? }),
+    ).map_err(db_err)
 }
 
 #[tauri::command]
@@ -698,8 +733,8 @@ fn get_activity(state: State<'_, AppState>) -> Result<Vec<ActivityDay>, String> 
         let overdue: i64 = store
             .db
             .query_row(
-                "SELECT COUNT(*) FROM todos WHERE status='open' AND due_at < ?",
-                params![next],
+                "SELECT COUNT(*) FROM todos WHERE status='open' AND due_at >= ? AND due_at < ? AND due_at < ?",
+                params![date_str, next, now()],
                 |r| r.get(0),
             )
             .map_err(db_err)?;
@@ -742,6 +777,11 @@ fn cleanup_clipboard(state: State<'_, AppState>) -> Result<usize, String> {
 
 fn main() {
     tauri::Builder::default()
+        .plugin(tauri_plugin_clipboard_manager::init())
+        .plugin(tauri_plugin_global_shortcut::Builder::new().build())
+        .plugin(tauri_plugin_autostart::Builder::new().build())
+        .plugin(tauri_plugin_notification::init())
+        .plugin(tauri_plugin_opener::init())
         .setup(|app| {
             let data_dir = app
                 .path()
@@ -749,6 +789,48 @@ fn main() {
                 .map_err(|e| format!("获取应用数据目录失败: {e}"))?;
             let store = Store::open(data_dir).map_err(std::io::Error::other)?;
             app.manage(AppState(Mutex::new(store)));
+
+            let show = MenuItem::with_id(app, "show", "打开 Inkling", true, None::<&str>)?;
+            let stats = MenuItem::with_id(app, "stats", "统计报表", true, None::<&str>)?;
+            let settings = MenuItem::with_id(app, "settings", "偏好设置", true, None::<&str>)?;
+            let quit = PredefinedMenuItem::quit(app, Some("退出 Inkling"))?;
+            let menu = Menu::with_items(app, &[&show, &stats, &settings, &quit])?;
+            let icon = app
+                .default_window_icon()
+                .cloned()
+                .ok_or_else(|| std::io::Error::other("未找到默认应用图标"))?;
+            TrayIconBuilder::new()
+                .icon(icon)
+                .tooltip("Inkling · 念头捕手")
+                .menu(&menu)
+                .on_menu_event(|app, event| {
+                    let target = match event.id.as_ref() {
+                        "show" => Some("notes"),
+                        "stats" => Some("stats"),
+                        "settings" => Some("settings"),
+                        _ => None,
+                    };
+                    if let Some(target) = target {
+                        if let Some(window) = app.get_webview_window("main") {
+                            let _ = window.show();
+                            let _ = window.set_focus();
+                            let _ = app.emit("navigate", target);
+                        }
+                    }
+                })
+                .build(app)?;
+
+            app.handle()
+                .global_shortcut()
+                .on_shortcut("CommandOrControl+Shift+Space", |app, _, event| {
+                    if event.state == ShortcutState::Pressed {
+                        if let Some(window) = app.get_webview_window("main") {
+                            let _ = window.show();
+                            let _ = window.set_focus();
+                        }
+                    }
+                })
+                .map_err(std::io::Error::other)?;
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -773,4 +855,29 @@ fn main() {
         ])
         .run(tauri::generate_context!())
         .expect("启动 Inkling 失败");
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn tags_are_trimmed_deduplicated_and_limited() {
+        let tags = vec!["  Rust ".into(), "rust".into(), "Vue".into(), "".into()];
+        assert_eq!(normalized_tags(&tags), vec!["Rust", "Vue"]);
+    }
+
+    #[test]
+    fn content_hash_is_stable() {
+        assert_eq!(hash_content("Inkling"), hash_content("Inkling"));
+        assert_ne!(hash_content("Inkling"), hash_content("inkling"));
+    }
+
+    #[test]
+    fn priorities_only_accept_three_values() {
+        assert!(is_valid_priority("high"));
+        assert!(is_valid_priority("medium"));
+        assert!(is_valid_priority("low"));
+        assert!(!is_valid_priority("urgent"));
+    }
 }
