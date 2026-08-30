@@ -7,7 +7,7 @@
 
 use gpui::{
     actions, div, prelude::*, px, rgba, AnimationExt, App, ClickEvent, Context, Entity, Focusable,
-    FontWeight, IntoElement, ParentElement, Render, Rgba, SharedString, Styled, Window,
+    ClipboardEntry, FontWeight, IntoElement, ParentElement, Render, Rgba, SharedString, Styled, Window,
     WindowBackgroundAppearance, WindowBounds, WindowKind, WindowOptions,
 };
 
@@ -44,8 +44,15 @@ impl PanelApp {
     pub fn new(settings: Settings, cx: &mut Context<Self>) -> Self {
         let draft = store::draft(cx);
         // 打开面板：捕获当前剪贴板（置顶去重）
-        if let Some(text) = cx.read_from_clipboard().and_then(|item| item.text()) {
-            store::push_clip(cx, text);
+        if let Some(item) = cx.read_from_clipboard() {
+            if let Some(image) = item.entries().iter().find_map(|entry| match entry {
+                ClipboardEntry::Image(image) => Some(image.clone()),
+                ClipboardEntry::String(_) => None,
+            }) {
+                store::push_clip_image(cx, image);
+            } else if let Some(text) = item.text() {
+                store::push_clip(cx, text);
+            }
         }
         let note_input = cx.new(|cx| {
             TextInput::new(
@@ -160,33 +167,6 @@ impl PanelApp {
     }
 }
 
-fn two_line_preview(text: &str) -> String {
-    const MAX_CHARS_PER_LINE: usize = 96;
-    let mut lines = text
-        .lines()
-        .take(3)
-        .map(|line| {
-            let mut value = line.chars().take(MAX_CHARS_PER_LINE).collect::<String>();
-            if line.chars().count() > MAX_CHARS_PER_LINE {
-                value.push('…');
-            }
-            value
-        })
-        .collect::<Vec<_>>();
-    let truncated = lines.len() > 2;
-    lines.truncate(2);
-    if truncated {
-        if let Some(last) = lines.last_mut() {
-            last.push('…');
-        }
-    }
-    if lines.is_empty() {
-        "（空内容）".into()
-    } else {
-        lines.join("\n")
-    }
-}
-
 impl Render for PanelApp {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         // 失焦收起检查（每帧）
@@ -249,7 +229,8 @@ impl Render for PanelApp {
                 }
                 for (index, clip) in clips.iter().enumerate() {
                     let clip_text = clip.content().clone();
-                    let clip = clip.content().clone();
+                    let clip_for_copy = clip.clone();
+                    let clip_preview = crate::views::clip_content_preview(&theme, clip);
                     list = list.child(
                         div()
                             .id(SharedString::from(format!("clip-{index}")))
@@ -260,19 +241,22 @@ impl Render for PanelApp {
                             .bg(theme.card())
                             .cursor_pointer()
                             .hover(|s| s.bg(theme.hover()))
-                            .on_click(cx.listener(move |_, _: &ClickEvent, _, cx| {
-                                cx.write_to_clipboard(gpui::ClipboardItem::new_string(
-                                    clip_text.clone(),
-                                ));
+                            .on_click(cx.listener(move |_, event: &ClickEvent, _, cx| {
+                                if clip_for_copy.kind() == "image" {
+                                    if let Some(image) = store::load_clip_image(&clip_for_copy) {
+                                        cx.write_to_clipboard(gpui::ClipboardItem::new_image(&image));
+                                    }
+                                } else {
+                                    cx.write_to_clipboard(gpui::ClipboardItem::new_string(
+                                        clip_text.clone(),
+                                    ));
+                                }
+                                if event.click_count() >= 2 {
+                                    store::set_clip_favorite(cx, &clip_for_copy.id(), true);
+                                }
                                 cx.notify();
                             }))
-                            .child(
-                                div()
-                                    .text_size(px(12.5))
-                                    .text_color(theme.text())
-                                    .whitespace_normal()
-                                    .child(two_line_preview(&clip)),
-                            ),
+                            .child(clip_preview),
                     );
                 }
                 content = content.child(

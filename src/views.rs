@@ -439,13 +439,16 @@ fn clip_row(
             confirmed,
             cx,
         ))
-        .on_click(cx.listener(move |_, _: &ClickEvent, _, cx| {
+        .on_click(cx.listener(move |_, event: &ClickEvent, _, cx| {
             if clip_for_copy.kind() == "image" {
                 if let Some(image) = store::load_clip_image(&clip_for_copy) {
                     cx.write_to_clipboard(gpui::ClipboardItem::new_image(&image));
                 }
             } else {
                 cx.write_to_clipboard(gpui::ClipboardItem::new_string(text.clone()));
+            }
+            if event.click_count() >= 2 {
+                store::set_clip_favorite(cx, &clip_for_copy.id(), true);
             }
             cx.notify();
         }))
