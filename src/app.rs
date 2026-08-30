@@ -1696,7 +1696,58 @@ impl InboxApp {
                             } else {
                                 "未完成".to_string()
                             }),
-                    ),
+                    )
+                    .child(
+                        div()
+                            .mt_1()
+                            .text_size(px(10.))
+                            .text_color(theme.text_dim())
+                            .child(format!(
+                                "📅 计划 {}{}{}",
+                                crate::store::display_timestamp(&todo.due_at()),
+                                todo.remind_at()
+                                    .as_ref()
+                                    .map(|value| format!(" · ⏰ {}", crate::store::display_timestamp(value)))
+                                    .unwrap_or_default(),
+                                todo.repeat_rule()
+                                    .as_deref()
+                                    .map(|rule| if rule == "daily" { " · 🔁 每天" } else { " · 🔁 每周" })
+                                    .unwrap_or(""),
+                            )),
+                    )
+                    .child(
+                        div()
+                            .mt_1()
+                            .text_size(px(10.))
+                            .text_color(theme.text_dim())
+                            .child(if todo.tags().is_empty() {
+                                "无标签".to_string()
+                            } else {
+                                todo.tags()
+                                    .iter()
+                                    .map(|tag| format!("#{tag}"))
+                                    .collect::<Vec<_>>()
+                                    .join(" ")
+                            }),
+                    )
+                    .when(!todo.remark().is_empty(), |el| {
+                        el.child(
+                            div()
+                                .mt_1()
+                                .text_size(px(10.))
+                                .text_color(theme.text_dim())
+                                .child(format!("📝 {}", todo.remark())),
+                        )
+                    })
+                    .when(todo.parent_id().is_some(), |el| {
+                        el.child(
+                            div()
+                                .mt_1()
+                                .text_size(px(10.))
+                                .text_color(theme.text_dim())
+                                .child(format!("子任务 · 父级 {}", todo.parent_id().as_deref().unwrap_or(""))),
+                        )
+                    }),
             };
             mixed = mixed.child(row);
         }
