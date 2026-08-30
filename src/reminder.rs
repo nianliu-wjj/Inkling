@@ -6,6 +6,7 @@ use gpui::{
     WindowKind, WindowOptions,
 };
 
+use crate::settings::Settings;
 use crate::store::{self, Reminder};
 use crate::theme::THEMES;
 
@@ -24,11 +25,15 @@ impl gpui::Global for ReminderWindows {}
 
 pub struct ReminderApp {
     reminder: Reminder,
+    theme_index: usize,
 }
 
 impl ReminderApp {
-    fn new(reminder: Reminder, _cx: &mut Context<Self>) -> Self {
-        Self { reminder }
+    fn new(reminder: Reminder, theme_index: usize, _cx: &mut Context<Self>) -> Self {
+        Self {
+            reminder,
+            theme_index,
+        }
     }
 
     fn close(&mut self, window: &mut Window, cx: &mut App) {
@@ -51,7 +56,7 @@ impl ReminderApp {
 
 impl Render for ReminderApp {
     fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-        let t = &THEMES[crate::theme::DEFAULT_THEME];
+        let t = &THEMES[self.theme_index];
         let todo_id = self.reminder.todo_id().clone();
         let close_id = self.reminder.id().clone();
         div()
@@ -178,6 +183,8 @@ fn show_reminder(cx: &mut App, reminder: Reminder) {
         gpui::point(display.right() - width - px(24.), display.top() + px(24.)),
         gpui::size(width, height),
     );
+    let theme_index = crate::theme::theme_index_by_id(&Settings::load().theme_id())
+        .unwrap_or(crate::theme::DEFAULT_THEME);
     let Some(handle) = cx
         .open_window(
             WindowOptions {
@@ -192,7 +199,7 @@ fn show_reminder(cx: &mut App, reminder: Reminder) {
                 app_id: Some("InklingReminder".into()),
                 ..Default::default()
             },
-            |_, cx| cx.new(|cx| ReminderApp::new(reminder.clone(), cx)),
+            |_, cx| cx.new(|cx| ReminderApp::new(reminder.clone(), theme_index, cx)),
         )
         .ok()
     else {

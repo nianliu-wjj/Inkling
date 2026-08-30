@@ -6,7 +6,7 @@ use gpui::{
     WindowKind, WindowOptions,
 };
 
-use crate::{store, text_input::TextInput, theme::Theme};
+use crate::{settings::Settings, store, text_input::TextInput, theme::Theme};
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum PinTarget {
@@ -87,7 +87,9 @@ impl PinnedApp {
     }
 
     fn theme(&self) -> &'static Theme {
-        &crate::theme::THEMES[crate::theme::DEFAULT_THEME]
+        let index = crate::theme::theme_index_by_id(&Settings::load().theme_id())
+            .unwrap_or(crate::theme::DEFAULT_THEME);
+        &crate::theme::THEMES[index]
     }
 
     fn save_edit(&mut self, cx: &mut Context<Self>) {
