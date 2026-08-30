@@ -2002,7 +2002,7 @@ impl InboxApp {
                             div()
                                 .mt_1()
                                 .text_color(theme.text())
-                                .child(crate::views::clip_preview(&clip.content())),
+                                .child(crate::views::clip_content_preview(theme, &clip)),
                         )
                         .child(actions)
                 }
@@ -2216,4 +2216,3 @@ impl Render for InboxApp {
             )
     }
 }
-

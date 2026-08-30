@@ -1,7 +1,7 @@
 //! 主窗口归档视图：使用共享 Store 的真实数据渲染。
 
 use gpui::{
-    div, prelude::*, px, ClickEvent, Context, Entity, FontWeight, IntoElement, ParentElement,
+    div, img, prelude::*, px, AnyElement, ClickEvent, Context, Entity, FontWeight, IntoElement, ParentElement,
     SharedString, StatefulInteractiveElement, Styled,
 };
 
@@ -386,6 +386,26 @@ pub fn notes(
         .child(list)
 }
 
+pub fn clip_content_preview(t: &Theme, clip: &ClipItem) -> AnyElement {
+    if clip.kind() == "image" {
+        if let Some(path) = clip.storage_path().clone() {
+            return div()
+                .flex()
+                .items_center()
+                .gap_2()
+                .child(img(path).max_w(px(300.)).max_h(px(140.)).rounded_md())
+                .child(
+                    div()
+                        .text_size(px(11.))
+                        .text_color(t.text_dim())
+                        .child("图片剪贴板"),
+                )
+                .into_any_element();
+        }
+    }
+    clip_preview(&clip.content()).into_any_element()
+}
+
 fn clip_row(
     t: &Theme,
     clip: &ClipItem,
@@ -395,6 +415,7 @@ fn clip_row(
     cx: &mut Context<InboxApp>,
 ) -> impl IntoElement {
     let text = clip.content().clone();
+    let clip_for_copy = clip.clone();
     let clip_id = clip.id().clone();
     let favorite_id = clip.id().clone();
     let confirmed = delete_target == Some(DeleteTarget::Clip(clip.id().clone()));
@@ -419,7 +440,13 @@ fn clip_row(
             cx,
         ))
         .on_click(cx.listener(move |_, _: &ClickEvent, _, cx| {
-            cx.write_to_clipboard(gpui::ClipboardItem::new_string(text.clone()));
+            if clip_for_copy.kind() == "image" {
+                if let Some(image) = store::load_clip_image(&clip_for_copy) {
+                    cx.write_to_clipboard(gpui::ClipboardItem::new_image(&image));
+                }
+            } else {
+                cx.write_to_clipboard(gpui::ClipboardItem::new_string(text.clone()));
+            }
             cx.notify();
         }))
         .child(
@@ -438,7 +465,7 @@ fn clip_row(
                 .min_w_0()
                 .text_size(px(13.))
                 .text_color(t.text())
-                .child(clip_preview(&clip.content())),
+                .child(clip_content_preview(t, clip)),
         )
         .child(
             div()

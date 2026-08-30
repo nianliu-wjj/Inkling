@@ -4,7 +4,7 @@
 //! 两者都在 GPUI 后台执行器的轮询循环中驱动。
 
 use gpui::{
-    px, App, AppContext, BorrowAppContext, Bounds, Point, Size, Window, WindowBackgroundAppearance,
+    px, App, AppContext, BorrowAppContext, Bounds, ClipboardEntry, Point, Size, Window, WindowBackgroundAppearance,
     WindowBounds, WindowKind, WindowOptions,
 };
 
@@ -173,7 +173,7 @@ pub fn init(cx: &mut App) {
         let watcher = device_query::DeviceState::new();
         let mut hover_since: Option<std::time::Instant> = None;
         let mut cooldown_until: Option<std::time::Instant> = None;
-        let mut last_clipboard_text: Option<String> = None;
+        let mut last_clipboard_fingerprint: Option<String> = None;
         loop {
             // ① 全局快捷键
             while let Ok(event) = receiver.try_recv() {
@@ -181,16 +181,35 @@ pub fn init(cx: &mut App) {
                     cx.update(|cx| toggle_panel(cx)).ok();
                 }
             }
-            // ② 剪贴板捕获：仅在文本内容变化时写入，避免轮询重复产生数据库写入。
-            let clipboard_text = cx
-                .update(|cx| cx.read_from_clipboard().and_then(|item| item.text()))
+            // ② 剪贴板捕获：文本与图片都支持，使用内容指纹避免轮询重复写入。
+            let clipboard_value = cx
+                .update(|cx| {
+                    cx.read_from_clipboard().map(|item| {
+                        let image = item.entries().iter().find_map(|entry| match entry {
+                            ClipboardEntry::Image(image) => Some(image.clone()),
+                            ClipboardEntry::String(_) => None,
+                        });
+                        (item.text(), image)
+                    })
+                })
                 .ok()
                 .flatten();
-            if clipboard_text != last_clipboard_text {
-                if let Some(text) = clipboard_text.clone() {
-                    cx.update(|cx| crate::store::push_clip(cx, text)).ok();
+            let fingerprint = clipboard_value.as_ref().map(|(text, image)| {
+                if let Some(image) = image {
+                    format!("image:{}:{:?}", image.id(), image.format)
+                } else {
+                    format!("text:{}", text.as_deref().unwrap_or_default())
                 }
-                last_clipboard_text = clipboard_text;
+            });
+            if fingerprint != last_clipboard_fingerprint {
+                if let Some((text, image)) = clipboard_value {
+                    if let Some(image) = image {
+                        cx.update(|cx| crate::store::push_clip_image(cx, image)).ok();
+                    } else if let Some(text) = text {
+                        cx.update(|cx| crate::store::push_clip(cx, text)).ok();
+                    }
+                }
+                last_clipboard_fingerprint = fingerprint;
             }
             // ③ 触顶感应（鼠标移至屏幕顶部中央悬停 ≥ 100ms）
             let mouse = watcher.get_mouse();

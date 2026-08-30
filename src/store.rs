@@ -11,7 +11,7 @@ use std::{
     time::{SystemTime, UNIX_EPOCH},
 };
 
-use gpui::{App, Global};
+use gpui::{App, Global, Image, ImageFormat};
 use rusqlite::{params, Connection, OptionalExtension};
 use serde::{Deserialize, Serialize};
 
@@ -36,6 +36,7 @@ crate::accessors! {
         id: String,
         content: String,
         kind: String,
+        storage_path: Option<String>,
         captured_at: String,
         favorite: bool,
     }
@@ -148,6 +149,12 @@ fn open_db(path: &Path) -> rusqlite::Result<Connection> {
     conn.pragma_update(None, "journal_mode", "WAL")?;
     conn.pragma_update(None, "foreign_keys", "ON")?;
     conn.execute_batch(SCHEMA)?;
+    // 为早期版本数据库补充图片文件路径字段；重复执行时忽略“列已存在”。
+    if let Err(error) = conn.execute("ALTER TABLE clips ADD COLUMN storage_path TEXT", []) {
+        if !error.to_string().contains("duplicate column name") {
+            return Err(error);
+        }
+    }
     Ok(conn)
 }
 
@@ -165,7 +172,7 @@ CREATE TABLE IF NOT EXISTS note_drafts (
 );
 CREATE TABLE IF NOT EXISTS clips (
  id TEXT PRIMARY KEY, content TEXT NOT NULL, kind TEXT NOT NULL DEFAULT 'text',
- content_hash TEXT NOT NULL UNIQUE, captured_at TEXT NOT NULL, favorite INTEGER NOT NULL DEFAULT 0
+ storage_path TEXT, content_hash TEXT NOT NULL UNIQUE, captured_at TEXT NOT NULL, favorite INTEGER NOT NULL DEFAULT 0
 );
 CREATE TABLE IF NOT EXISTS todos (
  id TEXT PRIMARY KEY, content TEXT NOT NULL, due_at TEXT NOT NULL,
@@ -235,6 +242,66 @@ fn hash_content(value: &str) -> String {
     value.hash(&mut h);
     format!("{:016x}", h.finish())
 }
+
+fn hash_bytes(value: &[u8]) -> String {
+    let mut h = DefaultHasher::new();
+    value.hash(&mut h);
+    format!("{:016x}", h.finish())
+}
+
+fn image_extension(format: ImageFormat) -> &'static str {
+    match format {
+        ImageFormat::Png => "png",
+        ImageFormat::Jpeg => "jpg",
+        ImageFormat::Webp => "webp",
+        ImageFormat::Gif => "gif",
+        ImageFormat::Svg => "svg",
+        ImageFormat::Bmp => "bmp",
+        ImageFormat::Tiff => "tiff",
+    }
+}
+
+fn image_format_from_path(path: &Path) -> Option<ImageFormat> {
+    match path.extension()?.to_str()?.to_ascii_lowercase().as_str() {
+        "png" => Some(ImageFormat::Png),
+        "jpg" | "jpeg" => Some(ImageFormat::Jpeg),
+        "webp" => Some(ImageFormat::Webp),
+        "gif" => Some(ImageFormat::Gif),
+        "svg" => Some(ImageFormat::Svg),
+        "bmp" => Some(ImageFormat::Bmp),
+        "tif" | "tiff" => Some(ImageFormat::Tiff),
+        _ => None,
+    }
+}
+
+fn clip_image_path(hash: &str, format: ImageFormat) -> PathBuf {
+    app_data_dir()
+        .join("clips")
+        .join(format!("{hash}.{}", image_extension(format)))
+}
+
+fn write_binary_atomic(path: &Path, bytes: &[u8]) -> std::io::Result<()> {
+    let Some(parent) = path.parent() else {
+        return Err(std::io::Error::new(std::io::ErrorKind::InvalidInput, "图片路径无父目录"));
+    };
+    std::fs::create_dir_all(parent)?;
+    let temp = path.with_extension(format!("{}.tmp", image_extension(image_format_from_path(path).unwrap_or(ImageFormat::Png))));
+    std::fs::write(&temp, bytes)?;
+    if let Err(error) = std::fs::rename(&temp, path) {
+        let _ = std::fs::remove_file(&temp);
+        if !path.exists() {
+            return Err(error);
+        }
+    }
+    Ok(())
+}
+
+fn remove_clip_file(path: Option<&str>) {
+    if let Some(path) = path {
+        let _ = std::fs::remove_file(path);
+    }
+}
+
 fn today() -> String {
     crate::stats::today_str()
 }
@@ -353,14 +420,15 @@ fn load_store(path: &Path) -> rusqlite::Result<Store> {
     drop(stmt);
 
     let mut clips = Vec::new();
-    let mut stmt = conn.prepare("SELECT id, content, kind, captured_at, favorite FROM clips ORDER BY captured_at DESC LIMIT 500")?;
+    let mut stmt = conn.prepare("SELECT id, content, kind, storage_path, captured_at, favorite FROM clips ORDER BY captured_at DESC LIMIT 500")?;
     let rows = stmt.query_map([], |r| {
         Ok(ClipItem {
             id: r.get(0)?,
             content: r.get(1)?,
             kind: r.get(2)?,
-            captured_at: r.get(3)?,
-            favorite: r.get::<_, i64>(4)? != 0,
+            storage_path: r.get(3)?,
+            captured_at: r.get(4)?,
+            favorite: r.get::<_, i64>(5)? != 0,
         })
     })?;
     for row in rows {
@@ -650,6 +718,11 @@ pub fn clips(cx: &mut App) -> Vec<ClipItem> {
 /// 根据设置清理剪贴板历史。清理同时作用于 SQLite 和内存快照，避免重启前后看到不同数据。
 pub fn apply_clip_retention(cx: &mut App, retention: ClipRetention) {
     let s = store(cx);
+    let previous_paths = s
+        .clips
+        .iter()
+        .filter_map(|clip| clip.storage_path().clone())
+        .collect::<Vec<_>>();
     let now = now_secs();
     let today = today();
     let path = s.db_path.clone().unwrap_or_else(db_path);
@@ -685,6 +758,16 @@ pub fn apply_clip_retention(cx: &mut App, retention: ClipRetention) {
         ClipRetention::Custom(days) => {
             let cutoff = now.saturating_sub(u64::from(days) * 86_400).to_string();
             s.clips.retain(|clip| clip.captured_at() >= cutoff);
+        }
+    }
+    let remaining = s
+        .clips
+        .iter()
+        .filter_map(|clip| clip.storage_path().clone())
+        .collect::<std::collections::HashSet<_>>();
+    for path in previous_paths {
+        if !remaining.contains(&path) {
+            remove_clip_file(Some(&path));
         }
     }
 }
@@ -1022,6 +1105,7 @@ pub fn push_clip(cx: &mut App, content: String) {
                     id: clip_id,
                     content,
                     kind: kind.into(),
+                    storage_path: None,
                     captured_at: captured,
                     favorite: false,
                 },
@@ -1029,6 +1113,91 @@ pub fn push_clip(cx: &mut App, content: String) {
         }
         s.clips.truncate(500);
     }
+}
+
+/// 持久化剪贴板图片。图片文件使用内容哈希命名，数据库只保存元数据和文件路径。
+pub fn push_clip_image(cx: &mut App, image: Image) {
+    const MAX_IMAGE_BYTES: usize = 20 * 1024 * 1024;
+    if image.bytes.is_empty() || image.bytes.len() > MAX_IMAGE_BYTES {
+        return;
+    }
+
+    let s = store(cx);
+    let hash = hash_bytes(&image.bytes);
+    let captured = now_string();
+    let clip_id = id("clip");
+    let image_path = clip_image_path(&hash, image.format);
+    let storage_path = image_path.to_string_lossy().to_string();
+    if let Err(error) = write_binary_atomic(&image_path, &image.bytes) {
+        s.last_error = Some(format!("保存剪贴板图片失败：{error}"));
+        return;
+    }
+
+    let result = with_db(s, |conn| {
+        let tx = conn.transaction()?;
+        let existing: Option<String> = tx
+            .query_row(
+                "SELECT id FROM clips WHERE content_hash=?1",
+                [hash.as_str()],
+                |row| row.get(0),
+            )
+            .optional()?;
+        let actual_id = if let Some(existing) = existing {
+            tx.execute(
+                "UPDATE clips SET content='[图片]',kind='image',storage_path=?1,captured_at=?2 WHERE id=?3",
+                params![storage_path, captured, existing],
+            )?;
+            existing
+        } else {
+            tx.execute(
+                "INSERT INTO clips(id,content,kind,storage_path,content_hash,captured_at) VALUES(?1,'[图片]','image',?2,?3,?4)",
+                params![clip_id, storage_path, hash, captured],
+            )?;
+            record_activity(&tx, "clipboard_captured", &clip_id)?;
+            clip_id.clone()
+        };
+        tx.commit()?;
+        Ok(actual_id)
+    });
+
+    match result {
+        Ok(actual_id) => {
+            if let Some(position) = s.clips.iter().position(|clip| clip.id() == actual_id) {
+                let mut item = s.clips.remove(position);
+                item.set_content("[图片]".to_string());
+                item.set_kind("image".to_string());
+                item.set_storage_path(Some(storage_path));
+                item.set_captured_at(captured);
+                s.clips.insert(0, item);
+            } else {
+                s.clips.insert(
+                    0,
+                    ClipItem {
+                        id: actual_id,
+                        content: "[图片]".to_string(),
+                        kind: "image".to_string(),
+                        storage_path: Some(storage_path),
+                        captured_at: captured,
+                        favorite: false,
+                    },
+                );
+            }
+            s.clips.truncate(500);
+        }
+        Err(_) => {
+            // with_db 已记录错误；文件按哈希复用，保留后可在下一次捕获时直接复用。
+        }
+    }
+}
+
+pub fn load_clip_image(clip: &ClipItem) -> Option<Image> {
+    if clip.kind() != "image" {
+        return None;
+    }
+    let path = PathBuf::from(clip.storage_path().as_ref()?);
+    let format = image_format_from_path(&path)?;
+    let bytes = std::fs::read(path).ok()?;
+    Some(Image::from_bytes(format, bytes))
 }
 
 pub fn set_clip_favorite(cx: &mut App, id: &str, favorite: bool) -> bool {
@@ -1062,6 +1231,11 @@ pub fn update_clip_content(cx: &mut App, id: &str, content: String) -> bool {
     let kind = classify_clip(&content).to_string();
     let captured = now_string();
     let s = store(cx);
+    let old_storage_path = s
+        .clips
+        .iter()
+        .find(|clip| clip.id() == id)
+        .and_then(|clip| clip.storage_path().clone());
     let result = with_db(s, |conn| {
         let tx = conn.transaction()?;
         let duplicate: Option<String> = tx
@@ -1077,7 +1251,7 @@ pub fn update_clip_content(cx: &mut App, id: &str, content: String) -> bool {
             ));
         }
         let changed = tx.execute(
-            "UPDATE clips SET content=?1,kind=?2,content_hash=?3,captured_at=?4 WHERE id=?5",
+            "UPDATE clips SET content=?1,kind=?2,storage_path=NULL,content_hash=?3,captured_at=?4 WHERE id=?5",
             params![content, kind, hash, captured, id],
         )?;
         if changed == 0 {
@@ -1090,8 +1264,10 @@ pub fn update_clip_content(cx: &mut App, id: &str, content: String) -> bool {
         if let Some(clip) = s.clips.iter_mut().find(|clip| clip.id() == id) {
             clip.set_content(content);
             clip.set_kind(kind);
+            clip.set_storage_path(None);
             clip.set_captured_at(captured);
         }
+        remove_clip_file(old_storage_path.as_deref());
         true
     } else {
         false
@@ -1323,6 +1499,11 @@ pub fn delete_note(cx: &mut App, id: &str) -> bool {
 
 pub fn delete_clip(cx: &mut App, id: &str) -> bool {
     let s = store(cx);
+    let storage_path = s
+        .clips
+        .iter()
+        .find(|clip| clip.id() == id)
+        .and_then(|clip| clip.storage_path().clone());
     let deleted = with_db(s, |conn| {
         let changed = conn.execute("DELETE FROM clips WHERE id=?1", [id])?;
         if changed == 0 {
@@ -1332,6 +1513,7 @@ pub fn delete_clip(cx: &mut App, id: &str) -> bool {
     });
     if deleted.is_ok() {
         s.clips.retain(|clip| clip.id() != id);
+        remove_clip_file(storage_path.as_deref());
         true
     } else {
         false

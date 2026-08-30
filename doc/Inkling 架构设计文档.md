@@ -56,7 +56,7 @@
 - 主窗口、顶部呼出面板、置顶浮窗和提醒浮窗均使用 GPUI `Window`；主窗口内部通过 `ActiveView` 承载归档、统计、设置和日期详情，不额外创建业务设置窗口。
 - 业务数据访问统一经过 `src/store.rs`，UI 不直接操作 SQLite；Store 负责迁移、事务、草稿、文件落盘和内存快照刷新。
 - GPUI 不提供浏览器 DOM/CSS，原型中的 CSS 主题令牌、GSAP 和 HTML tooltip 统一映射为 Rust `Theme`、GPUI 动画与 GPUI 交互元素。
-- 系统能力通过独立模块封装：`summon` 负责全局快捷键/触顶/文本剪贴板轮询，置顶与提醒分别由 `pin`/`reminder` 负责，开机启动由 `settings` 负责。
+- 系统能力通过独立模块封装：`summon` 负责全局快捷键/触顶/文本与图片剪贴板轮询，置顶与提醒分别由 `pin`/`reminder` 负责，开机启动由 `settings` 负责。
 - 若 GPUI 当前版本缺少某个平台能力，必须提供可编译的降级实现和用户可见错误提示，不得用静态示例数据冒充持久化结果。
 
 ### 1.2 数据流
@@ -98,10 +98,12 @@ GPUI 视图 ──事件──▶ store / settings ──▶ SQLite / app-data/n
 - **自动保存**：面板输入停止约 500ms 后写入 `note_drafts`，归档时在事务中提升为正式笔记。
 - **归档策略**：点击「归档」按钮时，若内容 ≤ 1MB 则继续存 SQLite；若 > 1MB 则自动写入应用数据目录 `notes/` 下的 `.md` 文件，SQLite 仅保留相对路径引用与元数据。
 
-### ADR-006 剪贴板监听：GPUI 文本轮询 + 哈希去重 + 保留策略
-- **当前决策**：`summon` 每 250ms 调用 GPUI 剪贴板接口读取文本；内容哈希去重，并通过“写回后内容不变则不重复记录”抑制回声。
-- **分类**：当前仅支持 URL、代码特征和普通文本三类；图片/富文本需要独立的系统剪贴板适配层。
-- **保留策略**：Store 按设置在应用启动时清理过期剪贴板记录；长期驻留清理调度尚未接入。
+### ADR-006 剪贴板监听：GPUI 文本/图片轮询 + 哈希去重 + 保留策略
+- **当前决策**：`summon` 每 250ms 调用 GPUI 剪贴板接口读取条目；文本使用内容指纹、图片使用图片 ID/格式指纹去重，并通过“写回后内容不变则不重复记录”抑制回声。
+- **分类**：文本支持 URL、代码特征和普通文本三类；图片按 `image` 类型保存，原始字节以内容哈希文件存放在应用数据目录，数据库保存文件路径。
+- **富文本降级**：GPUI 当前公开接口提供文本及字符串元数据，但业务层暂不承诺格式保真；无法保留的富文本统一降级为纯文本。
+- **大小与失败策略**：图片单条上限 20 MiB，文件采用临时文件 + 原子替换；超过上限、格式无法读取或写入失败时不入库并记录 Store 错误。
+- **保留策略**：Store 按设置在应用启动时清理过期剪贴板记录，同时清理已从内存快照移除的图片文件；长期驻留清理调度尚未接入。
 
 ### ADR-007 GPUI 视图：单主窗口 + 共享 Store + 轻量 Markdown 渲染
 - **决策**：`InboxApp` 通过 `ActiveView` 承载归档、统计、设置和日期详情；`PanelApp` 承载顶部三态捕获。
@@ -190,6 +192,7 @@ CREATE TABLE IF NOT EXISTS clips (
   id TEXT PRIMARY KEY,
   content TEXT NOT NULL,
   kind TEXT NOT NULL DEFAULT 'text',
+  storage_path TEXT,
   content_hash TEXT NOT NULL UNIQUE,
   captured_at TEXT NOT NULL,
   favorite INTEGER NOT NULL DEFAULT 0
@@ -243,7 +246,7 @@ CREATE TABLE IF NOT EXISTS stats_daily (
 **数据约束与文件存储约定**：
 - 标签新增前统一按 Unicode 规范化并去重；笔记标签最多 3 个、每个最多 5 字，待办标签最多 3 个、每个最多 10 字。
 - 剪贴板去重必须在事务内完成；编辑内容后重新计算哈希，遇到已有同哈希条目时按产品策略合并或拒绝，不能留下错误的唯一索引。
-- `notes/` 位于应用数据目录，默认不写项目安装目录；当前正式剪贴板闭环覆盖文本/URL/代码分类，图片/富文本附件目录和二进制导出仍属于后续平台适配；文件写入采用临时文件 + 原子替换，数据库记录与文件记录失败时可恢复。
+- `notes/` 与 `clips/` 位于应用数据目录，默认不写项目安装目录；当前正式剪贴板闭环覆盖文本/图片/URL/代码分类，富文本格式保真和二进制导出仍属于后续平台适配；文件写入采用临时文件 + 原子替换，数据库记录与文件记录失败时可恢复。
 - 草稿自动保存使用稳定 `id`；`note_commit` 需要把草稿提升为正式笔记并清理草稿标记，数据库与外部文件引用必须可回滚。
 - 待办总量、已完成数、逾期数由 `todos` 的 `due_at/status/completed_at` 查询得出；它们不是只靠 `stats_daily` 的计数列推断。
 - 优先级变更只更新目标待办/子任务的 `priority` 与 `updated_at`，不级联父子层级、不改变 `due_at`、`remind_at`、状态或其他元数据；事务成功后发送 `todos:changed`，不写入活跃度统计事件。
@@ -280,10 +283,11 @@ device_query 触顶 → 100ms 防抖计时 → summon::show_panel
 ### 5.3 剪贴板捕获
 
 ```
-summon 后台 250ms 轮询 → GPUI `read_from_clipboard().text()`
-→ 内容变化检查 → Store 内容哈希去重
-→ 命中已有哈希或空内容 → 跳过
-→ 否则按 URL/代码/普通文本启发式分类 → SQLite 入库
+summon 后台 250ms 轮询 → GPUI `read_from_clipboard().entries()`
+→ 文本/图片内容指纹变化检查
+→ 文本：按 URL/代码/普通文本分类 → SQLite 入库
+→ 图片：校验 20 MiB 上限 → `clips/{hash}.ext` 原子落盘 → SQLite 保存路径
+→ 命中已有指纹或空内容 → 跳过
 → `cx.notify()` 刷新 GPUI 视图
 ```
 
