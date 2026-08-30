@@ -1,0 +1,8 @@
+[package]
+name = "inkling"
+description = "Inkling（念头捕手）桌面端 — GPUI 实现"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+gpui = "0.2.2"
