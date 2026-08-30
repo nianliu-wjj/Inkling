@@ -12,6 +12,33 @@ use crate::{
     theme::Theme,
 };
 
+fn open_external_link(url: &str) -> Result<(), String> {
+    #[cfg(windows)]
+    {
+        std::process::Command::new("cmd")
+            .args(["/C", "start", "", url])
+            .spawn()
+            .map(|_| ())
+            .map_err(|error| error.to_string())
+    }
+    #[cfg(target_os = "macos")]
+    {
+        std::process::Command::new("open")
+            .arg(url)
+            .spawn()
+            .map(|_| ())
+            .map_err(|error| error.to_string())
+    }
+    #[cfg(all(unix, not(target_os = "macos")))]
+    {
+        std::process::Command::new("xdg-open")
+            .arg(url)
+            .spawn()
+            .map(|_| ())
+            .map_err(|error| error.to_string())
+    }
+}
+
 fn section_title(t: &Theme, s: &str) -> impl IntoElement {
     div()
         .text_size(px(15.))
@@ -424,6 +451,25 @@ fn clip_row(
             }))
             .child(if favorite { "★" } else { "☆" }),
     );
+    if clip.kind() == "link" {
+        let url = clip.content().clone();
+        row = row.child(
+            div()
+                .id(SharedString::from(format!("open-clip-{}", clip.id())))
+                .px_1()
+                .py_0p5()
+                .rounded_sm()
+                .text_size(px(11.))
+                .text_color(t.accent())
+                .cursor_pointer()
+                .hover(|s| s.bg(t.hover()))
+                .on_click(cx.listener(move |_, _: &ClickEvent, _, cx| {
+                    let _ = open_external_link(&url);
+                    cx.notify();
+                }))
+                .child("↗"),
+        );
+    }
     row = row.child(div().text_size(px(10.)).text_color(t.text_dim()).child(
         if clip.kind() == "link" {
             "可打开链接"
