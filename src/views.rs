@@ -147,6 +147,8 @@ fn note_card(
     t: &Theme,
     note: &Note,
     delete_target: Option<DeleteTarget>,
+    edit_input: Entity<TextInput>,
+    edit_id: Option<String>,
     cx: &mut Context<InboxApp>,
 ) -> impl IntoElement {
     let mut metadata = div()
@@ -163,6 +165,91 @@ fn note_card(
         metadata = metadata.child(tag_chip(t, tag));
     }
     let confirmed = delete_target == Some(DeleteTarget::Note(note.id().clone()));
+    let note_id = note.id().clone();
+    let editing = edit_id.as_deref() == Some(note.id().as_str());
+    let edit_id_for_click = note.id().clone();
+    let edit_content_for_click = note.content().clone();
+    let edit_input_for_click = edit_input.clone();
+    let mut actions = div().flex().items_center().justify_end().gap_1();
+    if !editing {
+        actions = actions.child(
+            div()
+                .id(SharedString::from(format!("edit-note-{}", note.id())))
+                .px_1p5()
+                .py_0p5()
+                .rounded_sm()
+                .text_size(px(10.))
+                .text_color(t.accent())
+                .cursor_pointer()
+                .hover(|s| s.bg(t.hover()))
+                .on_click(cx.listener(move |this, _: &ClickEvent, _, cx| {
+                    edit_input_for_click.update(cx, |input, cx| {
+                        input.set_content(edit_content_for_click.clone(), cx)
+                    });
+                    this.set_note_edit_id(Some(edit_id_for_click.clone()));
+                    cx.notify();
+                }))
+                .child("✏️ 编辑"),
+        );
+    }
+    let content = if editing {
+        let save_id = note_id.clone();
+        let save_input = edit_input.clone();
+        let cancel_input = edit_input.clone();
+        let tags = note.tags().clone();
+        div()
+            .flex()
+            .flex_col()
+            .gap_1()
+            .child(div().min_h(px(72.)).child(edit_input))
+            .child(
+                div()
+                    .flex()
+                    .items_center()
+                    .gap_1()
+                    .child(
+                        div()
+                            .id(SharedString::from(format!("save-note-{}", note.id())))
+                            .px_2()
+                            .py_1()
+                            .rounded_md()
+                            .bg(t.accent())
+                            .text_color(t.bg())
+                            .cursor_pointer()
+                            .on_click(cx.listener(move |this, _: &ClickEvent, _, cx| {
+                                let content = save_input.read(cx).content();
+                                if store::update_note(cx, &save_id, content, tags.clone()) {
+                                    this.set_note_edit_id(None);
+                                    save_input.update(cx, |input, cx| input.clear(cx));
+                                    cx.notify();
+                                }
+                            }))
+                            .child("保存"),
+                    )
+                    .child(
+                        div()
+                            .id(SharedString::from(format!("cancel-note-{}", note.id())))
+                            .px_2()
+                            .py_1()
+                            .rounded_md()
+                            .text_color(t.text_dim())
+                            .cursor_pointer()
+                            .on_click(cx.listener(move |this, _: &ClickEvent, _, cx| {
+                                this.set_note_edit_id(None);
+                                cancel_input.update(cx, |input, cx| input.clear(cx));
+                                cx.notify();
+                            }))
+                            .child("取消"),
+                    ),
+            )
+            .into_any_element()
+    } else {
+        div()
+            .text_size(px(13.))
+            .text_color(t.text())
+            .child(render_markdown_lite(&note.content(), t))
+            .into_any_element()
+    };
     div()
         .relative()
         .flex()
@@ -179,13 +266,9 @@ fn note_card(
             confirmed,
             cx,
         ))
-        .child(
-            div()
-                .text_size(px(13.))
-                .text_color(t.text())
-                .child(render_markdown_lite(&note.content(), t)),
-        )
+        .child(content)
         .child(metadata)
+        .child(actions)
 }
 
 fn render_markdown_lite(text: &str, t: &Theme) -> impl IntoElement {
@@ -208,6 +291,8 @@ pub fn notes(
     t: &Theme,
     notes: &[Note],
     delete_target: Option<DeleteTarget>,
+    edit_input: Entity<TextInput>,
+    edit_id: Option<String>,
     cx: &mut Context<InboxApp>,
 ) -> impl IntoElement {
     let mut list = div().flex().flex_col().gap_2();
@@ -220,7 +305,14 @@ pub fn notes(
         );
     }
     for note in notes {
-        list = list.child(note_card(t, note, delete_target.clone(), cx));
+        list = list.child(note_card(
+            t,
+            note,
+            delete_target.clone(),
+            edit_input.clone(),
+            edit_id.clone(),
+            cx,
+        ));
     }
     div()
         .id("notes-view")
@@ -236,6 +328,8 @@ fn clip_row(
     t: &Theme,
     clip: &ClipItem,
     delete_target: Option<DeleteTarget>,
+    edit_input: Entity<TextInput>,
+    edit_id: Option<String>,
     cx: &mut Context<InboxApp>,
 ) -> impl IntoElement {
     let text = clip.content().clone();
@@ -243,6 +337,7 @@ fn clip_row(
     let favorite_id = clip.id().clone();
     let confirmed = delete_target == Some(DeleteTarget::Clip(clip.id().clone()));
     let favorite = clip.favorite();
+    let editing = edit_id.as_deref() == Some(clip.id().as_str());
     let mut row = div()
         .id(SharedString::from(format!("clip-{clip_id}")))
         .relative()
@@ -289,6 +384,30 @@ fn clip_row(
                 .text_color(t.text_dim())
                 .child(store::display_timestamp(&clip.captured_at())),
         );
+    if !editing {
+        let edit_id_for_click = clip.id().clone();
+        let edit_content_for_click = clip.content().clone();
+        let edit_input_for_click = edit_input.clone();
+        row = row.child(
+            div()
+                .id(SharedString::from(format!("edit-clip-{}", clip.id())))
+                .px_1()
+                .py_0p5()
+                .rounded_sm()
+                .text_size(px(11.))
+                .text_color(t.accent())
+                .cursor_pointer()
+                .hover(|s| s.bg(t.hover()))
+                .on_click(cx.listener(move |this, _: &ClickEvent, _, cx| {
+                    edit_input_for_click.update(cx, |input, cx| {
+                        input.set_content(edit_content_for_click.clone(), cx)
+                    });
+                    this.set_clip_edit_id(Some(edit_id_for_click.clone()));
+                    cx.notify();
+                }))
+                .child("✏️"),
+        );
+    }
     row = row.child(
         div()
             .id(SharedString::from(format!("favorite-clip-{}", favorite_id)))
@@ -305,22 +424,68 @@ fn clip_row(
             }))
             .child(if favorite { "★" } else { "☆" }),
     );
-    row.child(
-        div()
-            .text_size(px(10.))
-            .text_color(t.text_dim())
-            .child(if clip.kind() == "link" {
-                "可打开链接"
-            } else {
-                "点击复制"
-            }),
-    )
+    row = row.child(div().text_size(px(10.)).text_color(t.text_dim()).child(
+        if clip.kind() == "link" {
+            "可打开链接"
+        } else {
+            "点击复制"
+        },
+    ));
+    if editing {
+        let save_id = clip.id().clone();
+        let save_input = edit_input.clone();
+        let cancel_input = edit_input.clone();
+        row = row.flex_col().items_start().child(
+            div()
+                .flex()
+                .items_center()
+                .gap_1()
+                .child(div().flex_1().min_w_0().h(px(32.)).child(edit_input))
+                .child(
+                    div()
+                        .id(SharedString::from(format!("save-clip-{}", clip.id())))
+                        .px_2()
+                        .py_1()
+                        .rounded_md()
+                        .bg(t.accent())
+                        .text_color(t.bg())
+                        .cursor_pointer()
+                        .on_click(cx.listener(move |this, _: &ClickEvent, _, cx| {
+                            let content = save_input.read(cx).content();
+                            if store::update_clip_content(cx, &save_id, content) {
+                                this.set_clip_edit_id(None);
+                                save_input.update(cx, |input, cx| input.clear(cx));
+                                cx.notify();
+                            }
+                        }))
+                        .child("保存"),
+                )
+                .child(
+                    div()
+                        .id(SharedString::from(format!("cancel-clip-{}", clip.id())))
+                        .px_2()
+                        .py_1()
+                        .rounded_md()
+                        .text_color(t.text_dim())
+                        .cursor_pointer()
+                        .on_click(cx.listener(move |this, _: &ClickEvent, _, cx| {
+                            this.set_clip_edit_id(None);
+                            cancel_input.update(cx, |input, cx| input.clear(cx));
+                            cx.notify();
+                        }))
+                        .child("取消"),
+                ),
+        );
+    }
+    row
 }
 
 pub fn clips(
     t: &Theme,
     clips: &[ClipItem],
     delete_target: Option<DeleteTarget>,
+    edit_input: Entity<TextInput>,
+    edit_id: Option<String>,
     cx: &mut Context<InboxApp>,
 ) -> impl IntoElement {
     let mut list = div().flex().flex_col();
@@ -333,7 +498,14 @@ pub fn clips(
         );
     }
     for clip in clips {
-        list = list.child(clip_row(t, clip, delete_target.clone(), cx));
+        list = list.child(clip_row(
+            t,
+            clip,
+            delete_target.clone(),
+            edit_input.clone(),
+            edit_id.clone(),
+            cx,
+        ));
     }
     div()
         .id("clips-view")

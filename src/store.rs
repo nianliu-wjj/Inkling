@@ -612,9 +612,9 @@ fn query_daily_stat(conn: &Connection, date: &str) -> rusqlite::Result<crate::st
     ))
 }
 
-fn with_db<F>(s: &mut Store, f: F) -> rusqlite::Result<()>
+fn with_db<F, T>(s: &mut Store, f: F) -> rusqlite::Result<T>
 where
-    F: FnOnce(&mut Connection) -> rusqlite::Result<()>,
+    F: FnOnce(&mut Connection) -> rusqlite::Result<T>,
 {
     let path = s.db_path.clone().unwrap_or_else(db_path);
     let mut conn = open_db(&path)?;
@@ -722,7 +722,7 @@ pub fn add_note_with_tags(cx: &mut App, content: String, tags: Vec<String>) {
     }
 }
 
-pub fn update_note(cx: &mut App, id: &str, content: String, tags: Vec<String>) -> bool {
+pub fn update_note(cx: &mut App, note_id: &str, content: String, tags: Vec<String>) -> bool {
     let content = content.trim().to_string();
     if content.is_empty() {
         return false;
@@ -730,33 +730,82 @@ pub fn update_note(cx: &mut App, id: &str, content: String, tags: Vec<String>) -
     let tags = normalize_tags(&tags, 3, 5);
     let s = store(cx);
     let now = now_string();
+    let old_storage_path = with_db(s, |conn| {
+        let value = conn
+            .query_row(
+                "SELECT storage_path FROM notes WHERE id=?1",
+                [note_id],
+                |row| row.get::<_, Option<String>>(0),
+            )
+            .optional()?;
+        Ok(value.flatten())
+    })
+    .ok()
+    .flatten();
+    if old_storage_path.is_none() && !s.notes.iter().any(|note| note.id() == note_id) {
+        return false;
+    }
+
+    let large_note = content.len() > 1_048_576;
+    let new_storage_path =
+        large_note.then(|| format!("notes/{note_id}-{}.md", crate::store::id("note-revision")));
+    let new_absolute_path = new_storage_path
+        .as_deref()
+        .map(|relative| app_data_dir().join(relative));
+    if let Some(path) = new_absolute_path.as_ref() {
+        if let Some(parent) = path.parent() {
+            if std::fs::create_dir_all(parent).is_err() {
+                s.last_error = Some("无法创建大笔记存储目录".into());
+                return false;
+            }
+        }
+        let tmp = path.with_extension("md.tmp");
+        if std::fs::write(&tmp, &content).is_err() || std::fs::rename(&tmp, path).is_err() {
+            let _ = std::fs::remove_file(&tmp);
+            s.last_error = Some("大笔记落盘失败".into());
+            return false;
+        }
+    }
+    let db_content = if large_note {
+        String::new()
+    } else {
+        content.clone()
+    };
     let result = with_db(s, |conn| {
         let tx = conn.transaction()?;
         let changed = tx.execute(
-            "UPDATE notes SET content=?1,updated_at=?2 WHERE id=?3 AND storage_path IS NULL",
-            params![content, now, id],
+            "UPDATE notes SET content=?1,storage_path=?2,updated_at=?3 WHERE id=?4",
+            params![db_content, new_storage_path, now, note_id],
         )?;
         if changed == 0 {
             return Err(rusqlite::Error::QueryReturnedNoRows);
         }
-        tx.execute("DELETE FROM note_tags WHERE note_id=?1", [id])?;
+        tx.execute("DELETE FROM note_tags WHERE note_id=?1", [note_id])?;
         for tag in &tags {
             tx.execute(
                 "INSERT OR IGNORE INTO note_tags(note_id,tag) VALUES(?1,?2)",
-                params![id, tag],
+                params![note_id, tag],
             )?;
         }
         tx.commit()?;
         Ok(())
     });
     if result.is_ok() {
-        if let Some(note) = s.notes.iter_mut().find(|note| note.id() == id) {
+        if let Some(note) = s.notes.iter_mut().find(|note| note.id() == note_id) {
             note.set_content(content);
             note.set_tags(tags);
             note.set_updated_at(now);
         }
+        if let Some(old_path) = old_storage_path {
+            if Some(old_path.clone()) != new_storage_path {
+                let _ = std::fs::remove_file(app_data_dir().join(old_path));
+            }
+        }
         true
     } else {
+        if let Some(path) = new_absolute_path {
+            let _ = std::fs::remove_file(path);
+        }
         false
     }
 }

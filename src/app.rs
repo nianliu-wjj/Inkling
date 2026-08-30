@@ -67,6 +67,10 @@ crate::accessors! {
         todo_input: Entity<TextInput>,
         todo_edit_input: Entity<TextInput>,
         todo_edit_id: Option<String>,
+        note_edit_input: Entity<TextInput>,
+        note_edit_id: Option<String>,
+        clip_edit_input: Entity<TextInput>,
+        clip_edit_id: Option<String>,
         todo_parent_target: Option<String>,
         search_input: Entity<TextInput>,
         search_query: String,
@@ -123,6 +127,22 @@ impl InboxApp {
                 cx,
             )
         });
+        let note_edit_input = cx.new(|cx| {
+            TextInput::new(
+                "编辑笔记内容…",
+                gpui::hsla(0.0, 0.0, 1.0, 0.35),
+                gpui::hsla(0.65, 0.08, 0.95, 1.0),
+                cx,
+            )
+        });
+        let clip_edit_input = cx.new(|cx| {
+            TextInput::new(
+                "编辑剪贴板内容…",
+                gpui::hsla(0.0, 0.0, 1.0, 0.35),
+                gpui::hsla(0.65, 0.08, 0.95, 1.0),
+                cx,
+            )
+        });
         let search_input = cx.new(|cx| {
             TextInput::new(
                 "搜索文本、标签或备注…",
@@ -150,6 +170,10 @@ impl InboxApp {
             todo_input,
             todo_edit_input,
             todo_edit_id: None,
+            note_edit_input,
+            note_edit_id: None,
+            clip_edit_input,
+            clip_edit_id: None,
             todo_parent_target: None,
             search_input,
             search_query: String::new(),
@@ -492,12 +516,24 @@ impl InboxApp {
             .filter(|todo| query.is_empty() || searchable_todo(todo, &query))
             .collect::<Vec<_>>();
         let view = match self.active_view() {
-            ActiveView::Notes => {
-                views::notes(theme, &notes, self.delete_target(), cx).into_any_element()
-            }
-            ActiveView::Clips => {
-                views::clips(theme, &clips, self.delete_target(), cx).into_any_element()
-            }
+            ActiveView::Notes => views::notes(
+                theme,
+                &notes,
+                self.delete_target(),
+                self.note_edit_input.clone(),
+                self.note_edit_id(),
+                cx,
+            )
+            .into_any_element(),
+            ActiveView::Clips => views::clips(
+                theme,
+                &clips,
+                self.delete_target(),
+                self.clip_edit_input.clone(),
+                self.clip_edit_id(),
+                cx,
+            )
+            .into_any_element(),
             ActiveView::Todos => views::todos(
                 theme,
                 &todos,
