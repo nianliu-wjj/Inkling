@@ -9,3 +9,6 @@ Thumbs.db
 
 # 本地环境
 .env
+
+# IDE
+.idea/
