@@ -398,12 +398,19 @@ fn priority_menu(t: &Theme, todo: &TodoItem, cx: &mut Context<InboxApp>) -> impl
                         cx.notify();
                     }
                 }))
-                .child(format!(
-                    "{} {}{}",
-                    priority.label(),
-                    if selected { "✓" } else { "" },
-                    if selected { "" } else { "" }
-                )),
+                .child(
+                    div()
+                        .flex()
+                        .items_center()
+                        .gap_1()
+                        .child(div().w(px(7.)).h(px(7.)).rounded_full().bg(match priority {
+                            Priority::High => t.red(),
+                            Priority::Medium => t.gold(),
+                            Priority::Low => t.green(),
+                        }))
+                        .child(priority.label())
+                        .child(if selected { "✓" } else { "" }),
+                ),
         );
     }
     menu
@@ -482,6 +489,38 @@ fn todo_row(
         confirmed,
         cx,
     ));
+    let priority_control = div()
+        .relative()
+        .child(if done {
+            div()
+                .px_1p5()
+                .py_0p5()
+                .rounded_sm()
+                .text_size(px(11.))
+                .font_weight(FontWeight::SEMIBOLD)
+                .bg(t.hover())
+                .text_color(match todo.priority() {
+                    Priority::High => t.red(),
+                    Priority::Medium => t.gold(),
+                    Priority::Low => t.green(),
+                })
+                .child(format!(
+                    "{} {}",
+                    if matches!(todo.priority(), Priority::High) {
+                        "●"
+                    } else {
+                        "○"
+                    },
+                    todo.priority().label()
+                ))
+                .into_any_element()
+        } else {
+            priority_badge(t, todo, cx).into_any_element()
+        })
+        .when(
+            !done && menu_open.as_deref() == Some(item_id.as_str()),
+            |el| el.child(priority_menu(t, todo, cx)),
+        );
     row = row.child(
         div()
             .flex()
@@ -506,32 +545,7 @@ fn todo_row(
                         ))
                     }),
             )
-            .child(if done {
-                div()
-                    .px_1p5()
-                    .py_0p5()
-                    .rounded_sm()
-                    .text_size(px(11.))
-                    .font_weight(FontWeight::SEMIBOLD)
-                    .bg(t.hover())
-                    .text_color(match todo.priority() {
-                        Priority::High => t.red(),
-                        Priority::Medium => t.gold(),
-                        Priority::Low => t.green(),
-                    })
-                    .child(format!(
-                        "{} {}",
-                        if matches!(todo.priority(), Priority::High) {
-                            "●"
-                        } else {
-                            "○"
-                        },
-                        todo.priority().label()
-                    ))
-                    .into_any_element()
-            } else {
-                priority_badge(t, todo, cx).into_any_element()
-            })
+            .child(priority_control)
             .child(
                 div()
                     .flex_1()
@@ -545,9 +559,6 @@ fn todo_row(
             ),
     );
     row = row.child(bottom);
-    if !done && menu_open.as_deref() == Some(item_id.as_str()) {
-        row = row.child(priority_menu(t, todo, cx));
-    }
     row
 }
 
