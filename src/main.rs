@@ -3,13 +3,16 @@
 //! 基础功能阶段：单窗口（标题栏 / 侧边栏 / 三视图 / 设置与统计入口 / 多主题）。
 
 mod app;
+mod macros;
 mod settings;
 mod stats;
 mod theme;
 mod views;
 
 use app::{key_bindings, InboxApp};
-use gpui::{px, size, App, Application, Bounds, TitlebarOptions, WindowBounds, WindowOptions, AppContext, Focusable
+use gpui::{
+    px, size, App, AppContext, Application, Bounds, Focusable, TitlebarOptions, WindowBounds,
+    WindowOptions,
 };
 
 fn main() {

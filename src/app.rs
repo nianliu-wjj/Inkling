@@ -2,10 +2,9 @@
 //! 对应原型 `doc/index.html` 的「Inkling 单窗口（左右结构）」布局。
 
 use gpui::{
-    actions, div, prelude::*, px, App, ClickEvent, Context, FocusHandle, Focusable,
-    FontWeight, InteractiveElement, IntoElement, KeyBinding, ParentElement, PathBuilder,
-    Render, Rgba, SharedString, StatefulInteractiveElement, Styled, Window,
-    WindowControlArea,
+    actions, div, prelude::*, px, App, ClickEvent, Context, FocusHandle, Focusable, FontWeight,
+    InteractiveElement, IntoElement, KeyBinding, ParentElement, PathBuilder, Render, Rgba,
+    SharedString, StatefulInteractiveElement, Styled, Window, WindowControlArea,
 };
 
 use crate::settings::{BlurClose, RemarkStyle, Settings};
@@ -37,14 +36,16 @@ pub fn key_bindings() -> Vec<KeyBinding> {
     ]
 }
 
-pub struct InboxApp {
-    active_view: ActiveView,
-    theme_index: usize,
-    focus: FocusHandle,
-    settings: Settings,
-    theme_menu_open: bool,
-    day_detail_date: Option<String>,
-    autostart_error: Option<String>,
+crate::accessors! {
+    pub struct InboxApp {
+        active_view: ActiveView,
+        theme_index: usize,
+        focus: FocusHandle,
+        settings: Settings,
+        theme_menu_open: bool,
+        day_detail_date: Option<String>,
+        autostart_error: Option<String>,
+    }
 }
 
 impl Focusable for InboxApp {
@@ -55,7 +56,7 @@ impl Focusable for InboxApp {
 
 impl InboxApp {
     pub fn new(settings: Settings, cx: &mut Context<Self>) -> Self {
-        let theme_index = crate::theme::theme_index_by_id(&settings.theme_id)
+        let theme_index = crate::theme::theme_index_by_id(&settings.theme_id())
             .unwrap_or(crate::theme::DEFAULT_THEME);
         Self {
             active_view: ActiveView::Notes,
@@ -69,34 +70,34 @@ impl InboxApp {
     }
 
     fn theme(&self) -> &'static Theme {
-        &THEMES[self.theme_index]
+        &THEMES[self.theme_index()]
     }
 
     fn set_theme(&mut self, index: usize, cx: &mut Context<Self>) {
-        self.theme_index = index;
-        self.settings.theme_id = THEMES[index].id.to_string();
+        self.set_theme_index(index);
+        self.settings.set_theme_id(THEMES[index].id().to_string());
         self.settings.save();
         self.theme_menu_open = false;
         cx.notify();
     }
 
     fn handle_switch_notes(&mut self, _: &SwitchNotes, _: &mut Window, cx: &mut Context<Self>) {
-        self.active_view = ActiveView::Notes;
+        self.set_active_view(ActiveView::Notes);
         cx.notify();
     }
 
     fn handle_switch_clips(&mut self, _: &SwitchClips, _: &mut Window, cx: &mut Context<Self>) {
-        self.active_view = ActiveView::Clips;
+        self.set_active_view(ActiveView::Clips);
         cx.notify();
     }
 
     fn handle_switch_todos(&mut self, _: &SwitchTodos, _: &mut Window, cx: &mut Context<Self>) {
-        self.active_view = ActiveView::Todos;
+        self.set_active_view(ActiveView::Todos);
         cx.notify();
     }
 
     fn handle_next_theme(&mut self, _: &NextTheme, _: &mut Window, cx: &mut Context<Self>) {
-        let next = (self.theme_index + 1) % THEMES.len();
+        let next = (self.theme_index() + 1) % THEMES.len();
         self.set_theme(next, cx);
     }
 
@@ -113,7 +114,7 @@ impl InboxApp {
             4 => 0xD9,
             _ => 0x14,
         };
-        gpui::rgba((self.theme().accent_rgb << 8) | alpha)
+        gpui::rgba((self.theme().accent_rgb() << 8) | alpha)
     }
 
     fn intensity_level(total: u32) -> u32 {
@@ -133,26 +134,31 @@ impl InboxApp {
             .items_center()
             .h(px(38.))
             .px_3()
-            .bg(theme.sidebar)
+            .bg(theme.sidebar())
             .border_b_1()
-            .border_color(theme.border)
+            .border_color(theme.border())
             .child(
                 div()
                     .text_size(px(13.))
                     .font_weight(FontWeight::SEMIBOLD)
-                    .text_color(theme.text)
+                    .text_color(theme.text())
                     .child("✒️ Inkling"),
             )
             // 中段空白作为窗口拖拽区（自定义无边框标题栏）
-            .child(div().flex_1().h_full().window_control_area(WindowControlArea::Drag))
+            .child(
+                div()
+                    .flex_1()
+                    .h_full()
+                    .window_control_area(WindowControlArea::Drag),
+            )
             .child(
                 div()
                     .id("titlebar-close")
                     .px_2()
                     .rounded_md()
                     .cursor_pointer()
-                    .text_color(theme.text_dim)
-                    .hover(|s| s.bg(theme.red).text_color(theme.text))
+                    .text_color(theme.text_dim())
+                    .hover(|s| s.bg(theme.red()).text_color(theme.text()))
                     .on_click(cx.listener(|_: &mut Self, _: &ClickEvent, _, cx| {
                         cx.quit();
                     }))
@@ -171,9 +177,9 @@ impl InboxApp {
             .flex_col()
             .gap_1()
             .p_2()
-            .bg(theme.sidebar)
+            .bg(theme.sidebar())
             .border_r_1()
-            .border_color(theme.border)
+            .border_color(theme.border())
             .child(self.nav_item("nav-notes", "📝 笔记", ActiveView::Notes, cx))
             .child(self.nav_item("nav-clips", "📋 粘贴板", ActiveView::Clips, cx))
             .child(self.nav_item("nav-todos", "✅ 待办", ActiveView::Todos, cx))
@@ -186,7 +192,7 @@ impl InboxApp {
                     .pt_2()
                     .mt_1()
                     .border_t_1()
-                    .border_color(theme.border)
+                    .border_color(theme.border())
                     .child(self.icon_button("sb-settings", "⚙️", ActiveView::Settings, cx))
                     .child(self.icon_button("sb-stats", "📊", ActiveView::Stats, cx)),
             )
@@ -211,17 +217,17 @@ impl InboxApp {
             .text_size(px(13.))
             .cursor_pointer()
             .when(active, |el| {
-                el.bg(theme.hover)
-                    .text_color(theme.text)
+                el.bg(theme.hover())
+                    .text_color(theme.text())
                     .border_1()
-                    .border_color(theme.accent)
+                    .border_color(theme.accent())
             })
             .when(!active, |el| {
-                el.text_color(theme.text_dim)
-                    .hover(|s| s.bg(theme.hover).text_color(theme.text))
+                el.text_color(theme.text_dim())
+                    .hover(|s| s.bg(theme.hover()).text_color(theme.text()))
             })
             .on_click(cx.listener(move |this, _: &ClickEvent, _, cx| {
-                this.active_view = view;
+                this.set_active_view(view);
                 cx.notify();
             }))
             .child(label.to_string())
@@ -247,14 +253,17 @@ impl InboxApp {
             .text_size(px(14.))
             .cursor_pointer()
             .when(active, |el| {
-                el.bg(theme.hover).text_color(theme.text).border_1().border_color(theme.accent)
+                el.bg(theme.hover())
+                    .text_color(theme.text())
+                    .border_1()
+                    .border_color(theme.accent())
             })
             .when(!active, |el| {
-                el.text_color(theme.text_dim)
-                    .hover(|s| s.bg(theme.hover).text_color(theme.text))
+                el.text_color(theme.text_dim())
+                    .hover(|s| s.bg(theme.hover()).text_color(theme.text()))
             })
             .on_click(cx.listener(move |this, _: &ClickEvent, _, cx| {
-                this.active_view = view;
+                this.set_active_view(view);
                 cx.notify();
             }))
             .child(icon.to_string())
@@ -273,7 +282,7 @@ impl InboxApp {
                         let stat = stats::day_stat(date);
                         let level = Self::intensity_level(stat.total());
                         let color = self.level_color(level);
-                        let selected = self.day_detail_date.as_deref() == Some(date.as_str());
+                        let selected = self.day_detail_date().as_deref() == Some(date.as_str());
                         row = row.child(
                             div()
                                 .id(SharedString::from(format!("mh-{date}")))
@@ -282,17 +291,15 @@ impl InboxApp {
                                 .rounded_sm()
                                 .cursor_pointer()
                                 .bg(color)
-                                .when(stat.overdue > 0, |el| {
-                                    el.border_1().border_color(theme.red)
+                                .when(stat.overdue() > 0, |el| {
+                                    el.border_1().border_color(theme.red())
                                 })
-                                .when(selected, |el| {
-                                    el.border_1().border_color(theme.accent)
-                                })
+                                .when(selected, |el| el.border_1().border_color(theme.accent()))
                                 .hover(|s| s.opacity(0.75))
                                 .on_click(cx.listener({
                                     let date = date.clone();
                                     move |this, _: &ClickEvent, _, cx| {
-                                        this.day_detail_date = Some(date.clone());
+                                        this.set_day_detail_date(Some(date.clone()));
                                         this.active_view = ActiveView::Day;
                                         cx.notify();
                                     }
@@ -310,13 +317,13 @@ impl InboxApp {
             .gap_1()
             .p_2()
             .rounded_lg()
-            .bg(theme.card)
+            .bg(theme.card())
             .border_1()
-            .border_color(theme.border)
+            .border_color(theme.border())
             .child(
                 div()
                     .text_size(px(10.))
-                    .text_color(theme.text_dim)
+                    .text_color(theme.text_dim())
                     .child(format!("{month}月 {year} 活跃 · 点击查当日")),
             )
             .child(columns)
@@ -329,7 +336,7 @@ impl InboxApp {
             .flex_1()
             .min_w_0()
             .overflow_hidden()
-            .child(match self.active_view {
+            .child(match self.active_view() {
                 ActiveView::Notes => views::notes(theme).into_any_element(),
                 ActiveView::Clips => views::clips(theme).into_any_element(),
                 ActiveView::Todos => views::todos(theme).into_any_element(),
@@ -345,58 +352,65 @@ impl InboxApp {
         let mut rows = div().flex().flex_col();
 
         rows = rows.child(
-            self.setting_row("主题", cx).child(self.render_theme_dropdown(theme, cx)),
+            self.setting_row("主题", cx)
+                .child(self.render_theme_dropdown(theme, cx)),
         );
         rows = rows.child(
-            self.setting_row("失焦自动收起", cx).child(self.render_blur_close(cx)),
+            self.setting_row("失焦自动收起", cx)
+                .child(self.render_blur_close(cx)),
         );
         rows = rows.child(
-            self.setting_row("粘贴板保留天数", cx).child(self.render_retention(cx)),
+            self.setting_row("粘贴板保留天数", cx)
+                .child(self.render_retention(cx)),
         );
 
         let autostart_row = self
             .setting_row("开机静默自启动", cx)
             .child(self.render_autostart_toggle(cx));
-        rows = rows.child(div().child(autostart_row).child(
-            div().when_some(self.autostart_error.clone(), |el, msg| {
+        rows = rows.child(div().child(autostart_row).child(div().when_some(
+            self.autostart_error().clone(),
+            |el, msg| {
                 el.child(
                     div()
                         .pl(px(140.))
                         .text_size(px(11.))
-                        .text_color(theme.red)
+                        .text_color(theme.red())
                         .child(msg),
                 )
-            }),
-        ));
+            },
+        )));
 
         rows = rows.child(
-            self.setting_row("备注展示样式", cx).child(self.render_remark_style(cx)),
+            self.setting_row("备注展示样式", cx)
+                .child(self.render_remark_style(cx)),
         );
-        rows = rows.child(self.setting_row("全局快捷键", cx).child(
-            div()
-                .flex()
-                .items_center()
-                .gap_2()
-                .text_size(px(13.))
-                .text_color(theme.text)
-                .child(
-                    div()
-                        .px_2()
-                        .py_1()
-                        .rounded_md()
-                        .text_size(px(11.))
-                        .bg(theme.card)
-                        .border_1()
-                        .border_color(theme.border)
-                        .child("Ctrl + Shift + Space"),
-                )
-                .child(
-                    div()
-                        .text_size(px(11.))
-                        .text_color(theme.text_dim)
-                        .child("呼出面板 · 录制功能后续接入"),
-                ),
-        ));
+        rows = rows.child(
+            self.setting_row("全局快捷键", cx).child(
+                div()
+                    .flex()
+                    .items_center()
+                    .gap_2()
+                    .text_size(px(13.))
+                    .text_color(theme.text())
+                    .child(
+                        div()
+                            .px_2()
+                            .py_1()
+                            .rounded_md()
+                            .text_size(px(11.))
+                            .bg(theme.card())
+                            .border_1()
+                            .border_color(theme.border())
+                            .child("Ctrl + Shift + Space"),
+                    )
+                    .child(
+                        div()
+                            .text_size(px(11.))
+                            .text_color(theme.text_dim())
+                            .child("呼出面板 · 录制功能后续接入"),
+                    ),
+            ),
+        );
 
         div()
             .flex()
@@ -407,7 +421,7 @@ impl InboxApp {
                 div()
                     .text_size(px(15.))
                     .font_weight(FontWeight::SEMIBOLD)
-                    .text_color(theme.text)
+                    .text_color(theme.text())
                     .child("⚙️ 偏好设置"),
             )
             .child(rows)
@@ -421,13 +435,13 @@ impl InboxApp {
             .gap_3()
             .py_2()
             .border_b_1()
-            .border_color(theme.border)
+            .border_color(theme.border())
             .child(
                 div()
                     .w(px(140.))
                     .flex_shrink_0()
                     .text_size(px(13.))
-                    .text_color(theme.text_dim)
+                    .text_color(theme.text_dim())
                     .child(label.to_string()),
             )
     }
@@ -444,29 +458,32 @@ impl InboxApp {
             .rounded_lg()
             .cursor_pointer()
             .text_size(px(13.))
-            .bg(theme.card)
+            .bg(theme.card())
             .border_1()
-            .when(self.theme_menu_open, |el| el.border_color(theme.accent))
-            .when(!self.theme_menu_open, |el| el.border_color(theme.border))
+            .when(self.theme_menu_open(), |el| el.border_color(theme.accent()))
+            .when(!self.theme_menu_open(), |el| {
+                el.border_color(theme.border())
+            })
             .on_click(cx.listener(|this, _: &ClickEvent, _, cx| {
-                this.theme_menu_open = !this.theme_menu_open;
+                let next = !this.theme_menu_open();
+                this.set_theme_menu_open(next);
                 cx.notify();
             }))
             .child(
                 div()
                     .flex_1()
-                    .text_color(theme.text)
-                    .child(self.theme().name.to_string()),
+                    .text_color(theme.text())
+                    .child(self.theme().name().to_string()),
             )
             .child(
                 div()
                     .text_size(px(10.))
-                    .text_color(theme.text_dim)
-                    .child(if self.theme_menu_open { "▲" } else { "▼" }),
+                    .text_color(theme.text_dim())
+                    .child(if self.theme_menu_open() { "▲" } else { "▼" }),
             );
 
         let mut container = div().relative().w(px(240.)).child(trigger);
-        if self.theme_menu_open {
+        if self.theme_menu_open() {
             let mut menu = div()
                 .id("theme-dd-menu")
                 .absolute()
@@ -478,12 +495,12 @@ impl InboxApp {
                 .overflow_y_scroll()
                 .p_1()
                 .rounded_lg()
-                .bg(theme.sidebar)
+                .bg(theme.sidebar())
                 .border_1()
-                .border_color(theme.border)
+                .border_color(theme.border())
                 .shadow_lg();
             for (index, t) in THEMES.iter().enumerate() {
-                let active = index == self.theme_index;
+                let active = index == self.theme_index();
                 menu = menu.child(
                     div()
                         .id(SharedString::from(format!("theme-opt-{index}")))
@@ -495,19 +512,20 @@ impl InboxApp {
                         .rounded_md()
                         .cursor_pointer()
                         .text_size(px(12.5))
-                        .text_color(theme.text)
-                        .when(active, |el| el.bg(theme.hover))
-                        .hover(|s| s.bg(theme.hover))
+                        .text_color(theme.text())
+                        .when(active, |el| el.bg(theme.hover()))
+                        .hover(|s| s.bg(theme.hover()))
                         .on_click(cx.listener(move |this, _: &ClickEvent, _, cx| {
                             this.set_theme(index, cx);
                         }))
-                        .child(t.name.to_string())
-                        .child(
-                            div()
-                                .text_size(px(11.))
-                                .text_color(theme.accent)
-                                .child(if active { "✓".to_string() } else { "".to_string() }),
-                        ),
+                        .child(t.name().to_string())
+                        .child(div().text_size(px(11.)).text_color(theme.accent()).child(
+                            if active {
+                                "✓".to_string()
+                            } else {
+                                "".to_string()
+                            },
+                        )),
                 );
             }
             container = container.child(menu);
@@ -519,7 +537,7 @@ impl InboxApp {
         let theme = self.theme();
         let mut row = div().flex().gap_1();
         for option in BlurClose::ALL {
-            let active = self.settings.blur_close == option;
+            let active = self.settings.blur_close() == option;
             row = row.child(
                 div()
                     .id(SharedString::from(format!("blur-{:?}", option)))
@@ -529,14 +547,19 @@ impl InboxApp {
                     .text_size(px(12.))
                     .cursor_pointer()
                     .when(active, |el| {
-                        el.bg(theme.hover).text_color(theme.text).border_1().border_color(theme.accent)
+                        el.bg(theme.hover())
+                            .text_color(theme.text())
+                            .border_1()
+                            .border_color(theme.accent())
                     })
                     .when(!active, |el| {
-                        el.text_color(theme.text_dim).border_1().border_color(theme.border)
-                            .hover(|s| s.text_color(theme.text))
+                        el.text_color(theme.text_dim())
+                            .border_1()
+                            .border_color(theme.border())
+                            .hover(|s| s.text_color(theme.text()))
                     })
                     .on_click(cx.listener(move |this, _: &ClickEvent, _, cx| {
-                        this.settings.blur_close = option;
+                        this.settings.set_blur_close(option);
                         this.settings.save();
                         cx.notify();
                     }))
@@ -550,7 +573,7 @@ impl InboxApp {
         let theme = self.theme();
         let mut row = div().flex().gap_1();
         for option in RemarkStyle::ALL {
-            let active = self.settings.remark_style == option;
+            let active = self.settings.remark_style() == option;
             row = row.child(
                 div()
                     .id(SharedString::from(format!("remark-{:?}", option)))
@@ -560,14 +583,19 @@ impl InboxApp {
                     .text_size(px(12.))
                     .cursor_pointer()
                     .when(active, |el| {
-                        el.bg(theme.hover).text_color(theme.text).border_1().border_color(theme.accent)
+                        el.bg(theme.hover())
+                            .text_color(theme.text())
+                            .border_1()
+                            .border_color(theme.accent())
                     })
                     .when(!active, |el| {
-                        el.text_color(theme.text_dim).border_1().border_color(theme.border)
-                            .hover(|s| s.text_color(theme.text))
+                        el.text_color(theme.text_dim())
+                            .border_1()
+                            .border_color(theme.border())
+                            .hover(|s| s.text_color(theme.text()))
                     })
                     .on_click(cx.listener(move |this, _: &ClickEvent, _, cx| {
-                        this.settings.remark_style = option;
+                        this.settings.set_remark_style(option);
                         this.settings.save();
                         cx.notify();
                     }))
@@ -590,13 +618,13 @@ impl InboxApp {
                     .py_1()
                     .rounded_md()
                     .text_size(px(13.))
-                    .text_color(theme.text)
-                    .bg(theme.card)
+                    .text_color(theme.text())
+                    .bg(theme.card())
                     .border_1()
-                    .border_color(theme.border)
+                    .border_color(theme.border())
                     .flex()
                     .justify_center()
-                    .child(format!("{} 天", self.settings.clip_retention_days)),
+                    .child(format!("{} 天", self.settings.clip_retention_days())),
             )
             .child(self.stepper_button("retention-inc", "+", cx))
     }
@@ -618,15 +646,15 @@ impl InboxApp {
             .justify_center()
             .cursor_pointer()
             .text_size(px(14.))
-            .text_color(theme.text)
-            .bg(theme.card)
+            .text_color(theme.text())
+            .bg(theme.card())
             .border_1()
-            .border_color(theme.border)
-            .hover(|s| s.bg(theme.hover))
+            .border_color(theme.border())
+            .hover(|s| s.bg(theme.hover()))
             .on_click(cx.listener(move |this, _: &ClickEvent, _, cx| {
                 let delta = if id.ends_with("inc") { 1 } else { -1 };
-                let next = (this.settings.clip_retention_days as i32 + delta).clamp(1, 365);
-                this.settings.clip_retention_days = next as u32;
+                let next = (this.settings.clip_retention_days() as i32 + delta).clamp(1, 365);
+                this.settings.set_clip_retention_days(next as u32);
                 this.settings.save();
                 cx.notify();
             }))
@@ -635,7 +663,7 @@ impl InboxApp {
 
     fn render_autostart_toggle(&self, cx: &mut Context<Self>) -> impl IntoElement {
         let theme = self.theme();
-        let on = self.settings.autostart;
+        let on = self.settings.autostart();
         div()
             .id("autostart-toggle")
             .w(px(38.))
@@ -644,21 +672,21 @@ impl InboxApp {
             .p(px(2.))
             .flex()
             .cursor_pointer()
-            .when(on, |el| el.bg(theme.green).justify_end())
-            .when(!on, |el| el.bg(theme.border).justify_start())
+            .when(on, |el| el.bg(theme.green()).justify_end())
+            .when(!on, |el| el.bg(theme.border()).justify_start())
             .on_click(cx.listener(|this, _: &ClickEvent, _, cx| {
-                let next = !this.settings.autostart;
-                match Settings::set_autostart(next) {
+                let next = !this.settings.autostart();
+                match Settings::apply_autostart_registry(next) {
                     Ok(()) => {
-                        this.settings.autostart = next;
+                        this.settings.set_autostart(next);
                         this.settings.save();
                         this.autostart_error = None;
                     }
-                    Err(msg) => this.autostart_error = Some(msg),
+                    Err(msg) => this.set_autostart_error(Some(msg)),
                 }
                 cx.notify();
             }))
-            .child(div().size(px(16.)).rounded_full().bg(theme.text))
+            .child(div().size(px(16.)).rounded_full().bg(theme.text()))
     }
 
     // ── 统计页 ──────────────────────────────────
@@ -671,9 +699,12 @@ impl InboxApp {
         let mut prev_month = 0u32;
         for week in days.chunks(7) {
             let mut col = div().flex().flex_col().gap(px(3.));
-            let mut label = div().h(px(14.)).text_size(px(10.)).text_color(theme.text_dim);
+            let mut label = div()
+                .h(px(14.))
+                .text_size(px(10.))
+                .text_color(theme.text_dim());
             if let Some(first) = week.first() {
-                let month = first.date[5..7].parse::<u32>().unwrap_or(0);
+                let month = first.date()[5..7].parse::<u32>().unwrap_or(0);
                 if month != prev_month {
                     label = label.child(format!("{month}月"));
                     prev_month = month;
@@ -685,22 +716,24 @@ impl InboxApp {
             for day in week {
                 let level = Self::intensity_level(day.total());
                 let color = self.level_color(level);
-                let selected = self.day_detail_date.as_deref() == Some(day.date.as_str());
+                let selected = self.day_detail_date().as_deref() == Some(day.date().as_str());
                 col = col.child(
                     div()
-                        .id(SharedString::from(format!("st-{}", day.date)))
+                        .id(SharedString::from(format!("st-{}", day.date())))
                         .w(px(13.))
                         .h(px(13.))
                         .rounded_sm()
                         .cursor_pointer()
                         .bg(color)
-                        .when(day.overdue > 0, |el| el.border_1().border_color(theme.red))
-                        .when(selected, |el| el.border_1().border_color(theme.accent))
+                        .when(day.overdue() > 0, |el| {
+                            el.border_1().border_color(theme.red())
+                        })
+                        .when(selected, |el| el.border_1().border_color(theme.accent()))
                         .hover(|s| s.opacity(0.75))
                         .on_click(cx.listener({
-                            let date = day.date.clone();
+                            let date = day.date().clone();
                             move |this, _: &ClickEvent, _, cx| {
-                                this.day_detail_date = Some(date.clone());
+                                this.set_day_detail_date(Some(date.clone()));
                                 cx.notify();
                             }
                         })),
@@ -724,22 +757,22 @@ impl InboxApp {
                 div()
                     .text_size(px(15.))
                     .font_weight(FontWeight::SEMIBOLD)
-                    .text_color(theme.text)
+                    .text_color(theme.text())
                     .child("📊 使用统计"),
             )
             .child(
                 div()
                     .text_size(px(12.))
-                    .text_color(theme.text_dim)
+                    .text_color(theme.text_dim())
                     .child("每日活跃度热力图（近 26 周 · 点击查看当日明细 · 红框 = 存在逾期）"),
             )
             .child(
                 div()
                     .p_3()
                     .rounded_lg()
-                    .bg(theme.card)
+                    .bg(theme.card())
                     .border_1()
-                    .border_color(theme.border)
+                    .border_color(theme.border())
                     .id("stats-heatmap")
                     .overflow_x_scroll()
                     .child(columns),
@@ -753,38 +786,45 @@ impl InboxApp {
                     .gap_1()
                     .p_3()
                     .rounded_lg()
-                    .bg(theme.card)
+                    .bg(theme.card())
                     .border_1()
-                    .border_color(theme.border)
+                    .border_color(theme.border())
                     .child(
                         div()
                             .text_size(px(13.))
                             .font_weight(FontWeight::SEMIBOLD)
-                            .text_color(theme.text)
-                            .child(format!("📌 {} 的记录", stat.date)),
+                            .text_color(theme.text())
+                            .child(format!("📌 {} 的记录", stat.date())),
                     )
                     .child(
-                        div().text_size(px(12.5)).text_color(theme.text).child(format!(
-                            "📝 笔记 {} 条 · 📋 复制项 {} 条",
-                            stat.notes, stat.clips
-                        )),
+                        div()
+                            .text_size(px(12.5))
+                            .text_color(theme.text())
+                            .child(format!(
+                                "📝 笔记 {} 条 · 📋 复制项 {} 条",
+                                stat.notes(),
+                                stat.clips()
+                            )),
                     )
                     .child(
                         div()
                             .flex()
                             .gap_1()
                             .text_size(px(12.5))
-                            .child(
-                                div().text_color(theme.text).child(format!(
-                                    "✅ 待办 {} 条（已完成 {}",
-                                    stat.todos, stat.done
-                                )),
-                            )
+                            .child(div().text_color(theme.text()).child(format!(
+                                "✅ 待办 {} 条（已完成 {}",
+                                stat.todos(),
+                                stat.done()
+                            )))
                             .child(
                                 div()
-                                    .text_color(if stat.overdue > 0 { theme.red } else { theme.text })
-                                    .child(if stat.overdue > 0 {
-                                        format!("· 逾期 {}）", stat.overdue)
+                                    .text_color(if stat.overdue() > 0 {
+                                        theme.red()
+                                    } else {
+                                        theme.text()
+                                    })
+                                    .child(if stat.overdue() > 0 {
+                                        format!("· 逾期 {}）", stat.overdue())
                                     } else {
                                         "）".to_string()
                                     }),
@@ -797,7 +837,7 @@ impl InboxApp {
             .child(
                 div()
                     .text_size(px(12.))
-                    .text_color(theme.text_dim)
+                    .text_color(theme.text_dim())
                     .child("近 6 个月趋势（各模块使用量折线）"),
             )
             .child(self.render_trend(theme))
@@ -807,12 +847,36 @@ impl InboxApp {
                     .items_center()
                     .gap_2()
                     .text_size(px(11.))
-                    .text_color(theme.text_dim)
+                    .text_color(theme.text_dim())
                     .child("少".to_string())
-                    .child(div().w(px(11.)).h(px(11.)).rounded_sm().bg(self.level_color(1)))
-                    .child(div().w(px(11.)).h(px(11.)).rounded_sm().bg(self.level_color(2)))
-                    .child(div().w(px(11.)).h(px(11.)).rounded_sm().bg(self.level_color(3)))
-                    .child(div().w(px(11.)).h(px(11.)).rounded_sm().bg(self.level_color(4)))
+                    .child(
+                        div()
+                            .w(px(11.))
+                            .h(px(11.))
+                            .rounded_sm()
+                            .bg(self.level_color(1)),
+                    )
+                    .child(
+                        div()
+                            .w(px(11.))
+                            .h(px(11.))
+                            .rounded_sm()
+                            .bg(self.level_color(2)),
+                    )
+                    .child(
+                        div()
+                            .w(px(11.))
+                            .h(px(11.))
+                            .rounded_sm()
+                            .bg(self.level_color(3)),
+                    )
+                    .child(
+                        div()
+                            .w(px(11.))
+                            .h(px(11.))
+                            .rounded_sm()
+                            .bg(self.level_color(4)),
+                    )
                     .child("多".to_string())
                     .child(
                         div()
@@ -820,8 +884,8 @@ impl InboxApp {
                             .h(px(11.))
                             .rounded_sm()
                             .border_1()
-                            .border_color(theme.red)
-                            .bg(theme.card),
+                            .border_color(theme.red())
+                            .bg(theme.card()),
                     )
                     .child("存在逾期".to_string()),
             )
@@ -833,14 +897,14 @@ impl InboxApp {
         // 按月聚合（最多 6 个月）
         let mut months: Vec<(String, u32, u32, u32)> = Vec::new();
         for d in &days {
-            let key = d.date[0..7].to_string();
+            let key = d.date()[0..7].to_string();
             match months.last_mut() {
                 Some(last) if last.0 == key => {
-                    last.1 += d.notes;
-                    last.2 += d.clips;
-                    last.3 += d.todos;
+                    last.1 += d.notes();
+                    last.2 += d.clips();
+                    last.3 += d.todos();
                 }
-                _ => months.push((key, d.notes, d.clips, d.todos)),
+                _ => months.push((key, d.notes(), d.clips(), d.todos())),
             }
         }
         if months.len() > 6 {
@@ -887,8 +951,8 @@ impl InboxApp {
             .enumerate()
             .map(|(i, m)| (x_at(i), format!("{}月", m.0[5..7].trim_start_matches('0'))))
             .collect();
-        let colors = [theme.red, theme.gold, theme.green];
-        let accent_grid = theme.border;
+        let colors = [theme.red(), theme.gold(), theme.green()];
+        let accent_grid = theme.border();
 
         div()
             .flex()
@@ -900,30 +964,39 @@ impl InboxApp {
                     .gap_3()
                     .justify_end()
                     .text_size(px(11.))
-                    .text_color(theme.text_dim)
+                    .text_color(theme.text_dim())
                     .child(
-                        div().flex().items_center().gap_1().child(
-                            div().w(px(10.)).h(px(10.)).rounded_sm().bg(theme.red),
-                        ).child("笔记"),
+                        div()
+                            .flex()
+                            .items_center()
+                            .gap_1()
+                            .child(div().w(px(10.)).h(px(10.)).rounded_sm().bg(theme.red()))
+                            .child("笔记"),
                     )
                     .child(
-                        div().flex().items_center().gap_1().child(
-                            div().w(px(10.)).h(px(10.)).rounded_sm().bg(theme.gold),
-                        ).child("粘贴板"),
+                        div()
+                            .flex()
+                            .items_center()
+                            .gap_1()
+                            .child(div().w(px(10.)).h(px(10.)).rounded_sm().bg(theme.gold()))
+                            .child("粘贴板"),
                     )
                     .child(
-                        div().flex().items_center().gap_1().child(
-                            div().w(px(10.)).h(px(10.)).rounded_sm().bg(theme.green),
-                        ).child("待办"),
+                        div()
+                            .flex()
+                            .items_center()
+                            .gap_1()
+                            .child(div().w(px(10.)).h(px(10.)).rounded_sm().bg(theme.green()))
+                            .child("待办"),
                     ),
             )
             .child(
                 div()
                     .p_3()
                     .rounded_lg()
-                    .bg(theme.card)
+                    .bg(theme.card())
                     .border_1()
-                    .border_color(theme.border)
+                    .border_color(theme.border())
                     .overflow_hidden()
                     .child(
                         gpui::canvas(
@@ -954,7 +1027,10 @@ impl InboxApp {
                                             builder.line_to(at(p.0, p.1));
                                         }
                                     }
-                                    window.paint_path(builder.build().expect("path build 失败"), color);
+                                    window.paint_path(
+                                        builder.build().expect("path build 失败"),
+                                        color,
+                                    );
                                     for p in pts {
                                         let r = 3.0;
                                         window.paint_quad(gpui::fill(
@@ -980,7 +1056,7 @@ impl InboxApp {
                                 div()
                                     .w(px((*x - cursor).max(1.0)))
                                     .text_size(px(10.))
-                                    .text_color(theme.text_dim)
+                                    .text_color(theme.text_dim())
                                     .child(label.clone()),
                             );
                             cursor = *x;
@@ -1008,17 +1084,21 @@ impl InboxApp {
                 div()
                     .text_size(px(15.))
                     .font_weight(FontWeight::SEMIBOLD)
-                    .text_color(theme.text)
+                    .text_color(theme.text())
                     .child(format!(
                         "📌 {} 的记录{}",
-                        stat.date,
-                        if stat.date == stats::today_str() { " · 今天" } else { "" }
+                        stat.date(),
+                        if stat.date() == stats::today_str() {
+                            " · 今天"
+                        } else {
+                            ""
+                        }
                     )),
             )
             .child(
                 div()
                     .text_size(px(12.))
-                    .text_color(theme.text_dim)
+                    .text_color(theme.text_dim())
                     .child("来自侧边栏当月热力图 · 数据接入 SQLite 后将列出当日全部条目"),
             )
             .child(
@@ -1028,46 +1108,48 @@ impl InboxApp {
                     .gap_1()
                     .p_3()
                     .rounded_lg()
-                    .bg(theme.card)
+                    .bg(theme.card())
                     .border_1()
-                    .border_color(theme.border)
+                    .border_color(theme.border())
                     .child(
                         div()
                             .text_size(px(12.5))
-                            .text_color(theme.text)
-                            .child(format!("📝 笔记 {} 条", stat.notes)),
+                            .text_color(theme.text())
+                            .child(format!("📝 笔记 {} 条", stat.notes())),
                     )
                     .child(
                         div()
                             .text_size(px(12.5))
-                            .text_color(theme.text)
-                            .child(format!("📋 复制项 {} 条", stat.clips)),
+                            .text_color(theme.text())
+                            .child(format!("📋 复制项 {} 条", stat.clips())),
                     )
                     .child(
                         div()
                             .flex()
                             .gap_1()
                             .text_size(px(12.5))
-                            .child(
-                                div().text_color(theme.text).child(format!(
-                                    "✅ 待办 {} 条（已完成 {}",
-                                    stat.todos, stat.done
-                                )),
-                            )
+                            .child(div().text_color(theme.text()).child(format!(
+                                "✅ 待办 {} 条（已完成 {}",
+                                stat.todos(),
+                                stat.done()
+                            )))
                             .child(
                                 div()
-                                    .text_color(if stat.overdue > 0 { theme.red } else { theme.text })
-                                    .child(if stat.overdue > 0 {
-                                        format!("· 逾期 {}）", stat.overdue)
+                                    .text_color(if stat.overdue() > 0 {
+                                        theme.red()
+                                    } else {
+                                        theme.text()
+                                    })
+                                    .child(if stat.overdue() > 0 {
+                                        format!("· 逾期 {}）", stat.overdue())
                                     } else {
                                         "）".to_string()
                                     }),
                             ),
                     ),
             )
+    }
 }
-}
-
 
 impl Render for InboxApp {
     fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
@@ -1083,8 +1165,8 @@ impl Render for InboxApp {
             .size_full()
             .flex()
             .flex_col()
-            .bg(theme.bg)
-            .text_color(theme.text)
+            .bg(theme.bg())
+            .text_color(theme.text())
             .font_family("Segoe UI")
             .child(self.render_titlebar(theme, cx))
             .child(

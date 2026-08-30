@@ -47,13 +47,15 @@ impl RemarkStyle {
     }
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug)]
-pub struct Settings {
-    pub blur_close: BlurClose,
-    pub clip_retention_days: u32,
-    pub autostart: bool,
-    pub remark_style: RemarkStyle,
-    pub theme_id: String,
+crate::accessors! {
+    #[derive(Serialize, Deserialize, Clone, Debug)]
+    pub struct Settings {
+        blur_close: BlurClose,
+        clip_retention_days: u32,
+        autostart: bool,
+        remark_style: RemarkStyle,
+        theme_id: String,
+    }
 }
 
 impl Default for Settings {
@@ -93,7 +95,7 @@ impl Settings {
     }
 
     /// 开机自启：写 / 删 HKCU Run 注册表项（仅 Windows 生效）
-    pub fn set_autostart(enable: bool) -> Result<(), String> {
+    pub fn apply_autostart_registry(enable: bool) -> Result<(), String> {
         #[cfg(windows)]
         {
             use winreg::enums::{HKEY_CURRENT_USER, KEY_QUERY_VALUE, KEY_SET_VALUE};

@@ -1,21 +1,23 @@
 //! 统计数据：以日期字符串为种子的确定性伪随机日活跃度（笔记 / 粘贴板 / 待办）。
 //! 数据层接入 SQLite 前，用稳定的示例数据驱动热力图与趋势图。
 
-/// 单日活跃度
-#[derive(Clone, Debug)]
-pub struct DayStat {
-    /// YYYY-MM-DD
-    pub date: String,
-    pub notes: u32,
-    pub clips: u32,
-    pub todos: u32,
-    pub done: u32,
-    pub overdue: u32,
+crate::accessors! {
+    /// 单日活跃度
+    #[derive(Clone, Debug)]
+    pub struct DayStat {
+        /// YYYY-MM-DD
+        date: String,
+        notes: u32,
+        clips: u32,
+        todos: u32,
+        done: u32,
+        overdue: u32,
+    }
 }
 
 impl DayStat {
     pub fn total(&self) -> u32 {
-        self.notes + self.clips + self.todos
+        self.notes() + self.clips() + self.todos()
     }
 }
 
@@ -53,15 +55,34 @@ impl Rng {
 pub fn day_stat(date: &str) -> DayStat {
     let mut rng = Rng(fnv1a(date));
     let weekend = is_weekend(date);
-    let notes = if rng.chance(18) { 0 } else { rng.range(1, if weekend { 3 } else { 7 }) };
-    let clips = if rng.chance(12) { 0 } else { rng.range(1, if weekend { 6 } else { 14 }) };
+    let notes = if rng.chance(18) {
+        0
+    } else {
+        rng.range(1, if weekend { 3 } else { 7 })
+    };
+    let clips = if rng.chance(12) {
+        0
+    } else {
+        rng.range(1, if weekend { 6 } else { 14 })
+    };
     let todos = if rng.chance(30) { 0 } else { rng.range(1, 5) };
-    let open = if todos > 0 && rng.chance(38) { ((todos / 2).max(1)).min(todos) } else { 0 };
+    let open = if todos > 0 && rng.chance(38) {
+        ((todos / 2).max(1)).min(todos)
+    } else {
+        0
+    };
     let done = todos - open;
     let today = today_str();
     // 过去日期里未完成的部分记为逾期；当天不算逾期
     let overdue = if *date < *today { open } else { 0 };
-    DayStat { date: date.into(), notes, clips, todos, done, overdue }
+    DayStat {
+        date: date.into(),
+        notes,
+        clips,
+        todos,
+        done,
+        overdue,
+    }
 }
 
 /// 从今天往前（含今天）取 n 天的活跃度
@@ -144,7 +165,11 @@ pub fn days_in_month(y: i64, m: u32) -> u32 {
         4 | 6 | 9 | 11 => 30,
         2 => {
             let leap = (y % 4 == 0 && y % 100 != 0) || y % 400 == 0;
-            if leap { 29 } else { 28 }
+            if leap {
+                29
+            } else {
+                28
+            }
         }
         _ => 30,
     }
