@@ -274,11 +274,34 @@ fn todo_row(
     for tag in todo.tags().iter().take(3) {
         tags = tags.child(tag_chip(t, tag));
     }
-    let mut bottom = div().flex().items_center().gap_1().child(tags).child(
+    let mut bottom = div()
+        .flex()
+        .items_center()
+        .gap_1()
+        .child(tags)
+        .child(
+            div()
+                .text_size(px(10.))
+                .text_color(if overdue { t.red() } else { t.text_dim() })
+                .child(format!("📅 {}", todo.due_at())),
+        )
+        .child(div().flex_1());
+    let parent_id = todo.id().clone();
+    bottom = bottom.child(
         div()
+            .id(SharedString::from(format!("add-child-{}", todo.id())))
+            .px_1p5()
+            .py_0p5()
+            .rounded_sm()
             .text_size(px(10.))
-            .text_color(if overdue { t.red() } else { t.text_dim() })
-            .child(format!("📅 {}", todo.due_at())),
+            .text_color(t.accent())
+            .cursor_pointer()
+            .hover(|s| s.bg(t.hover()))
+            .on_click(cx.listener(move |this, _: &ClickEvent, _, cx| {
+                this.set_todo_parent_target(Some(parent_id.clone()));
+                cx.notify();
+            }))
+            .child("＋子任务"),
     );
     if let Some(remark) = (!todo.remark().is_empty()).then(|| todo.remark()) {
         bottom = bottom.child(div().text_size(px(10.)).text_color(t.text_dim()).child(
@@ -349,6 +372,7 @@ pub fn todos(
     todos: &[TodoItem],
     menu_open: Option<String>,
     todo_input: Entity<TextInput>,
+    parent_target: Option<String>,
     cx: &mut Context<InboxApp>,
 ) -> impl IntoElement {
     let mut overdue_list = div().flex().flex_col();
@@ -363,12 +387,24 @@ pub fn todos(
         }
     }
     let add_input = todo_input.clone();
+    let selected_parent = parent_target.clone();
+    let target_label = parent_target
+        .as_ref()
+        .and_then(|parent| todos.iter().find(|todo| todo.id() == *parent))
+        .map(|todo| todo.text());
     let add_bar = div()
         .flex()
         .items_center()
         .gap_2()
         .mb_3()
         .child(div().flex_1().min_w_0().child(todo_input))
+        .child(
+            div().text_size(px(10.)).text_color(t.accent()).child(
+                target_label
+                    .map(|label| format!("子任务 → {label}"))
+                    .unwrap_or_else(|| "默认明日到期".into()),
+            ),
+        )
         .child(
             div()
                 .id("add-todo")
@@ -381,10 +417,13 @@ pub fn todos(
                 .font_weight(FontWeight::SEMIBOLD)
                 .cursor_pointer()
                 .hover(|s| s.opacity(0.8))
-                .on_click(cx.listener(move |_, _: &ClickEvent, _, cx| {
+                .on_click(cx.listener(move |this, _: &ClickEvent, _, cx| {
                     let text = add_input.read(cx).content();
-                    if store::add_todo(cx, text, store::default_due_at(), None).is_some() {
+                    if store::add_todo(cx, text, store::default_due_at(), selected_parent.clone())
+                        .is_some()
+                    {
                         add_input.update(cx, |input, cx| input.clear(cx));
+                        this.set_todo_parent_target(None);
                         cx.notify();
                     }
                 }))

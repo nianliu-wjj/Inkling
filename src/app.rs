@@ -58,6 +58,7 @@ crate::accessors! {
         autostart_error: Option<String>,
         priority_menu_open: Option<String>,
         todo_input: Entity<TextInput>,
+        todo_parent_target: Option<String>,
     }
 }
 
@@ -90,6 +91,7 @@ impl InboxApp {
             autostart_error: None,
             priority_menu_open: None,
             todo_input,
+            todo_parent_target: None,
         }
     }
 
@@ -400,6 +402,7 @@ impl InboxApp {
                     &todos,
                     self.priority_menu_open(),
                     self.todo_input.clone(),
+                    self.todo_parent_target(),
                     cx,
                 )
                 .into_any_element(),
