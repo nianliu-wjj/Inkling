@@ -23,6 +23,7 @@ fn main() {
     Application::new().run(|cx: &mut App| {
         let settings = settings::Settings::load();
         store::init(cx);
+        store::apply_clip_retention(cx, settings.clip_retention());
         cx.bind_keys(key_bindings());
         cx.bind_keys(text_input::key_bindings());
         summon::init(cx);
@@ -39,7 +40,7 @@ fn main() {
                     }),
                     ..Default::default()
                 },
-                |_, cx| cx.new(|cx| InboxApp::new(settings, cx)),
+                |_, cx| cx.new(|cx| InboxApp::new(settings.clone(), cx)),
             )
             .expect("打开主窗口失败");
 

@@ -15,6 +15,8 @@ use gpui::{App, Global};
 use rusqlite::{params, Connection, OptionalExtension};
 use serde::{Deserialize, Serialize};
 
+use crate::settings::ClipRetention;
+
 static ID_SEQ: AtomicU64 = AtomicU64::new(1);
 
 crate::accessors! {
@@ -368,6 +370,57 @@ pub fn todos(cx: &mut App) -> Vec<TodoItem> {
 pub fn clips(cx: &mut App) -> Vec<ClipItem> {
     store(cx).clips.clone()
 }
+
+/// 根据设置清理剪贴板历史。清理同时作用于 SQLite 和内存快照，避免重启前后看到不同数据。
+pub fn apply_clip_retention(cx: &mut App, retention: ClipRetention) {
+    let s = store(cx);
+    let now = now_secs();
+    let today = today();
+    let path = s.db_path.clone().unwrap_or_else(db_path);
+    let result = open_db(&path).and_then(|conn| {
+        let conn = conn;
+        match retention {
+            ClipRetention::Never => Ok(()),
+            ClipRetention::Session => {
+                conn.execute("DELETE FROM clips", [])?;
+                Ok(())
+            }
+            ClipRetention::Today => {
+                conn.execute("DELETE FROM clips WHERE date(datetime(CAST(captured_at AS INTEGER), 'unixepoch', 'localtime'))<>?1", [today.clone()])?;
+                Ok(())
+            }
+            ClipRetention::Custom(days) => {
+                let cutoff = now.saturating_sub(u64::from(days) * 86_400);
+                conn.execute("DELETE FROM clips WHERE CAST(captured_at AS INTEGER) < ?1", [cutoff.to_string()])?;
+                Ok(())
+            }
+        }
+    });
+    if let Err(error) = result {
+        s.last_error = Some(error.to_string());
+        return;
+    }
+    match retention {
+        ClipRetention::Never => {}
+        ClipRetention::Session => s.clips.clear(),
+        ClipRetention::Today => s
+            .clips
+            .retain(|clip| clip_date(&clip.captured_at()) == today),
+        ClipRetention::Custom(days) => {
+            let cutoff = now.saturating_sub(u64::from(days) * 86_400).to_string();
+            s.clips.retain(|clip| clip.captured_at() >= cutoff);
+        }
+    }
+}
+
+fn clip_date(timestamp: &str) -> String {
+    timestamp
+        .parse::<i64>()
+        .ok()
+        .map(|seconds| crate::stats::civil_from_days(seconds.div_euclid(86_400)))
+        .unwrap_or_default()
+}
+
 pub fn draft(cx: &mut App) -> String {
     store(cx).draft_content.clone()
 }
@@ -483,8 +536,7 @@ pub fn add_note(cx: &mut App, content: String) {
 }
 
 pub fn push_clip(cx: &mut App, content: String) {
-    let content = content.trim().to_string();
-    if content.is_empty() {
+    if content.trim().is_empty() {
         return;
     }
     let s = store(cx);
@@ -534,17 +586,29 @@ pub fn push_clip(cx: &mut App, content: String) {
 }
 
 pub fn toggle_todo(cx: &mut App, index: usize) -> bool {
+    let id = store(cx).todos.get(index).map(|todo| todo.id().clone());
+    id.map(|id| complete_todo(cx, &id)).unwrap_or(false)
+}
+
+pub fn complete_todo(cx: &mut App, id: &str) -> bool {
     let s = store(cx);
-    let Some(item) = s.todos.get(index).cloned() else {
+    let Some(item) = s.todos.iter().find(|item| item.id() == id).cloned() else {
         return false;
     };
+    // 完成事项不可逆，避免 UI 重排或重复点击产生“取消完成”语义。
     if item.done() {
         return false;
     }
     let completed = now_string();
     let result = with_db(s, |conn| {
         let tx = conn.transaction()?;
-        tx.execute("UPDATE todos SET status='done',completed_at=?1,updated_at=?1 WHERE id=?2 AND status='open'", params![completed, item.id()])?;
+        let changed = tx.execute(
+            "UPDATE todos SET status='done',completed_at=?1,updated_at=?1 WHERE id=?2 AND status='open'",
+            params![completed, item.id()],
+        )?;
+        if changed == 0 {
+            return Err(rusqlite::Error::QueryReturnedNoRows);
+        }
         record_activity(&tx, "todo_completed", &item.id())?;
         tx.commit()?;
         Ok(())

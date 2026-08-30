@@ -131,6 +131,7 @@ pub fn init(cx: &mut App) {
         let watcher = device_query::DeviceState::new();
         let mut hover_since: Option<std::time::Instant> = None;
         let mut cooldown_until: Option<std::time::Instant> = None;
+        let mut last_clipboard_text: Option<String> = None;
         loop {
             // ① 全局快捷键
             while let Ok(event) = receiver.try_recv() {
@@ -138,7 +139,18 @@ pub fn init(cx: &mut App) {
                     cx.update(|cx| toggle_panel(cx)).ok();
                 }
             }
-            // ② 触顶感应（鼠标移至屏幕顶部中央悬停 ≥ 100ms）
+            // ② 剪贴板捕获：仅在文本内容变化时写入，避免轮询重复产生数据库写入。
+            let clipboard_text = cx
+                .update(|cx| cx.read_from_clipboard().and_then(|item| item.text()))
+                .ok()
+                .flatten();
+            if clipboard_text != last_clipboard_text {
+                if let Some(text) = clipboard_text.clone() {
+                    cx.update(|cx| crate::store::push_clip(cx, text)).ok();
+                }
+                last_clipboard_text = clipboard_text;
+            }
+            // ③ 触顶感应（鼠标移至屏幕顶部中央悬停 ≥ 100ms）
             let mouse = watcher.get_mouse();
             let (mx, my) = (mouse.coords.0 as f64, mouse.coords.1 as f64);
             let in_hotzone = my <= HOT_Y && (mx - screen_w / 2.0).abs() <= HOT_HALF_W;
@@ -161,7 +173,7 @@ pub fn init(cx: &mut App) {
                 hover_since = None;
             }
             cx.background_executor()
-                .timer(std::time::Duration::from_millis(90))
+                .timer(std::time::Duration::from_millis(250))
                 .await;
         }
     })
