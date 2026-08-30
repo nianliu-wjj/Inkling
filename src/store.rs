@@ -372,6 +372,66 @@ pub fn draft(cx: &mut App) -> String {
     store(cx).draft_content.clone()
 }
 
+/// 返回指定日期的真实统计。笔记和剪贴板使用幂等活动聚合，待办按冻结口径计算：
+/// 总数取计划完成日，完成数取实际完成日，逾期数按查询时刻派生。
+pub fn daily_stat(cx: &mut App, date: &str) -> crate::stats::DayStat {
+    daily_stats(cx, &[date.to_string()])
+        .into_iter()
+        .next()
+        .unwrap_or_else(|| crate::stats::DayStat::from_counts(date, 0, 0, 0, 0, 0))
+}
+
+pub fn daily_stats(cx: &mut App, dates: &[String]) -> Vec<crate::stats::DayStat> {
+    let s = store(cx);
+    let path = s.db_path.clone().unwrap_or_else(db_path);
+    let conn = match open_db(&path) {
+        Ok(conn) => conn,
+        Err(error) => {
+            s.last_error = Some(error.to_string());
+            return dates
+                .iter()
+                .map(|date| crate::stats::DayStat::from_counts(date, 0, 0, 0, 0, 0))
+                .collect();
+        }
+    };
+    dates
+        .iter()
+        .map(|date| match query_daily_stat(&conn, date) {
+            Ok(value) => value,
+            Err(error) => {
+                s.last_error = Some(error.to_string());
+                crate::stats::DayStat::from_counts(date, 0, 0, 0, 0, 0)
+            }
+        })
+        .collect()
+}
+
+fn query_daily_stat(conn: &Connection, date: &str) -> rusqlite::Result<crate::stats::DayStat> {
+    let (notes, clips): (u32, u32) = conn.query_row(
+        "SELECT COALESCE(note_archived_count, 0), COALESCE(clipboard_captured_count, 0) FROM stats_daily WHERE date=?1",
+        [date],
+        |row| Ok((row.get(0)?, row.get(1)?)),
+    ).optional()?.unwrap_or((0, 0));
+    let todos = conn.query_row(
+        "SELECT COUNT(*) FROM todos WHERE date(datetime(CAST(due_at AS INTEGER), 'unixepoch', 'localtime'))=?1",
+        [date],
+        |row| row.get::<_, u32>(0),
+    )?;
+    let done = conn.query_row(
+        "SELECT COUNT(*) FROM todos WHERE completed_at IS NOT NULL AND date(datetime(CAST(completed_at AS INTEGER), 'unixepoch', 'localtime'))=?1",
+        [date],
+        |row| row.get::<_, u32>(0),
+    )?;
+    let overdue = conn.query_row(
+        "SELECT COUNT(*) FROM todos WHERE status='open' AND CAST(due_at AS INTEGER) < CAST(strftime('%s','now') AS INTEGER) AND date(datetime(CAST(due_at AS INTEGER), 'unixepoch', 'localtime'))=?1",
+        [date],
+        |row| row.get::<_, u32>(0),
+    )?;
+    Ok(crate::stats::DayStat::from_counts(
+        date, notes, clips, todos, done, overdue,
+    ))
+}
+
 fn with_db<F>(s: &mut Store, f: F) -> rusqlite::Result<()>
 where
     F: FnOnce(&mut Connection) -> rusqlite::Result<()>,

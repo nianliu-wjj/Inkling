@@ -333,7 +333,7 @@ impl InboxApp {
             for cell in week {
                 match cell {
                     Some(date) => {
-                        let stat = stats::day_stat(date);
+                        let stat = stats::day_stat(cx, date);
                         let level = Self::intensity_level(stat.total());
                         let color = self.level_color(level);
                         let selected = self.day_detail_date().as_deref() == Some(date.as_str());
@@ -897,7 +897,7 @@ impl InboxApp {
     // ── 统计页 ──────────────────────────────────
     fn render_stats(&self, cx: &mut Context<Self>) -> impl IntoElement {
         let theme = self.theme();
-        let days = stats::last_days(26 * 7);
+        let days = stats::last_days(cx, 26 * 7);
 
         // 全量热力图：按周分列，月份标签放在每月首列上方
         let mut columns = div().flex().flex_row().gap(px(3.));
@@ -951,7 +951,7 @@ impl InboxApp {
         let detail = self
             .day_detail_date
             .as_ref()
-            .map(|date| stats::day_stat(date));
+            .map(|date| stats::day_stat(cx, date));
 
         let mut container = div()
             .flex()
@@ -1045,7 +1045,7 @@ impl InboxApp {
                     .text_color(theme.text_dim())
                     .child("近 6 个月趋势（各模块使用量折线）"),
             )
-            .child(self.render_trend(theme))
+            .child(self.render_trend(theme, cx))
             .child(
                 div()
                     .flex()
@@ -1097,8 +1097,8 @@ impl InboxApp {
     }
 
     /// 近 6 个月趋势折线图（canvas 自绘，颜色跟随主题）
-    fn render_trend(&self, theme: &'static Theme) -> impl IntoElement {
-        let days = stats::last_days(26 * 7);
+    fn render_trend(&self, theme: &'static Theme, cx: &mut Context<Self>) -> impl IntoElement {
+        let days = stats::last_days(cx, 26 * 7);
         // 按月聚合（最多 6 个月）
         let mut months: Vec<(String, u32, u32, u32)> = Vec::new();
         for d in &days {
@@ -1272,13 +1272,16 @@ impl InboxApp {
     }
 
     // ── 日期详情 ────────────────────────────────
-    fn render_day_detail(&self, _cx: &mut Context<Self>) -> impl IntoElement {
+    fn render_day_detail(&self, cx: &mut Context<Self>) -> impl IntoElement {
         let theme = self.theme();
         let stat: DayStat = self
             .day_detail_date
             .as_ref()
-            .map(|d| stats::day_stat(d))
-            .unwrap_or_else(|| stats::day_stat(&stats::today_str()));
+            .map(|d| stats::day_stat(cx, d))
+            .unwrap_or_else(|| {
+                let today = stats::today_str();
+                stats::day_stat(cx, &today)
+            });
 
         div()
             .flex()

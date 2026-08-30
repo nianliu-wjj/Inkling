@@ -1,5 +1,5 @@
-//! 统计数据：以日期字符串为种子的确定性伪随机日活跃度（笔记 / 粘贴板 / 待办）。
-//! 数据层接入 SQLite 前，用稳定的示例数据驱动热力图与趋势图。
+//! 统计视图的日期运算与 SQLite 统计数据适配。
+//! 业务计数由 `store` 从持久化数据和幂等活动事件中聚合，本模块只负责日期网格与展示模型。
 
 crate::accessors! {
     /// 单日活跃度
@@ -16,84 +16,42 @@ crate::accessors! {
 }
 
 impl DayStat {
+    pub(crate) fn from_counts(
+        date: impl Into<String>,
+        notes: u32,
+        clips: u32,
+        todos: u32,
+        done: u32,
+        overdue: u32,
+    ) -> Self {
+        Self {
+            date: date.into(),
+            notes,
+            clips,
+            todos,
+            done,
+            overdue,
+        }
+    }
+
     pub fn total(&self) -> u32 {
         self.notes() + self.clips() + self.todos()
     }
 }
 
-/// FNV-1a 哈希：日期字符串 → 种子
-fn fnv1a(s: &str) -> u32 {
-    let mut hash: u32 = 0x811C9DC5;
-    for b in s.bytes() {
-        hash ^= b as u32;
-        hash = hash.wrapping_mul(0x01000193);
-    }
-    hash
+/// 读取指定日期的真实业务统计。
+pub fn day_stat(cx: &mut gpui::App, date: &str) -> DayStat {
+    crate::store::daily_stat(cx, date)
 }
 
-/// mulberry32 伪随机数
-struct Rng(u32);
-
-impl Rng {
-    fn next(&mut self) -> u32 {
-        self.0 = self.0.wrapping_add(0x6D2B79F5);
-        let mut t = self.0;
-        t = t.wrapping_mul(t ^ (t >> 15));
-        t = t.wrapping_mul(t ^ (t >> 7));
-        t ^= t >> 16;
-        t
-    }
-    fn range(&mut self, lo: u32, hi: u32) -> u32 {
-        lo + self.next() % (hi - lo + 1)
-    }
-    fn chance(&mut self, pct: u32) -> bool {
-        self.next() % 100 < pct
-    }
-}
-
-/// 由日期（YYYY-MM-DD）生成当日活跃度（确定性）
-pub fn day_stat(date: &str) -> DayStat {
-    let mut rng = Rng(fnv1a(date));
-    let weekend = is_weekend(date);
-    let notes = if rng.chance(18) {
-        0
-    } else {
-        rng.range(1, if weekend { 3 } else { 7 })
-    };
-    let clips = if rng.chance(12) {
-        0
-    } else {
-        rng.range(1, if weekend { 6 } else { 14 })
-    };
-    let todos = if rng.chance(30) { 0 } else { rng.range(1, 5) };
-    let open = if todos > 0 && rng.chance(38) {
-        ((todos / 2).max(1)).min(todos)
-    } else {
-        0
-    };
-    let done = todos - open;
-    let today = today_str();
-    // 过去日期里未完成的部分记为逾期；当天不算逾期
-    let overdue = if *date < *today { open } else { 0 };
-    DayStat {
-        date: date.into(),
-        notes,
-        clips,
-        todos,
-        done,
-        overdue,
-    }
-}
-
-/// 从今天往前（含今天）取 n 天的活跃度
-pub fn last_days(n: u32) -> Vec<DayStat> {
-    let mut out = Vec::with_capacity(n as usize);
+/// 从今天往前（含今天）取 n 天的真实业务统计。
+pub fn last_days(cx: &mut gpui::App, n: u32) -> Vec<DayStat> {
     let today = days_from_today();
-    for i in (0..n).rev() {
-        let date = civil_from_days(today - i as i64);
-        out.push(day_stat(&date));
-    }
-    out
+    let dates: Vec<String> = (0..n)
+        .rev()
+        .map(|i| civil_from_days(today - i as i64))
+        .collect();
+    crate::store::daily_stats(cx, &dates)
 }
 
 /// 某年某月的日期网格（周一对齐），None 为前置空位
@@ -187,15 +145,38 @@ pub fn today_str() -> String {
     civil_from_days(days_from_today())
 }
 
-fn is_weekend(date: &str) -> bool {
-    // 解析年月日 → 天数 → 星期
-    let y: i64 = date[0..4].parse().unwrap_or(1970);
-    let m: u32 = date[5..7].parse().unwrap_or(1);
-    let d: u32 = date[8..10].parse().unwrap_or(1);
-    let dow = mod_i64(days_from_civil(y, m, d) + 3, 7); // 0=周日
-    dow == 0 || dow == 6
-}
-
 fn mod_i64(a: i64, n: i64) -> i64 {
     a.rem_euclid(n)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn civil_date_round_trip() {
+        for (year, month, day) in [(1970, 1, 1), (2000, 2, 29), (2026, 8, 30)] {
+            let days = days_from_civil(year, month, day);
+            assert_eq!(
+                civil_from_days(days),
+                format!("{year:04}-{month:02}-{day:02}")
+            );
+        }
+    }
+
+    #[test]
+    fn month_grid_is_week_aligned() {
+        let (grid, days) = month_grid(2026, 8);
+        assert_eq!(days, 31);
+        assert_eq!(grid.len() % 7, 0);
+        assert_eq!(grid.iter().flatten().count(), 31);
+        assert_eq!(
+            grid.iter().flatten().next().map(String::as_str),
+            Some("2026-08-01")
+        );
+        assert_eq!(
+            grid.iter().flatten().last().map(String::as_str),
+            Some("2026-08-31")
+        );
+    }
 }
