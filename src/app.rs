@@ -243,7 +243,7 @@ impl InboxApp {
         });
         let todo_meta_due_input = cx.new(|cx| {
             TextInput::new(
-                "计划完成时间（Unix 秒）…",
+                "计划完成时间（YYYY-MM-DD HH:MM）…",
                 gpui::hsla(0.0, 0.0, 1.0, 0.35),
                 gpui::hsla(0.65, 0.08, 0.95, 1.0),
                 cx,
@@ -251,7 +251,7 @@ impl InboxApp {
         });
         let todo_meta_remind_input = cx.new(|cx| {
             TextInput::new(
-                "提醒时间（Unix 秒，可留空）…",
+                "提醒时间（YYYY-MM-DD HH:MM，可留空）…",
                 gpui::hsla(0.0, 0.0, 1.0, 0.35),
                 gpui::hsla(0.65, 0.08, 0.95, 1.0),
                 cx,

@@ -967,8 +967,12 @@ fn todo_row(
         let meta_tags = meta_tags_input.clone();
         let meta_remark = meta_remark_input.clone();
         let current_text = todo.text().clone();
-        let current_due = todo.due_at().clone();
-        let current_remind = todo.remind_at().clone().unwrap_or_default();
+        let current_due = store::display_timestamp(&todo.due_at());
+        let current_remind = todo
+            .remind_at()
+            .as_ref()
+            .map(|value| store::display_timestamp(value))
+            .unwrap_or_default();
         let current_repeat = todo.repeat_rule().clone().unwrap_or_default();
         let current_tags = todo.tags().join(", ");
         let current_remark = todo.remark().clone();

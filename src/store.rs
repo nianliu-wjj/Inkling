@@ -11,6 +11,7 @@ use std::{
     time::{Duration, SystemTime, UNIX_EPOCH},
 };
 
+use chrono::TimeZone;
 use gpui::{App, Global, Image, ImageFormat};
 use rusqlite::{params, Connection, OptionalExtension};
 use serde::{Deserialize, Serialize};
@@ -233,6 +234,28 @@ pub fn display_timestamp(timestamp: &str) -> String {
         .map(|value| value.with_timezone(&chrono::Local))
         .map(|value| value.format("%Y-%m-%d %H:%M").to_string())
         .unwrap_or_else(|| timestamp.to_string())
+}
+
+/// 将界面输入的 Unix 秒或本地日期时间文本统一转换为 Unix 秒字符串。
+/// 文本输入是 GPUI 当前版本下日期控件不可用时的降级入口。
+fn parse_timestamp(value: &str) -> Option<String> {
+    let value = value.trim();
+    if let Ok(seconds) = value.parse::<u64>() {
+        return Some(seconds.to_string());
+    }
+    for format in ["%Y-%m-%d %H:%M", "%Y-%m-%dT%H:%M", "%Y-%m-%d %H:%M:%S"] {
+        if let Ok(local) = chrono::NaiveDateTime::parse_from_str(value, format) {
+            return chrono::Local
+                .from_local_datetime(&local)
+                .single()
+                .map(|date| date.timestamp().to_string());
+        }
+    }
+    chrono::NaiveDate::parse_from_str(value, "%Y-%m-%d")
+        .ok()
+        .and_then(|date| date.and_hms_opt(0, 0, 0))
+        .and_then(|local| chrono::Local.from_local_datetime(&local).single())
+        .map(|date| date.timestamp().to_string())
 }
 fn id(prefix: &str) -> String {
     format!(
@@ -1384,13 +1407,17 @@ pub fn add_todo(
     if text.is_empty() {
         return None;
     }
+    let Some(due_seconds) = parse_timestamp(&due_at).and_then(|value| value.parse::<u64>().ok()) else {
+        store(cx).last_error = Some("计划完成时间格式无效，请使用 YYYY-MM-DD HH:MM".into());
+        return None;
+    };
+    let due_at = due_seconds.to_string();
     let s = store(cx);
     let todo_id = id("todo");
     let now = now_string();
     let result = with_db(s, |conn| {
         let tx = conn.transaction()?;
-        let due_seconds = due_at.parse::<u64>().ok();
-        if due_seconds.is_none() || due_seconds < Some(now_secs()) {
+        if due_seconds < now_secs() {
             return Err(rusqlite::Error::InvalidParameterName(
                 "todo due_at must not be in the past".into(),
             ));
@@ -1618,13 +1645,19 @@ pub fn update_todo(cx: &mut App, item: &TodoItem) -> bool {
     if item.done() || item.text().trim().is_empty() {
         return false;
     }
-    if item.due_at().parse::<u64>().is_err()
-        || item
-            .remind_at()
-            .as_ref()
-            .is_some_and(|value| value.parse::<u64>().is_err())
-        || item.repeat_rule().as_deref().is_some_and(|value| value != "daily" && value != "weekly")
-    {
+    let Some(due_at) = parse_timestamp(&item.due_at()) else {
+        return false;
+    };
+    let remind_at = match item.remind_at().as_ref() {
+        Some(value) => {
+            let Some(value) = parse_timestamp(value) else {
+                return false;
+            };
+            Some(value)
+        }
+        None => None,
+    };
+    if item.repeat_rule().as_deref().is_some_and(|value| value != "daily" && value != "weekly") {
         return false;
     }
     let s = store(cx);
@@ -1646,7 +1679,7 @@ pub fn update_todo(cx: &mut App, item: &TodoItem) -> bool {
                 ));
             }
         }
-        let changed = tx.execute("UPDATE todos SET content=?1,due_at=?2,remind_at=?3,repeat_rule=?4,priority=?5,remark=?6,updated_at=?7 WHERE id=?8 AND status='open'", params![item.text(), item.due_at(), item.remind_at(), item.repeat_rule(), item.priority().as_str(), remark, now, item.id()])?;
+        let changed = tx.execute("UPDATE todos SET content=?1,due_at=?2,remind_at=?3,repeat_rule=?4,priority=?5,remark=?6,updated_at=?7 WHERE id=?8 AND status='open'", params![item.text(), due_at, remind_at, item.repeat_rule(), item.priority().as_str(), remark, now, item.id()])?;
         if changed == 0 {
             return Err(rusqlite::Error::QueryReturnedNoRows);
         }
@@ -1667,6 +1700,8 @@ pub fn update_todo(cx: &mut App, item: &TodoItem) -> bool {
     if result.is_ok() {
         if let Some(todo) = s.todos.iter_mut().find(|todo| todo.id() == item.id()) {
             let mut copy = item.clone();
+            copy.set_due_at(due_at);
+            copy.set_remind_at(remind_at);
             copy.set_tags(tags);
             copy.set_remark(remark);
             copy.set_updated_at(now);
