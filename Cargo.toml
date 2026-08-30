@@ -1,10 +1,21 @@
-[workspace]
-resolver = "2"
-members = ["crates/inkling"]
-
-[workspace.package]
+[package]
+name = "inkling"
+description = "Inkling（念头捕手）桌面端 — GPUI 实现"
 version = "0.1.0"
 edition = "2021"
+build = "build.rs"
+
+[dependencies]
+gpui = "0.2.2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+paste = "1"
+
+[target.'cfg(windows)'.dependencies]
+winreg = "0.55"
+
+[build-dependencies]
+winresource = "0.1"
 
 [profile.dev]
 opt-level = 1
