@@ -28,6 +28,7 @@ actions!(panel, [ClosePanel]);
 pub struct PanelApp {
     mode: PanelMode,
     note_input: Entity<TextInput>,
+    note_tag_input: Entity<TextInput>,
     blur_at: Option<std::time::Instant>,
     settings: Settings,
 }
@@ -53,12 +54,21 @@ impl PanelApp {
                 cx,
             )
         });
+        let note_tag_input = cx.new(|cx| {
+            TextInput::new(
+                "标签：用空格分隔，最多 3 个",
+                gpui::hsla(0.0, 0.0, 1.0, 0.35),
+                gpui::hsla(0.65, 0.08, 0.95, 1.0),
+                cx,
+            )
+        });
         if !draft.is_empty() {
             note_input.update(cx, |input, cx| input.set_content(draft, cx));
         }
         Self {
             mode: PanelMode::Notes,
             note_input,
+            note_tag_input,
             blur_at: None,
             settings,
         }
@@ -177,31 +187,42 @@ impl Render for PanelApp {
         let mut content = div().flex().flex_col().flex_1().min_h_0().gap_2();
         match self.mode {
             PanelMode::Notes => {
-                content = content.child(self.note_input.clone()).child(
-                    div().flex().justify_end().child(
-                        div()
-                            .id("archive-note")
-                            .px_3()
-                            .py_1p5()
-                            .rounded_md()
-                            .text_size(px(12.5))
-                            .cursor_pointer()
-                            .font_weight(FontWeight::SEMIBOLD)
-                            .bg(theme.accent())
-                            .text_color(gpui::rgb(0x151826FF))
-                            .hover(|s| s.opacity(0.85))
-                            .on_click(cx.listener(|this, _: &ClickEvent, window, cx| {
-                                let content = this.note_input.read(cx).content();
-                                if content.trim().is_empty() {
-                                    return;
-                                }
-                                store::add_note(cx, content);
-                                this.note_input.update(cx, |input, cx| input.clear(cx));
-                                this.close(window, cx);
-                            }))
-                            .child("归档念头 ↵"),
-                    ),
-                );
+                content = content
+                    .child(self.note_input.clone())
+                    .child(div().h(px(28.)).child(self.note_tag_input.clone()))
+                    .child(
+                        div().flex().justify_end().child(
+                            div()
+                                .id("archive-note")
+                                .px_3()
+                                .py_1p5()
+                                .rounded_md()
+                                .text_size(px(12.5))
+                                .cursor_pointer()
+                                .font_weight(FontWeight::SEMIBOLD)
+                                .bg(theme.accent())
+                                .text_color(gpui::rgb(0x151826FF))
+                                .hover(|s| s.opacity(0.85))
+                                .on_click(cx.listener(|this, _: &ClickEvent, window, cx| {
+                                    let content = this.note_input.read(cx).content();
+                                    if content.trim().is_empty() {
+                                        return;
+                                    }
+                                    let tags = this
+                                        .note_tag_input
+                                        .read(cx)
+                                        .content()
+                                        .split_whitespace()
+                                        .map(ToOwned::to_owned)
+                                        .collect::<Vec<_>>();
+                                    store::add_note_with_tags(cx, content, tags);
+                                    this.note_input.update(cx, |input, cx| input.clear(cx));
+                                    this.note_tag_input.update(cx, |input, cx| input.clear(cx));
+                                    this.close(window, cx);
+                                }))
+                                .child("归档念头 ↵"),
+                        ),
+                    );
             }
             PanelMode::Clips => {
                 let clips = store::clips(cx);
