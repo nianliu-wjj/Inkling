@@ -13,17 +13,17 @@
 
 ### 1.1 架构形态
 
-单进程多窗口 GPUI 应用（业务归档/统计/设置仍由一个 `main` 窗承载）。**核心窗口（hotzone、panel、main）随应用启动预创建并按需显示**，呼出只做 `show + focus`，这是「< 1 秒信条」的架构根基。置顶浮窗和提醒浮窗属于瞬态窗口，按需创建、复用或销毁，不能笼统表述为“所有窗口预创建”。
+单进程多窗口 GPUI 应用（业务归档/统计/设置由一个 `main` 窗承载）。当前实现启动时创建 `main`，顶部 `panel`、置顶浮窗和提醒浮窗按需创建并复用；触顶感应由 `device_query` 后台轮询驱动，尚未拆分为独立 `hotzone` 窗口。后续若需要将呼出延迟进一步压缩，再评估 panel 预创建方案。
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
 │                        屏幕顶部中央                          │
 │  ┌──────────────────────┐                                    │
-│  │  hotzone 感应窗        │  240×80 透明常驻 (alwaysOnTop)    │
+│  │  触顶感应（device_query） │  后台轮询；当前未拆分独立窗口      │
 │  └──────────────────────┘                                    │
 │  ┌──────────────────────────┐                                │
 │  │  panel 主面板窗           │  480×自适应(120-600)           │
-│  │  笔记 🔴 / 粘贴板 🟡 / 待办 🟢 │  预创建常驻，hide↔show       │
+│  │  笔记 🔴 / 粘贴板 🟡 / 待办 🟢 │  按需创建，show + focus       │
 │  └──────────────────────────┘                                │
 │                                          ┌─────────────┐     │
 │  ┌─────────────────────────────┐         │ pinned-N    │     │
@@ -56,7 +56,7 @@
 - 主窗口、顶部呼出面板、置顶浮窗和提醒浮窗均使用 GPUI `Window`；主窗口内部通过 `ActiveView` 承载归档、统计、设置和日期详情，不额外创建业务设置窗口。
 - 业务数据访问统一经过 `src/store.rs`，UI 不直接操作 SQLite；Store 负责迁移、事务、草稿、文件落盘和内存快照刷新。
 - GPUI 不提供浏览器 DOM/CSS，原型中的 CSS 主题令牌、GSAP 和 HTML tooltip 统一映射为 Rust `Theme`、GPUI 动画与 GPUI 交互元素。
-- 系统能力通过独立模块封装：`summon` 负责全局快捷键/触顶，`clipboard` 能力由 Store 与 GPUI 剪贴板接口衔接，开机启动由 `settings` 负责。
+- 系统能力通过独立模块封装：`summon` 负责全局快捷键/触顶/文本剪贴板轮询，置顶与提醒分别由 `pin`/`reminder` 负责，开机启动由 `settings` 负责。
 - 若 GPUI 当前版本缺少某个平台能力，必须提供可编译的降级实现和用户可见错误提示，不得用静态示例数据冒充持久化结果。
 
 ### 1.2 数据流
@@ -73,11 +73,11 @@ GPUI 视图 ──事件──▶ store / settings ──▶ SQLite / app-data/n
 
 ## 2. 关键技术决策（ADR）
 
-### ADR-001 顶部感应区：常驻透明感应窗口（非鼠标轮询）
-- **决策**：创建 240×80 的透明 `hotzone` 窗口，钉在屏幕顶部中央，`alwaysOnTop + skipTaskbar + decorations(false) + focusable(false)`，监听前端 `mouseenter` 事件触发展开。
-- **否决方案**：Rust 端轮询 `mouse_position` crate —— 即便 20ms 轮询也有持续 CPU 占用，违背「安静待命」信条。
-- **状态联动**：面板展开期间感应窗 `set_ignore_cursor_events(true)`（防误触）；面板收起后恢复。
-- **防误触**：hover 防抖 100ms（需求定义）；鼠标快速划过不展开。
+### ADR-001 顶部触顶感应：后台轮询与降级
+- **当前决策**：使用 `device_query` 在后台以 250ms 间隔读取鼠标位置，仅在屏幕顶部中央热区停留至少 100ms 且通过冷却窗口后呼出 panel；不创建独立透明 `hotzone` 窗口。
+- **原因**：当前 GPUI 版本与目标平台窗口事件能力尚未形成统一实现，先保证 Windows 可编译和可降级运行。
+- **降级**：全局快捷键不可注册时保留触顶感应；触顶读取失败时仍可使用全局快捷键或主窗口。
+- **后续**：若实际体验证明轮询开销或多屏误差不可接受，再引入平台原生热区窗口。
 
 ### ADR-002 展开动画：GPUI 窗口定位 + 原生动画能力
 - **决策**：由 GPUI `WindowOptions` 完成无边框、置顶和定位；展开与收起使用 GPUI 动画扩展，并保持 200ms/150ms 的交互预算。
@@ -98,10 +98,10 @@ GPUI 视图 ──事件──▶ store / settings ──▶ SQLite / app-data/n
 - **自动保存**：面板输入停止约 500ms 后写入 `note_drafts`，归档时在事务中提升为正式笔记。
 - **归档策略**：点击「归档」按钮时，若内容 ≤ 1MB 则继续存 SQLite；若 > 1MB 则自动写入应用数据目录 `notes/` 下的 `.md` 文件，SQLite 仅保留相对路径引用与元数据。
 
-### ADR-006 剪贴板监听：轮询 + 哈希去重 + 回声抑制 + 30 天清理
-- **决策**：`arboard` 每 500ms 轮询系统剪贴板；内容 SHA-256 哈希去重；应用自身写回剪贴板时记录 echo 哈希，下一次轮询命中即跳过（防自记录）。
-- **分类**：纯 Rust 启发式（URL 正则 / 代码特征 / 图片 / 富文本 / 纯文本）。
-- **保留策略**：tokio 定时任务每 24h 清理超过 30 天的记录。
+### ADR-006 剪贴板监听：GPUI 文本轮询 + 哈希去重 + 保留策略
+- **当前决策**：`summon` 每 250ms 调用 GPUI 剪贴板接口读取文本；内容哈希去重，并通过“写回后内容不变则不重复记录”抑制回声。
+- **分类**：当前仅支持 URL、代码特征和普通文本三类；图片/富文本需要独立的系统剪贴板适配层。
+- **保留策略**：Store 按设置在应用启动时清理过期剪贴板记录；长期驻留清理调度尚未接入。
 
 ### ADR-007 GPUI 视图：单主窗口 + 共享 Store + 轻量 Markdown 渲染
 - **决策**：`InboxApp` 通过 `ActiveView` 承载归档、统计、设置和日期详情；`PanelApp` 承载顶部三态捕获。
@@ -113,7 +113,7 @@ GPUI 视图 ──事件──▶ store / settings ──▶ SQLite / app-data/n
 - **Windows**：监听 `darkmode` 变化事件切换预置的亮/暗两套 ICO。
 
 ### ADR-009 待办提醒：右上角自定义卡片（非系统通知）
-- **决策**：到期时创建 `reminder` 无边框窗口（320×200，右上角定位，alwaysOnTop），展示提醒内容 + 操作按钮（关闭/选择下次提醒时间）。
+- **决策**：到期时创建 `reminder` 无边框窗口（360×170，右上角定位），展示提醒内容 + 操作按钮（关闭/选择下次提醒时间）。
 - **理由**：系统通知无法提供「选择下次提醒时间」的交互，且部分平台限制频繁通知，违背「安静待命」但需保证提醒可达。
 
 ### ADR-011 优先级变更：锚定式三选一选择器
@@ -164,98 +164,86 @@ Hidden ──hotzone hover 100ms / 全局快捷键──▶ Showing(GPUI 滑入 
 
 ## 4. 数据层设计（SQLite Schema + 文件存储）
 
-> 以下模型以需求规格 v1.2 为准。UI 所称“完成时间”在数据层统一命名为 `due_at`（计划完成/截止时间）；用户勾选完成的实际时刻另存为 `completed_at`。所有时间使用带时区的 ISO8601 值，展示时转换为用户当前时区。
+> 以下模型以需求规格 v1.2 和当前 Rust 实现为准。UI 所称“完成时间”在数据层统一命名为 `due_at`（计划完成/截止时间）；用户勾选完成的实际时刻另存为 `completed_at`。当前实现使用 Unix 秒字符串，展示时转换为本地日期时间；后续若引入时区选择器，再迁移为带时区的时间值。
 
 ```sql
--- 笔记（正文为 Markdown；标签是独立元数据，不从正文解析 #tag）
 CREATE TABLE IF NOT EXISTS notes (
-  id          TEXT PRIMARY KEY,
-  content     TEXT,                       -- <=1MB 时存正文；外部文件时可为空
-  plain_text  TEXT NOT NULL DEFAULT '',    -- 搜索索引
-  file_path   TEXT,                       -- 相对于应用数据目录的 notes/ 路径
-  is_draft    INTEGER NOT NULL DEFAULT 0,
-  pinned      INTEGER NOT NULL DEFAULT 0,
-  created_at  TEXT NOT NULL,
-  updated_at  TEXT NOT NULL
-);
-
-CREATE TABLE IF NOT EXISTS tags (
-  id            INTEGER PRIMARY KEY AUTOINCREMENT,
-  name          TEXT NOT NULL,
-  normalized    TEXT NOT NULL UNIQUE
+  id TEXT PRIMARY KEY,
+  content TEXT NOT NULL DEFAULT '',
+  storage_path TEXT,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL,
+  archived_at TEXT NOT NULL
 );
 CREATE TABLE IF NOT EXISTS note_tags (
   note_id TEXT NOT NULL REFERENCES notes(id) ON DELETE CASCADE,
-  tag_id  INTEGER NOT NULL REFERENCES tags(id) ON DELETE CASCADE,
-  PRIMARY KEY (note_id, tag_id)
+  tag TEXT NOT NULL,
+  PRIMARY KEY(note_id, tag)
+);
+CREATE TABLE IF NOT EXISTS note_drafts (
+  id TEXT PRIMARY KEY,
+  content TEXT NOT NULL DEFAULT '',
+  updated_at TEXT NOT NULL
 );
 
--- 剪贴板历史；图片/超长内容应使用文件引用，避免把 dataURL 无限制写入 TEXT
-CREATE TABLE IF NOT EXISTS clipboard_entries (
-  id           TEXT PRIMARY KEY,
-  content_type TEXT NOT NULL CHECK (content_type IN ('text','link','code','image','richtext')),
-  content      TEXT,
-  file_path    TEXT,                       -- 图片或超大内容相对于应用数据目录的路径
-  preview      TEXT NOT NULL DEFAULT '',
-  content_hash TEXT NOT NULL,
-  pinned       INTEGER NOT NULL DEFAULT 0,
-  copied_at    TEXT NOT NULL,
-  modified_at  TEXT NOT NULL,
-  created_at   TEXT NOT NULL
+CREATE TABLE IF NOT EXISTS clips (
+  id TEXT PRIMARY KEY,
+  content TEXT NOT NULL,
+  kind TEXT NOT NULL DEFAULT 'text',
+  content_hash TEXT NOT NULL UNIQUE,
+  captured_at TEXT NOT NULL,
+  favorite INTEGER NOT NULL DEFAULT 0
 );
-CREATE INDEX IF NOT EXISTS idx_clipboard_hash ON clipboard_entries(content_hash);
 
--- 待办与一级子任务；子任务不可再嵌套由 domain 层校验，最多 5 个子任务也由 domain 层校验
 CREATE TABLE IF NOT EXISTS todos (
-  id            TEXT PRIMARY KEY,
-  content       TEXT NOT NULL,
-  due_at        TEXT NOT NULL,                  -- UI 的“完成日期 + 完成时刻”
-  completed_at  TEXT,                            -- 实际勾选完成时刻
-  status        TEXT NOT NULL DEFAULT 'open'
-                CHECK (status IN ('open','done')),
-  remind_at    TEXT,                             -- 下一次提醒时间
-  repeat_rule  TEXT CHECK (repeat_rule IN ('daily','weekly') OR repeat_rule IS NULL),
-  priority      TEXT NOT NULL DEFAULT 'medium'
-                CHECK (priority IN ('high','medium','low')),
-  remark        TEXT NOT NULL DEFAULT '',
-  parent_id     TEXT REFERENCES todos(id) ON DELETE CASCADE,
-  created_at    TEXT NOT NULL,
-  updated_at    TEXT NOT NULL
+  id TEXT PRIMARY KEY,
+  content TEXT NOT NULL,
+  due_at TEXT NOT NULL,
+  completed_at TEXT,
+  status TEXT NOT NULL DEFAULT 'open' CHECK(status IN ('open','done')),
+  remind_at TEXT,
+  repeat_rule TEXT,
+  priority TEXT NOT NULL DEFAULT 'medium',
+  remark TEXT NOT NULL DEFAULT '',
+  parent_id TEXT REFERENCES todos(id) ON DELETE CASCADE,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_todos_due ON todos(due_at, status);
 CREATE INDEX IF NOT EXISTS idx_todos_parent ON todos(parent_id);
 CREATE TABLE IF NOT EXISTS todo_tags (
   todo_id TEXT NOT NULL REFERENCES todos(id) ON DELETE CASCADE,
-  tag_id  INTEGER NOT NULL REFERENCES tags(id) ON DELETE CASCADE,
-  PRIMARY KEY (todo_id, tag_id)
+  tag TEXT NOT NULL,
+  PRIMARY KEY(todo_id, tag)
 );
+CREATE TABLE IF NOT EXISTS reminder_events (
+  id TEXT PRIMARY KEY,
+  todo_id TEXT NOT NULL REFERENCES todos(id) ON DELETE CASCADE,
+  trigger_at TEXT NOT NULL,
+  triggered_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_reminder_events_todo ON reminder_events(todo_id);
 
--- 可重放/去重的活动事件；daily 聚合可由事件重建
 CREATE TABLE IF NOT EXISTS activity_events (
-  id          TEXT PRIMARY KEY,              -- 幂等事件 ID
-  event_type  TEXT NOT NULL,                 -- note_archived/clipboard_captured/todo_created/todo_completed
-  entity_id   TEXT NOT NULL,
+  id TEXT PRIMARY KEY,
+  event_type TEXT NOT NULL,
+  entity_id TEXT NOT NULL,
   occurred_at TEXT NOT NULL
 );
 CREATE TABLE IF NOT EXISTS stats_daily (
-  date                    TEXT PRIMARY KEY,
-  note_archived_count     INTEGER NOT NULL DEFAULT 0,
+  date TEXT PRIMARY KEY,
+  note_archived_count INTEGER NOT NULL DEFAULT 0,
   clipboard_captured_count INTEGER NOT NULL DEFAULT 0,
-  todo_created_count      INTEGER NOT NULL DEFAULT 0,
-  todo_completed_count    INTEGER NOT NULL DEFAULT 0,
-  updated_at              TEXT NOT NULL
-);
-
-CREATE TABLE IF NOT EXISTS settings (
-  key   TEXT PRIMARY KEY,
-  value TEXT NOT NULL
+  todo_created_count INTEGER NOT NULL DEFAULT 0,
+  todo_completed_count INTEGER NOT NULL DEFAULT 0,
+  updated_at TEXT NOT NULL
 );
 ```
 
 **数据约束与文件存储约定**：
 - 标签新增前统一按 Unicode 规范化并去重；笔记标签最多 3 个、每个最多 5 字，待办标签最多 3 个、每个最多 10 字。
 - 剪贴板去重必须在事务内完成；编辑内容后重新计算哈希，遇到已有同哈希条目时按产品策略合并或拒绝，不能留下错误的唯一索引。
-- `notes/` 和剪贴板附件位于应用数据目录，默认不写项目安装目录；文件写入采用临时文件 + 原子替换，数据库记录与文件记录失败时可恢复。
+- `notes/` 位于应用数据目录，默认不写项目安装目录；当前剪贴板仅保存文本，图片/富文本附件目录待后续适配；文件写入采用临时文件 + 原子替换，数据库记录与文件记录失败时可恢复。
 - 草稿自动保存使用稳定 `id`；`note_commit` 需要把草稿提升为正式笔记并清理草稿标记，数据库与外部文件引用必须可回滚。
 - 待办总量、已完成数、逾期数由 `todos` 的 `due_at/status/completed_at` 查询得出；它们不是只靠 `stats_daily` 的计数列推断。
 - 优先级变更只更新目标待办/子任务的 `priority` 与 `updated_at`，不级联父子层级、不改变 `due_at`、`remind_at`、状态或其他元数据；事务成功后发送 `todos:changed`，不写入活跃度统计事件。
@@ -292,11 +280,11 @@ device_query 触顶 → 100ms 防抖计时 → summon::show_panel
 ### 5.3 剪贴板捕获
 
 ```
-tokio 500ms 轮询 → arboard.get() → SHA-256
-→ 命中 echo 哈希 → 跳过（防自记录）
-→ 命中 DB 已有哈希 → 跳过
-→ 否则 classify() 分类 → 入库（copied_at=now, modified_at=now）
-→ emit('clipboard:changed')
+summon 后台 250ms 轮询 → GPUI `read_from_clipboard().text()`
+→ 内容变化检查 → Store 内容哈希去重
+→ 命中已有哈希或空内容 → 跳过
+→ 否则按 URL/代码/普通文本启发式分类 → SQLite 入库
+→ `cx.notify()` 刷新 GPUI 视图
 ```
 
 ### 5.4 粘贴板内容修改
@@ -310,9 +298,9 @@ tokio 500ms 轮询 → arboard.get() → SHA-256
 ### 5.5 待办提醒触发
 
 ```
-tokio 定时任务（每分钟检查 `remind_at <= now`，按带时区时间比较）
+GPUI 后台任务（每 15 秒检查 `remind_at <= now`，当前字段使用 Unix 秒）
 → 在事务内抢占/标记提醒实例（幂等，防重启或轮询重复弹出）
-→ 创建或复用 reminder 窗（右上角 320×200，alwaysOnTop）
+→ 创建或复用 reminder 窗（右上角 360×170，自定义 GPUI 卡片）
 → 用户操作：
   - 完成/关闭 → 更新待办状态或清除 `remind_at`，停止后续提醒
   - 选择下次提醒时间 → 只更新 `remind_at`，保留 `repeat_rule`，关闭窗口
@@ -367,7 +355,7 @@ tokio 定时任务（每分钟检查 `remind_at <= now`，按带时区时间比�
 | 全局快捷键 | `Cmd+Shift+Space`（冲突时引导用户改键） | `Ctrl+Shift+Space` |
 | 开机启动 | LaunchAgent（静默，无 Dock 图标） | 注册表 Run 键（静默启动） |
 
-平台差异收敛在 `app/platform.rs`（条件编译 `cfg!(target_os)`），业务层无感知。
+平台差异当前收敛在各模块的条件编译分支：`summon` 负责 Windows/macOS 的外部打开命令与全局快捷键，`settings` 负责 Windows 注册表自启动；系统托盘和完整平台权限层尚未实现。
 
 ---
 
@@ -397,7 +385,7 @@ tokio 定时任务（每分钟检查 `remind_at <= now`，按带时区时间比�
 
 - CSP：`default-src 'self'`，无远程资源、无遥测上报。
 - 数据库落盘于应用数据目录，用户可在设置中一键打开/备份。
-- 剪贴板条目支持「保留天数」自动清理（默认 30 天，tokio time 调度）。
+- 剪贴板条目支持「保留天数」自动清理（默认 30 天，当前在 Store 初始化时执行）。
 - 超大笔记落盘到应用数据目录 `notes/`；用户自定义路径必须显式授权，路径不可写时回退到应用数据目录，并以原子写入保证恢复。
 
 ---
