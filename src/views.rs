@@ -3,6 +3,7 @@
 
 use gpui::{div, prelude::*, px, FontWeight, IntoElement, ParentElement, Rgba, Styled};
 
+use crate::store::{Note, TodoItem};
 use crate::theme::Theme;
 
 fn section_title(t: &Theme, s: &str) -> impl IntoElement {
@@ -48,28 +49,17 @@ fn note_card(t: &Theme, text: &str, tags: &[&str]) -> impl IntoElement {
         .child(tags_row)
 }
 
-pub fn notes(t: &Theme) -> impl IntoElement {
+pub fn notes(t: &Theme, notes: &[Note]) -> impl IntoElement {
+    let mut list = div().flex().flex_col().gap_2();
+    for note in notes {
+        list = list.child(note_card(t, &note.content().clone(), &[]));
+    }
     div()
         .flex()
         .flex_col()
-        .gap_2()
         .p_4()
         .child(section_title(t, "📝 笔记"))
-        .child(note_card(
-            t,
-            "Inkling 1 秒原则：从念头产生到文字落屏必须 < 1 秒，全程不切换当前应用。",
-            &["产品", "核心原则"],
-        ))
-        .child(note_card(
-            t,
-            "桌面感应区方案：常驻透明窗口 > 鼠标轮询（零 CPU 开销）。",
-            &["架构", "性能"],
-        ))
-        .child(note_card(
-            t,
-            "GSAP 物理弹性动效适合面板滑入（200ms 滑入 / 150ms 滑出）。",
-            &["灵感"],
-        ))
+        .child(list)
 }
 
 fn clip_row(t: &Theme, kind: &str, kind_color: Rgba, text: &str) -> impl IntoElement {
@@ -179,51 +169,25 @@ fn todo_row(t: &Theme, prio: (&str, Rgba), text: &str, done: bool, due: &str) ->
     row
 }
 
-pub fn todos(t: &Theme) -> impl IntoElement {
+pub fn todos(t: &Theme, todos: &[TodoItem]) -> impl IntoElement {
+    let mut list = div().flex().flex_col();
+    for todo in todos {
+        let color = if todo.done() { t.green() } else { t.gold() };
+        let label = if todo.done() { "低" } else { "中" };
+        list = list.child(todo_row(
+            t,
+            (label, color),
+            todo.text().as_str(),
+            todo.done(),
+            "当日",
+        ));
+    }
     div()
         .flex()
         .flex_col()
         .p_4()
         .child(section_title(t, "✅ 待办（当日）"))
-        .child(
-            div()
-                .px_2()
-                .py_1()
-                .mb_2()
-                .rounded_md()
-                .text_size(px(11.))
-                .bg(t.hover())
-                .text_color(t.red())
-                .child("⚠️ 逾期事项 · 按完成时间与优先级置顶（示例）"),
-        )
-        .child(todo_row(
-            t,
-            ("低", t.green()),
-            "回复设计组毛玻璃反馈",
-            false,
-            "8/29 18:00",
-        ))
-        .child(todo_row(
-            t,
-            ("中", t.gold()),
-            "准备版本发布清单",
-            false,
-            "8/31 18:00",
-        ))
-        .child(todo_row(
-            t,
-            ("高", t.red()),
-            "给产品文档补充截图",
-            false,
-            "今天 12:00",
-        ))
-        .child(todo_row(
-            t,
-            ("低", t.green()),
-            "昨天已完成的旧任务",
-            true,
-            "昨天 20:00",
-        ))
+        .child(list)
 }
 
 #[allow(dead_code)]
