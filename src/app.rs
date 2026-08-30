@@ -3,7 +3,7 @@
 
 use gpui::{
     actions, div, prelude::*, px, App, ClickEvent, Context, Entity, FocusHandle, Focusable,
-    FontWeight, InteractiveElement, IntoElement, KeyBinding, MouseButton, MouseDownEvent,
+    FontWeight, InteractiveElement, IntoElement, KeyBinding, KeyDownEvent, MouseButton, MouseDownEvent,
     MouseMoveEvent, MouseUpEvent, ParentElement, PathBuilder, Render,
     Rgba, SharedString, StatefulInteractiveElement, Styled, Window, WindowControlArea,
 };
@@ -87,6 +87,9 @@ crate::accessors! {
         sidebar_collapsed: bool,
         sidebar_width: f32,
         sidebar_dragging: bool,
+        shortcut_input: Entity<TextInput>,
+        shortcut_recording: bool,
+        shortcut_error: Option<String>,
         export_status: Option<String>,
     }
 }
@@ -211,6 +214,16 @@ impl InboxApp {
                 cx,
             )
         });
+        let shortcut_input = cx.new(|cx| {
+            let mut input = TextInput::new(
+                "例如 Ctrl+Shift+Space…",
+                gpui::hsla(0.0, 0.0, 1.0, 0.35),
+                gpui::hsla(0.65, 0.08, 0.95, 1.0),
+                cx,
+            );
+            input.set_content(settings.global_shortcut().clone(), cx);
+            input
+        });
         let observed_search = search_input.clone();
         cx.observe(&observed_search, |this, input, cx| {
             this.set_search_query(input.read(cx).content());
@@ -249,6 +262,9 @@ impl InboxApp {
             sidebar_collapsed: false,
             sidebar_width,
             sidebar_dragging: false,
+            shortcut_input,
+            shortcut_recording: false,
+            shortcut_error: None,
             export_status: None,
         }
     }
@@ -729,6 +745,94 @@ impl InboxApp {
         container.child(view)
     }
 
+    fn record_shortcut(&mut self, event: &KeyDownEvent, window: &mut Window, cx: &mut Context<Self>) {
+        if !self.shortcut_recording() || event.keystroke.key.is_empty() {
+            return;
+        }
+        let modifiers = &event.keystroke.modifiers;
+        if !modifiers.modified() {
+            return;
+        }
+        let mut parts = Vec::new();
+        if modifiers.control { parts.push("Ctrl"); }
+        if modifiers.alt { parts.push("Alt"); }
+        if modifiers.shift { parts.push("Shift"); }
+        if modifiers.platform { parts.push(if cfg!(target_os = "macos") { "Cmd" } else { "Super" }); }
+        let key = match event.keystroke.key.as_str() {
+            " " => "Space",
+            value => value,
+        };
+        parts.push(key);
+        let value = parts.join("+");
+        self.shortcut_input.update(cx, |input, cx| input.set_content(value, cx));
+        self.set_shortcut_recording(false);
+        window.focus(&self.focus_handle(cx));
+        cx.notify();
+    }
+
+    fn render_shortcut(&self, cx: &mut Context<Self>) -> impl IntoElement {
+        let theme = self.theme();
+        let recording = self.shortcut_recording();
+        let input = self.shortcut_input.clone();
+        let save_input = input.clone();
+        div()
+            .flex()
+            .items_center()
+            .gap_2()
+            .on_key_down(cx.listener(Self::record_shortcut))
+            .child(div().w(px(190.)).h(px(30.)).child(input))
+            .child(
+                div()
+                    .id("shortcut-record")
+                    .px_2()
+                    .py_1()
+                    .rounded_md()
+                    .cursor_pointer()
+                    .text_size(px(11.))
+                    .text_color(theme.text())
+                    .bg(if recording { theme.accent() } else { theme.card() })
+                    .border_1()
+                    .border_color(theme.border())
+                    .on_click(cx.listener(|this, _: &ClickEvent, window, cx| {
+                        this.set_shortcut_recording(true);
+                        this.set_shortcut_error(None);
+                        this.focus_handle(cx).focus(window);
+                        cx.notify();
+                    }))
+                    .child(if recording { "请按组合键" } else { "录制" }),
+            )
+            .child(
+                div()
+                    .id("shortcut-apply")
+                    .px_2()
+                    .py_1()
+                    .rounded_md()
+                    .cursor_pointer()
+                    .text_size(px(11.))
+                    .text_color(theme.text())
+                    .bg(theme.card())
+                    .border_1()
+                    .border_color(theme.border())
+                    .on_click(cx.listener(move |this, _: &ClickEvent, _, cx| {
+                        let value = save_input.read(cx).content().trim().to_string();
+                        match crate::summon::set_shortcut(cx, &value) {
+                            Ok(normalized) => {
+                                this.settings.set_global_shortcut(normalized);
+                                this.settings.save();
+                                this.set_shortcut_error(None);
+                            }
+                            Err(error) => this.set_shortcut_error(Some(error)),
+                        }
+                        cx.notify();
+                    }))
+                    .child("应用"),
+            )
+            .child(div().text_size(px(11.)).text_color(theme.text_dim()).child("格式：Ctrl+Shift+Space"))
+            .when_some(self.shortcut_error().clone(), |el, error| {
+                el.child(div().text_color(theme.red()).child(error))
+            })
+    }
+
     // ── 设置页 ──────────────────────────────────
     fn render_settings(&self, cx: &mut Context<Self>) -> impl IntoElement {
         let theme = self.theme();
@@ -778,33 +882,7 @@ impl InboxApp {
                 .child(status)
         }));
 
-        rows = rows.child(
-            self.setting_row("全局快捷键", cx).child(
-                div()
-                    .flex()
-                    .items_center()
-                    .gap_2()
-                    .text_size(px(13.))
-                    .text_color(theme.text())
-                    .child(
-                        div()
-                            .px_2()
-                            .py_1()
-                            .rounded_md()
-                            .text_size(px(11.))
-                            .bg(theme.card())
-                            .border_1()
-                            .border_color(theme.border())
-                            .child("Ctrl + Shift + Space"),
-                    )
-                    .child(
-                        div()
-                            .text_size(px(11.))
-                            .text_color(theme.text_dim())
-                            .child("呼出面板 · 录制功能后续接入"),
-                    ),
-            ),
-        );
+        rows = rows.child(self.setting_row("全局快捷键", cx).child(self.render_shortcut(cx)));
 
         div()
             .flex()
@@ -2004,6 +2082,7 @@ impl Render for InboxApp {
         div()
             .id("root")
             .track_focus(&self.focus)
+            .on_key_down(cx.listener(Self::record_shortcut))
             .on_action(cx.listener(Self::handle_switch_notes))
             .on_action(cx.listener(Self::handle_switch_clips))
             .on_action(cx.listener(Self::handle_switch_todos))

@@ -13,6 +13,10 @@ use device_query::DeviceQuery;
 use crate::panel::PanelApp;
 use crate::settings::Settings;
 
+use global_hotkey::{GlobalHotKeyManager, GlobalHotKeyEvent, HotKeyState};
+use global_hotkey::hotkey::HotKey;
+use std::str::FromStr;
+
 /// 面板尺寸
 const PANEL_W: f32 = 480.0;
 const PANEL_H: f32 = 380.0;
@@ -23,6 +27,13 @@ const HOT_HALF_W: f64 = 120.0;
 const HOVER_MS: u64 = 100;
 /// 收起后多久内不再因触顶呼出
 const REOPEN_COOLDOWN_MS: u64 = 600;
+
+struct HotkeyGlobal {
+    manager: GlobalHotKeyManager,
+    hotkey: Option<HotKey>,
+}
+
+impl gpui::Global for HotkeyGlobal {}
 
 #[derive(Clone)]
 struct PanelWindowGlobal {
@@ -110,19 +121,43 @@ pub fn toggle_panel(cx: &mut App) {
     }
 }
 
+/// 立即重新注册全局快捷键。输入遵循 `Ctrl+Shift+Space` 这类 global-hotkey 语法。
+pub fn set_shortcut(cx: &mut App, value: &str) -> Result<String, String> {
+    let hotkey = HotKey::from_str(value.trim()).map_err(|error| error.to_string())?;
+    let mut result = Ok(());
+    if cx.has_global::<HotkeyGlobal>() {
+        cx.update_global::<HotkeyGlobal, _>(|state, _| {
+            if let Some(previous) = state.hotkey.take() {
+                let _ = state.manager.unregister(previous);
+            }
+            if let Err(error) = state.manager.register(hotkey) {
+                result = Err(error.to_string());
+            } else {
+                state.hotkey = Some(hotkey);
+            }
+        });
+    } else {
+        result = Err("快捷键管理器尚未初始化".into());
+    }
+    result.map(|_| hotkey.to_string())
+}
+
 /// 启动全局唤起监听（全局快捷键 + 触顶感应），在后台执行器中轮询。
 pub fn init(cx: &mut App) {
-    use global_hotkey::hotkey::{Code, HotKey, Modifiers};
-    use global_hotkey::{GlobalHotKeyEvent, GlobalHotKeyManager, HotKeyState};
-
-    match GlobalHotKeyManager::new() {
+    let configured = Settings::load().global_shortcut();
+    let manager = GlobalHotKeyManager::new();
+    match manager {
         Ok(manager) => {
-            let hotkey = HotKey::new(Some(Modifiers::CONTROL | Modifiers::SHIFT), Code::Space);
-            if manager.register(hotkey).is_err() {
-                eprintln!("Inkling：Ctrl+Shift+Space 已被占用，已降级为触顶感应");
-            } else {
-                // 保持 manager 存活（drop 后热键失效）。
-                std::mem::forget(manager);
+            let hotkey = HotKey::from_str(&configured)
+                .or_else(|_| HotKey::from_str("Ctrl+Shift+Space"));
+            match hotkey {
+                Ok(hotkey) if manager.register(hotkey).is_ok() => {
+                    cx.set_global(HotkeyGlobal { manager, hotkey: Some(hotkey) });
+                }
+                _ => {
+                    eprintln!("Inkling：快捷键 {configured} 注册失败，已降级为触顶感应");
+                    cx.set_global(HotkeyGlobal { manager, hotkey: None });
+                }
             }
         }
         Err(_) => eprintln!("Inkling：初始化全局热键失败，已降级为触顶感应"),

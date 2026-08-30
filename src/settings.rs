@@ -128,6 +128,9 @@ crate::accessors! {
         /// 侧边栏宽度（110 ~ 280，单位为逻辑像素）
         #[serde(default = "default_sidebar_width")]
         sidebar_width: u32,
+        /// 全局快捷键，使用 global-hotkey 语法，例如 Ctrl+Shift+Space
+        #[serde(default = "default_global_shortcut")]
+        global_shortcut: String,
     }
 }
 
@@ -137,6 +140,10 @@ fn default_delay_secs() -> u32 {
 
 fn default_sidebar_width() -> u32 {
     160
+}
+
+fn default_global_shortcut() -> String {
+    "Ctrl+Shift+Space".into()
 }
 
 impl Default for Settings {
@@ -149,6 +156,7 @@ impl Default for Settings {
             autostart: false,
             theme_id: "dark".into(),
             sidebar_width: 160,
+            global_shortcut: default_global_shortcut(),
         }
     }
 }
