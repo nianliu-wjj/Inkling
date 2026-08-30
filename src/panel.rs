@@ -29,6 +29,7 @@ pub struct PanelApp {
     mode: PanelMode,
     note_input: Entity<TextInput>,
     note_tag_input: Entity<TextInput>,
+    todo_input: Entity<TextInput>,
     blur_at: Option<std::time::Instant>,
     settings: Settings,
 }
@@ -62,6 +63,14 @@ impl PanelApp {
                 cx,
             )
         });
+        let todo_input = cx.new(|cx| {
+            TextInput::new(
+                "新增待办，默认明日到期…",
+                gpui::hsla(0.0, 0.0, 1.0, 0.35),
+                gpui::hsla(0.65, 0.08, 0.95, 1.0),
+                cx,
+            )
+        });
         if !draft.is_empty() {
             note_input.update(cx, |input, cx| input.set_content(draft, cx));
         }
@@ -69,6 +78,7 @@ impl PanelApp {
             mode: PanelMode::Notes,
             note_input,
             note_tag_input,
+            todo_input,
             blur_at: None,
             settings,
         }
@@ -284,6 +294,34 @@ impl Render for PanelApp {
             }
             PanelMode::Todos => {
                 let todos = store::todos(cx);
+                let todo_input = self.todo_input.clone();
+                let add_input = todo_input.clone();
+                let add_bar = div()
+                    .flex()
+                    .items_center()
+                    .gap_1()
+                    .child(div().flex_1().min_w_0().h(px(32.)).child(todo_input))
+                    .child(
+                        div()
+                            .id("panel-add-todo")
+                            .px_2()
+                            .py_1()
+                            .rounded_md()
+                            .text_size(px(11.))
+                            .bg(theme.accent())
+                            .text_color(gpui::rgb(0x151826FF))
+                            .cursor_pointer()
+                            .on_click(cx.listener(move |_, _: &ClickEvent, _, cx| {
+                                let text = add_input.read(cx).content();
+                                if store::add_todo(cx, text, store::default_due_at(), None)
+                                    .is_some()
+                                {
+                                    add_input.update(cx, |input, cx| input.clear(cx));
+                                    cx.notify();
+                                }
+                            }))
+                            .child("＋添加"),
+                    );
                 let mut list = div().flex().flex_col().gap_1p5();
                 for todo in todos.iter() {
                     let todo = todo.clone();
@@ -341,11 +379,12 @@ impl Render for PanelApp {
                         .flex()
                         .flex_col()
                         .gap_2()
+                        .child(add_bar)
                         .child(
                             div()
                                 .text_size(px(11.))
                                 .text_color(theme.text_dim())
-                                .child("点击条目切换完成状态 · 新增待办在主窗口管理"),
+                                .child("点击条目完成 · 新增待办默认明日到期，可在主窗口继续编辑"),
                         )
                         .child(list),
                 );
