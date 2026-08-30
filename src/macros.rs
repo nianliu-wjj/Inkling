@@ -32,6 +32,7 @@ macro_rules! accessors {
                 $( $(#[$fmeta])* $field: $t, )*
             }
 
+            #[allow(dead_code)]
             impl $name {
                 $(
                     #[doc = "字段读取（返回克隆）"]
