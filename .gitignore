@@ -1,0 +1,11 @@
+# 构建产物
+target/
+**/target/
+*.pdb
+
+# 系统文件
+Thumbs.db
+.DS_Store
+
+# 本地环境
+.env
