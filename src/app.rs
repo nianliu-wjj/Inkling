@@ -71,6 +71,7 @@ crate::accessors! {
         search_input: Entity<TextInput>,
         search_query: String,
         delete_target: Option<DeleteTarget>,
+        sidebar_collapsed: bool,
     }
 }
 
@@ -152,6 +153,7 @@ impl InboxApp {
             search_input,
             search_query: String::new(),
             delete_target: None,
+            sidebar_collapsed: false,
         }
     }
 
@@ -255,8 +257,9 @@ impl InboxApp {
     // ── 侧边栏 ──────────────────────────────────
     fn render_sidebar(&self, cx: &mut Context<Self>) -> impl IntoElement {
         let theme = self.theme();
-        div()
-            .w(px(160.))
+        let collapsed = self.sidebar_collapsed();
+        let mut sidebar = div()
+            .w(px(if collapsed { 52. } else { 160. }))
             .h_full()
             .flex_shrink_0()
             .flex()
@@ -265,51 +268,73 @@ impl InboxApp {
             .p_2()
             .bg(theme.sidebar())
             .border_r_1()
+            .border_color(theme.border());
+        let summon = div()
+            .id("summon-panel")
+            .flex()
+            .items_center()
+            .justify_center()
+            .px_2()
+            .py_1p5()
+            .mb_1()
+            .rounded_md()
+            .text_size(px(12.5))
+            .cursor_pointer()
+            .bg(theme.card())
+            .border_1()
             .border_color(theme.border())
-            .child(
-                div()
-                    .id("summon-panel")
-                    .flex()
-                    .items_center()
-                    .justify_between()
-                    .px_2()
-                    .py_1p5()
-                    .mb_1()
-                    .rounded_md()
-                    .text_size(px(12.5))
-                    .cursor_pointer()
-                    .bg(theme.card())
-                    .border_1()
-                    .border_color(theme.border())
-                    .text_color(theme.text())
-                    .hover(|s| s.border_color(theme.accent()))
-                    .on_click(|_: &ClickEvent, _, cx| {
-                        crate::summon::toggle_panel(cx);
-                    })
-                    .child("⚡ 呼出面板")
-                    .child(
-                        div()
-                            .text_size(px(10.))
-                            .text_color(theme.text_dim())
-                            .child("Ctrl+Shift+Space"),
-                    ),
-            )
+            .text_color(theme.text())
+            .hover(|s| s.border_color(theme.accent()))
+            .on_click(|_: &ClickEvent, _, cx| {
+                crate::summon::toggle_panel(cx);
+            })
+            .child(if collapsed { "⚡" } else { "⚡ 呼出面板" });
+        sidebar = sidebar.child(summon);
+        sidebar = sidebar
             .child(self.nav_item("nav-notes", "📝 笔记", ActiveView::Notes, cx))
             .child(self.nav_item("nav-clips", "📋 粘贴板", ActiveView::Clips, cx))
             .child(self.nav_item("nav-todos", "✅ 待办", ActiveView::Todos, cx))
-            .child(div().flex_1())
-            .child(self.render_mini_heatmap(cx))
-            .child(
-                div()
-                    .flex()
-                    .justify_between()
-                    .pt_2()
-                    .mt_1()
-                    .border_t_1()
-                    .border_color(theme.border())
-                    .child(self.icon_button("sb-settings", "⚙️", ActiveView::Settings, cx))
-                    .child(self.icon_button("sb-stats", "📊", ActiveView::Stats, cx)),
-            )
+            .child(div().flex_1());
+        if !collapsed {
+            sidebar = sidebar.child(self.render_mini_heatmap(cx));
+        }
+        let collapse_id = if collapsed {
+            "sidebar-expand"
+        } else {
+            "sidebar-collapse"
+        };
+        let collapse_icon = if collapsed { "»" } else { "«" };
+        sidebar.child(
+            div()
+                .flex()
+                .items_center()
+                .justify_between()
+                .pt_2()
+                .mt_1()
+                .border_t_1()
+                .border_color(theme.border())
+                .child(self.icon_button("sb-settings", "⚙️", ActiveView::Settings, cx))
+                .child(self.icon_button("sb-stats", "📊", ActiveView::Stats, cx))
+                .child(
+                    div()
+                        .id(collapse_id)
+                        .w(px(24.))
+                        .h(px(24.))
+                        .rounded_md()
+                        .flex()
+                        .items_center()
+                        .justify_center()
+                        .text_size(px(16.))
+                        .text_color(theme.text_dim())
+                        .cursor_pointer()
+                        .hover(|el| el.bg(theme.hover()).text_color(theme.text()))
+                        .on_click(cx.listener(|this, _: &ClickEvent, _, cx| {
+                            this.set_sidebar_collapsed(!this.sidebar_collapsed());
+                            cx.notify();
+                        }))
+                        .child(collapse_icon),
+                ),
+        )
     }
 
     fn nav_item(
@@ -321,7 +346,7 @@ impl InboxApp {
     ) -> impl IntoElement {
         let active = self.active_view == view;
         let theme = self.theme();
-        div()
+        let mut item = div()
             .id(SharedString::from(id))
             .flex()
             .items_center()
@@ -343,8 +368,13 @@ impl InboxApp {
             .on_click(cx.listener(move |this, _: &ClickEvent, _, cx| {
                 this.set_active_view(view);
                 cx.notify();
-            }))
-            .child(label.to_string())
+            }));
+        item = item.child(if self.sidebar_collapsed() {
+            label.chars().next().unwrap_or('•').to_string()
+        } else {
+            label.to_string()
+        });
+        item
     }
 
     fn icon_button(
