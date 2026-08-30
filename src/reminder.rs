@@ -153,12 +153,14 @@ fn show_reminder(cx: &mut App, reminder: Reminder) {
     if !cx.has_global::<ReminderWindows>() {
         cx.set_global(ReminderWindows::default());
     }
-    if cx
+    if let Some(handle) = cx
         .global::<ReminderWindows>()
         .windows
         .iter()
-        .any(|item| item.key == *reminder.id())
+        .find(|item| item.key == *reminder.id())
+        .map(|item| item.handle)
     {
+        let _ = handle.update(cx, |_, window, _| window.activate_window());
         return;
     }
     let display = cx

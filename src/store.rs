@@ -508,15 +508,23 @@ pub fn todos(cx: &mut App) -> Vec<TodoItem> {
     store(cx).todos.clone()
 }
 
+fn repeat_step_seconds(rule: Option<&str>) -> Option<u64> {
+    match rule {
+        Some("daily") => Some(86_400),
+        Some("weekly") => Some(604_800),
+        _ => None,
+    }
+}
+
 /// 取出当前到期且尚未触发的提醒。事件键由待办 ID 与触发时刻组成，保证重启、
 /// 重复轮询和多个窗口不会重复弹出同一提醒。
 pub fn take_due_reminders(cx: &mut App) -> Vec<Reminder> {
     let now = now_secs();
     let s = store(cx);
-    with_db(s, |conn| {
+    let due = with_db(s, |conn| {
         let tx = conn.transaction()?;
         let mut stmt = tx.prepare(
-            "SELECT id, content, due_at, remind_at FROM todos WHERE status='open'",
+            "SELECT id, content, due_at, remind_at, repeat_rule FROM todos WHERE status='open'",
         )?;
         let rows = stmt
             .query_map([], |row| {
@@ -525,16 +533,17 @@ pub fn take_due_reminders(cx: &mut App) -> Vec<Reminder> {
                     row.get::<_, String>(1)?,
                     row.get::<_, String>(2)?,
                     row.get::<_, Option<String>>(3)?,
+                    row.get::<_, Option<String>>(4)?,
                 ))
             })?
             .collect::<rusqlite::Result<Vec<_>>>()?;
         drop(stmt);
         let mut due = Vec::new();
-        for (todo_id, text, due_at, remind_at) in rows {
+        for (todo_id, text, due_at, remind_at, repeat_rule) in rows {
             let Some(due_seconds) = due_at.parse::<u64>().ok() else {
                 continue;
             };
-            let triggers = if let Some(remind_at) = remind_at {
+            let triggers = if let Some(ref remind_at) = remind_at {
                 remind_at
                     .parse::<u64>()
                     .ok()
@@ -558,6 +567,16 @@ pub fn take_due_reminders(cx: &mut App) -> Vec<Reminder> {
                     params![event_id, todo_id, trigger_at, now.to_string()],
                 )?;
                 if inserted > 0 {
+                    // 重复提醒只推进同一待办的下一次提醒时间，不复制待办。
+                    if remind_at.is_some() {
+                        if let Some(step) = repeat_step_seconds(repeat_rule.as_deref()) {
+                            let next = trigger.saturating_add(step).to_string();
+                            tx.execute(
+                                "UPDATE todos SET remind_at=?1,updated_at=?2 WHERE id=?3 AND status='open' AND remind_at=?4",
+                                params![next, now.to_string(), todo_id, trigger_at],
+                            )?;
+                        }
+                    }
                     due.push(Reminder {
                         id: event_id,
                         todo_id: todo_id.clone(),
@@ -570,7 +589,23 @@ pub fn take_due_reminders(cx: &mut App) -> Vec<Reminder> {
         tx.commit()?;
         Ok(due)
     })
-    .unwrap_or_default()
+    .unwrap_or_default();
+    for reminder in &due {
+        if let Some(todo) = s.todos.iter_mut().find(|todo| todo.id() == reminder.todo_id()) {
+            if let Some(step) = repeat_step_seconds(todo.repeat_rule().as_deref()) {
+                todo.set_remind_at(Some(
+                    reminder
+                        .trigger_at()
+                        .parse::<u64>()
+                        .unwrap_or(now)
+                        .saturating_add(step)
+                        .to_string(),
+                ));
+                todo.set_updated_at(now.to_string());
+            }
+        }
+    }
+    due
 }
 
 /// 设置下一次提醒时间。仅允许未完成待办修改提醒，完成事项不会被重新唤醒。
@@ -590,6 +625,8 @@ pub fn set_todo_remind_at(cx: &mut App, id: &str, remind_at: Option<String>) -> 
         if changed == 0 {
             return Err(rusqlite::Error::QueryReturnedNoRows);
         }
+        // 手动设置/贪睡代表用户创建了新的提醒计划，旧实例不应阻止新计划触发。
+        conn.execute("DELETE FROM reminder_events WHERE todo_id=?1", [id])?;
         Ok(())
     });
     if result.is_ok() {
@@ -1381,6 +1418,7 @@ pub fn update_todo(cx: &mut App, item: &TodoItem) -> bool {
             .remind_at()
             .as_ref()
             .is_some_and(|value| value.parse::<u64>().is_err())
+        || item.repeat_rule().as_deref().is_some_and(|value| value != "daily" && value != "weekly")
     {
         return false;
     }
@@ -1407,6 +1445,10 @@ pub fn update_todo(cx: &mut App, item: &TodoItem) -> bool {
         if changed == 0 {
             return Err(rusqlite::Error::QueryReturnedNoRows);
         }
+        tx.execute(
+            "DELETE FROM reminder_events WHERE todo_id=?1 AND CAST(trigger_at AS INTEGER) >= CAST(?2 AS INTEGER)",
+            params![item.id(), now_secs().to_string()],
+        )?;
         tx.execute("DELETE FROM todo_tags WHERE todo_id=?1", [item.id()])?;
         for tag in &tags {
             tx.execute(

@@ -175,6 +175,7 @@ fn note_card(
     note: &Note,
     delete_target: Option<DeleteTarget>,
     edit_input: Entity<TextInput>,
+    edit_tags_input: Entity<TextInput>,
     edit_id: Option<String>,
     cx: &mut Context<InboxApp>,
 ) -> impl IntoElement {
@@ -196,7 +197,9 @@ fn note_card(
     let editing = edit_id.as_deref() == Some(note.id().as_str());
     let edit_id_for_click = note.id().clone();
     let edit_content_for_click = note.content().clone();
+    let edit_tags_for_click = note.tags().join(", ");
     let edit_input_for_click = edit_input.clone();
+    let edit_tags_input_for_click = edit_tags_input.clone();
     let mut actions = div().flex().items_center().justify_end().gap_1();
     if !editing {
         actions = actions.child(
@@ -212,6 +215,9 @@ fn note_card(
                 .on_click(cx.listener(move |this, _: &ClickEvent, _, cx| {
                     edit_input_for_click.update(cx, |input, cx| {
                         input.set_content(edit_content_for_click.clone(), cx)
+                    });
+                    edit_tags_input_for_click.update(cx, |input, cx| {
+                        input.set_content(edit_tags_for_click.clone(), cx)
                     });
                     this.set_note_edit_id(Some(edit_id_for_click.clone()));
                     cx.notify();
@@ -238,13 +244,15 @@ fn note_card(
     let content = if editing {
         let save_id = note_id.clone();
         let save_input = edit_input.clone();
+        let save_tags_input = edit_tags_input.clone();
         let cancel_input = edit_input.clone();
-        let tags = note.tags().clone();
+        let cancel_tags_input = edit_tags_input.clone();
         div()
             .flex()
             .flex_col()
             .gap_1()
             .child(div().min_h(px(72.)).child(edit_input))
+            .child(div().h(px(30.)).child(edit_tags_input))
             .child(
                 div()
                     .flex()
@@ -261,9 +269,17 @@ fn note_card(
                             .cursor_pointer()
                             .on_click(cx.listener(move |this, _: &ClickEvent, _, cx| {
                                 let content = save_input.read(cx).content();
-                                if store::update_note(cx, &save_id, content, tags.clone()) {
+                                let tags = save_tags_input
+                                    .read(cx)
+                                    .content()
+                                    .split(',')
+                                    .map(|value| value.trim().to_string())
+                                    .filter(|value| !value.is_empty())
+                                    .collect();
+                                if store::update_note(cx, &save_id, content, tags) {
                                     this.set_note_edit_id(None);
                                     save_input.update(cx, |input, cx| input.clear(cx));
+                                    save_tags_input.update(cx, |input, cx| input.clear(cx));
                                     cx.notify();
                                 }
                             }))
@@ -280,6 +296,7 @@ fn note_card(
                             .on_click(cx.listener(move |this, _: &ClickEvent, _, cx| {
                                 this.set_note_edit_id(None);
                                 cancel_input.update(cx, |input, cx| input.clear(cx));
+                                cancel_tags_input.update(cx, |input, cx| input.clear(cx));
                                 cx.notify();
                             }))
                             .child("取消"),
@@ -335,6 +352,7 @@ pub fn notes(
     notes: &[Note],
     delete_target: Option<DeleteTarget>,
     edit_input: Entity<TextInput>,
+    edit_tags_input: Entity<TextInput>,
     edit_id: Option<String>,
     cx: &mut Context<InboxApp>,
 ) -> impl IntoElement {
@@ -353,6 +371,7 @@ pub fn notes(
             note,
             delete_target.clone(),
             edit_input.clone(),
+            edit_tags_input.clone(),
             edit_id.clone(),
             cx,
         ));
@@ -686,6 +705,7 @@ fn todo_meta_editor(
     content_input: Entity<TextInput>,
     due_input: Entity<TextInput>,
     remind_input: Entity<TextInput>,
+    repeat_input: Entity<TextInput>,
     tags_input: Entity<TextInput>,
     remark_input: Entity<TextInput>,
     cx: &mut Context<InboxApp>,
@@ -695,12 +715,14 @@ fn todo_meta_editor(
     let save_content = content_input.clone();
     let save_due = due_input.clone();
     let save_remind = remind_input.clone();
+    let save_repeat = repeat_input.clone();
     let save_tags = tags_input.clone();
     let save_remark = remark_input.clone();
     let cancel_inputs = [
         content_input.clone(),
         due_input.clone(),
         remind_input.clone(),
+        repeat_input.clone(),
         tags_input.clone(),
         remark_input.clone(),
     ];
@@ -724,6 +746,7 @@ fn todo_meta_editor(
         .child(div().h(px(30.)).child(content_input))
         .child(div().h(px(30.)).child(due_input))
         .child(div().h(px(30.)).child(remind_input))
+        .child(div().h(px(30.)).child(repeat_input))
         .child(div().h(px(30.)).child(tags_input))
         .child(div().h(px(30.)).child(remark_input))
         .child(
@@ -746,6 +769,12 @@ fn todo_meta_editor(
                             let content = save_content.read(cx).content().trim().to_string();
                             let due = save_due.read(cx).content().trim().to_string();
                             let remind = save_remind.read(cx).content().trim().to_string();
+                            let repeat = save_repeat.read(cx).content().trim().to_lowercase();
+                            let repeat = match repeat.as_str() {
+                                "daily" | "weekly" => Some(repeat),
+                                "" | "none" | "null" => None,
+                                _ => return,
+                            };
                             let tags = save_tags
                                 .read(cx)
                                 .content()
@@ -757,6 +786,7 @@ fn todo_meta_editor(
                             candidate.set_text(content);
                             candidate.set_due_at(due);
                             candidate.set_remind_at((!remind.is_empty()).then_some(remind));
+                            candidate.set_repeat_rule(repeat);
                             candidate.set_tags(tags);
                             candidate.set_remark(remark);
                             if store::update_todo(cx, &candidate) {
@@ -798,6 +828,7 @@ fn todo_row(
     meta_id: Option<String>,
     meta_due_input: Entity<TextInput>,
     meta_remind_input: Entity<TextInput>,
+    meta_repeat_input: Entity<TextInput>,
     meta_tags_input: Entity<TextInput>,
     meta_remark_input: Entity<TextInput>,
     cx: &mut Context<InboxApp>,
@@ -822,6 +853,21 @@ fn todo_row(
                 .text_color(if overdue { t.red() } else { t.text_dim() })
                 .child(format!("📅 {}", store::display_timestamp(&todo.due_at()))),
         )
+        .when(todo.remind_at().is_some(), |el| {
+            el.child(div().text_size(px(10.)).text_color(t.gold()).child("⏰"))
+        })
+        .when(todo.repeat_rule().is_some(), |el| {
+            el.child(
+                div()
+                    .text_size(px(10.))
+                    .text_color(t.accent())
+                    .child(if todo.repeat_rule().as_deref() == Some("daily") {
+                        "🔁 每天"
+                    } else {
+                        "🔁 每周"
+                    }),
+            )
+        })
         .child(div().flex_1());
     if todo.parent_id().is_none() {
         let parent_id = todo.id().clone();
@@ -887,11 +933,13 @@ fn todo_row(
         let meta_content = edit_input.clone();
         let meta_due = meta_due_input.clone();
         let meta_remind = meta_remind_input.clone();
+        let meta_repeat = meta_repeat_input.clone();
         let meta_tags = meta_tags_input.clone();
         let meta_remark = meta_remark_input.clone();
         let current_text = todo.text().clone();
         let current_due = todo.due_at().clone();
         let current_remind = todo.remind_at().clone().unwrap_or_default();
+        let current_repeat = todo.repeat_rule().clone().unwrap_or_default();
         let current_tags = todo.tags().join(", ");
         let current_remark = todo.remark().clone();
         bottom = bottom.child(
@@ -910,6 +958,9 @@ fn todo_row(
                     meta_due.update(cx, |input, cx| input.set_content(current_due.clone(), cx));
                     meta_remind.update(cx, |input, cx| {
                         input.set_content(current_remind.clone(), cx)
+                    });
+                    meta_repeat.update(cx, |input, cx| {
+                        input.set_content(current_repeat.clone(), cx)
                     });
                     meta_tags.update(cx, |input, cx| input.set_content(current_tags.clone(), cx));
                     meta_remark.update(cx, |input, cx| {
@@ -1073,6 +1124,7 @@ fn todo_row(
             edit_input,
             meta_due_input,
             meta_remind_input,
+            meta_repeat_input,
             meta_tags_input,
             meta_remark_input,
             cx,
@@ -1091,6 +1143,7 @@ pub fn todos(
     meta_id: Option<String>,
     meta_due_input: Entity<TextInput>,
     meta_remind_input: Entity<TextInput>,
+    meta_repeat_input: Entity<TextInput>,
     meta_tags_input: Entity<TextInput>,
     meta_remark_input: Entity<TextInput>,
     parent_target: Option<String>,
@@ -1176,6 +1229,7 @@ pub fn todos(
                 meta_id.clone(),
                 meta_due_input.clone(),
                 meta_remind_input.clone(),
+                meta_repeat_input.clone(),
                 meta_tags_input.clone(),
                 meta_remark_input.clone(),
                 cx,
@@ -1192,6 +1246,7 @@ pub fn todos(
                 meta_id.clone(),
                 meta_due_input.clone(),
                 meta_remind_input.clone(),
+                meta_repeat_input.clone(),
                 meta_tags_input.clone(),
                 meta_remark_input.clone(),
                 cx,

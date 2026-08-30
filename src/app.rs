@@ -70,9 +70,11 @@ crate::accessors! {
         todo_meta_id: Option<String>,
         todo_meta_due_input: Entity<TextInput>,
         todo_meta_remind_input: Entity<TextInput>,
+        todo_meta_repeat_input: Entity<TextInput>,
         todo_meta_tags_input: Entity<TextInput>,
         todo_meta_remark_input: Entity<TextInput>,
         note_edit_input: Entity<TextInput>,
+        note_edit_tags_input: Entity<TextInput>,
         note_edit_id: Option<String>,
         clip_edit_input: Entity<TextInput>,
         clip_edit_id: Option<String>,
@@ -148,6 +150,14 @@ impl InboxApp {
                 cx,
             )
         });
+        let todo_meta_repeat_input = cx.new(|cx| {
+            TextInput::new(
+                "重复提醒：daily / weekly，可留空…",
+                gpui::hsla(0.0, 0.0, 1.0, 0.35),
+                gpui::hsla(0.65, 0.08, 0.95, 1.0),
+                cx,
+            )
+        });
         let todo_meta_tags_input = cx.new(|cx| {
             TextInput::new(
                 "标签，用逗号分隔，最多 3 个…",
@@ -175,6 +185,14 @@ impl InboxApp {
         let clip_edit_input = cx.new(|cx| {
             TextInput::new(
                 "编辑剪贴板内容…",
+                gpui::hsla(0.0, 0.0, 1.0, 0.35),
+                gpui::hsla(0.65, 0.08, 0.95, 1.0),
+                cx,
+            )
+        });
+        let note_edit_tags_input = cx.new(|cx| {
+            TextInput::new(
+                "标签，用逗号分隔，最多 3 个…",
                 gpui::hsla(0.0, 0.0, 1.0, 0.35),
                 gpui::hsla(0.65, 0.08, 0.95, 1.0),
                 cx,
@@ -210,9 +228,11 @@ impl InboxApp {
             todo_meta_id: None,
             todo_meta_due_input,
             todo_meta_remind_input,
+            todo_meta_repeat_input,
             todo_meta_tags_input,
             todo_meta_remark_input,
             note_edit_input,
+            note_edit_tags_input,
             note_edit_id: None,
             clip_edit_input,
             clip_edit_id: None,
@@ -563,6 +583,7 @@ impl InboxApp {
                 &notes,
                 self.delete_target(),
                 self.note_edit_input.clone(),
+                self.note_edit_tags_input.clone(),
                 self.note_edit_id(),
                 cx,
             )
@@ -586,6 +607,7 @@ impl InboxApp {
                 self.todo_meta_id(),
                 self.todo_meta_due_input.clone(),
                 self.todo_meta_remind_input.clone(),
+                self.todo_meta_repeat_input.clone(),
                 self.todo_meta_tags_input.clone(),
                 self.todo_meta_remark_input.clone(),
                 self.todo_parent_target(),
