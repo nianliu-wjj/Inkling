@@ -13,6 +13,13 @@ use crate::text_input::TextInput;
 use crate::theme::{Theme, THEMES};
 use crate::views;
 
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum DeleteTarget {
+    Note(String),
+    Clip(String),
+    Todo(String),
+}
+
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum ActiveView {
     Notes,
@@ -61,6 +68,7 @@ crate::accessors! {
         todo_parent_target: Option<String>,
         search_input: Entity<TextInput>,
         search_query: String,
+        delete_target: Option<DeleteTarget>,
     }
 }
 
@@ -131,6 +139,7 @@ impl InboxApp {
             todo_parent_target: None,
             search_input,
             search_query: String::new(),
+            delete_target: None,
         }
     }
 
@@ -439,14 +448,19 @@ impl InboxApp {
             .filter(|todo| query.is_empty() || searchable_todo(todo, &query))
             .collect::<Vec<_>>();
         let view = match self.active_view() {
-            ActiveView::Notes => views::notes(theme, &notes).into_any_element(),
-            ActiveView::Clips => views::clips(theme, &clips, cx).into_any_element(),
+            ActiveView::Notes => {
+                views::notes(theme, &notes, self.delete_target(), cx).into_any_element()
+            }
+            ActiveView::Clips => {
+                views::clips(theme, &clips, self.delete_target(), cx).into_any_element()
+            }
             ActiveView::Todos => views::todos(
                 theme,
                 &todos,
                 self.priority_menu_open(),
                 self.todo_input.clone(),
                 self.todo_parent_target(),
+                self.delete_target(),
                 cx,
             )
             .into_any_element(),

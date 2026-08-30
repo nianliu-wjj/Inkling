@@ -730,6 +730,74 @@ pub fn set_priority(cx: &mut App, id: &str, priority: Priority) -> bool {
     }
 }
 
+pub fn delete_note(cx: &mut App, id: &str) -> bool {
+    let s = store(cx);
+    let deleted = with_db(s, |conn| {
+        let changed = conn.execute("DELETE FROM notes WHERE id=?1", [id])?;
+        if changed == 0 {
+            return Err(rusqlite::Error::QueryReturnedNoRows);
+        }
+        Ok(())
+    });
+    if deleted.is_ok() {
+        s.notes.retain(|note| note.id() != id);
+        true
+    } else {
+        false
+    }
+}
+
+pub fn delete_clip(cx: &mut App, id: &str) -> bool {
+    let s = store(cx);
+    let deleted = with_db(s, |conn| {
+        let changed = conn.execute("DELETE FROM clips WHERE id=?1", [id])?;
+        if changed == 0 {
+            return Err(rusqlite::Error::QueryReturnedNoRows);
+        }
+        Ok(())
+    });
+    if deleted.is_ok() {
+        s.clips.retain(|clip| clip.id() != id);
+        true
+    } else {
+        false
+    }
+}
+
+/// 删除待办及其全部子任务。数据库外键负责级联，内存快照同步移除整棵子树。
+pub fn delete_todo(cx: &mut App, id: &str) -> bool {
+    let s = store(cx);
+    let deleted = with_db(s, |conn| {
+        let changed = conn.execute("DELETE FROM todos WHERE id=?1", [id])?;
+        if changed == 0 {
+            return Err(rusqlite::Error::QueryReturnedNoRows);
+        }
+        Ok(())
+    });
+    if deleted.is_ok() {
+        let mut removed = std::collections::HashSet::from([id.to_string()]);
+        loop {
+            let before = removed.len();
+            for todo in &s.todos {
+                if todo
+                    .parent_id()
+                    .as_ref()
+                    .is_some_and(|parent| removed.contains(parent))
+                {
+                    removed.insert(todo.id().clone());
+                }
+            }
+            if removed.len() == before {
+                break;
+            }
+        }
+        s.todos.retain(|todo| !removed.contains(&todo.id()));
+        true
+    } else {
+        false
+    }
+}
+
 pub fn update_todo(cx: &mut App, item: &TodoItem) -> bool {
     if item.done() {
         return false;

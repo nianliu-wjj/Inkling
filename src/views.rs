@@ -6,7 +6,7 @@ use gpui::{
 };
 
 use crate::{
-    app::InboxApp,
+    app::{DeleteTarget, InboxApp},
     store::{self, ClipItem, Note, Priority, TodoItem},
     text_input::TextInput,
     theme::Theme,
@@ -32,7 +32,95 @@ fn tag_chip(t: &Theme, label: &str) -> impl IntoElement {
         .child(format!("#{label}"))
 }
 
-fn note_card(t: &Theme, note: &Note) -> impl IntoElement {
+fn delete_controls(
+    t: &Theme,
+    target: DeleteTarget,
+    confirmed: bool,
+    cx: &mut Context<InboxApp>,
+) -> impl IntoElement {
+    let request_target = target.clone();
+    let confirm_target = target.clone();
+    let cancel_target = target.clone();
+    let target_key = match &target {
+        DeleteTarget::Note(id) => format!("note-{id}"),
+        DeleteTarget::Clip(id) => format!("clip-{id}"),
+        DeleteTarget::Todo(id) => format!("todo-{id}"),
+    };
+    let mut controls = div()
+        .absolute()
+        .top_2()
+        .right_2()
+        .flex()
+        .items_center()
+        .gap_1()
+        .text_size(px(10.));
+    if confirmed {
+        controls = controls
+            .child(
+                div()
+                    .id(SharedString::from(format!("delete-confirm-{target_key}")))
+                    .px_1p5()
+                    .py_0p5()
+                    .rounded_sm()
+                    .bg(t.red())
+                    .text_color(t.bg())
+                    .cursor_pointer()
+                    .on_click(cx.listener(move |this, _: &ClickEvent, _, cx| {
+                        let deleted = match &confirm_target {
+                            DeleteTarget::Note(id) => store::delete_note(cx, id),
+                            DeleteTarget::Clip(id) => store::delete_clip(cx, id),
+                            DeleteTarget::Todo(id) => store::delete_todo(cx, id),
+                        };
+                        if deleted {
+                            this.set_delete_target(None);
+                            cx.notify();
+                        }
+                    }))
+                    .child("确认删除"),
+            )
+            .child(
+                div()
+                    .id(SharedString::from(format!("delete-cancel-{target_key}")))
+                    .px_1p5()
+                    .py_0p5()
+                    .rounded_sm()
+                    .bg(t.hover())
+                    .text_color(t.text_dim())
+                    .cursor_pointer()
+                    .on_click(cx.listener(move |this, _: &ClickEvent, _, cx| {
+                        if this.delete_target() == Some(cancel_target.clone()) {
+                            this.set_delete_target(None);
+                            cx.notify();
+                        }
+                    }))
+                    .child("取消"),
+            );
+    } else {
+        controls = controls.child(
+            div()
+                .id(SharedString::from(format!("delete-request-{target_key}")))
+                .px_1p5()
+                .py_0p5()
+                .rounded_sm()
+                .text_color(t.text_dim())
+                .cursor_pointer()
+                .hover(|s| s.bg(t.red()).text_color(t.text()))
+                .on_click(cx.listener(move |this, _: &ClickEvent, _, cx| {
+                    this.set_delete_target(Some(request_target.clone()));
+                    cx.notify();
+                }))
+                .child("✕"),
+        );
+    }
+    controls
+}
+
+fn note_card(
+    t: &Theme,
+    note: &Note,
+    delete_target: Option<DeleteTarget>,
+    cx: &mut Context<InboxApp>,
+) -> impl IntoElement {
     let mut metadata = div()
         .flex()
         .items_center()
@@ -46,7 +134,9 @@ fn note_card(t: &Theme, note: &Note) -> impl IntoElement {
     for tag in note.tags().iter().take(3) {
         metadata = metadata.child(tag_chip(t, tag));
     }
+    let confirmed = delete_target == Some(DeleteTarget::Note(note.id().clone()));
     div()
+        .relative()
         .flex()
         .flex_col()
         .gap_1p5()
@@ -55,6 +145,12 @@ fn note_card(t: &Theme, note: &Note) -> impl IntoElement {
         .bg(t.card())
         .border_l_2()
         .border_color(t.accent())
+        .child(delete_controls(
+            t,
+            DeleteTarget::Note(note.id().clone()),
+            confirmed,
+            cx,
+        ))
         .child(
             div()
                 .text_size(px(13.))
@@ -80,7 +176,12 @@ fn render_markdown_lite(text: &str, t: &Theme) -> impl IntoElement {
     wrapper
 }
 
-pub fn notes(t: &Theme, notes: &[Note]) -> impl IntoElement {
+pub fn notes(
+    t: &Theme,
+    notes: &[Note],
+    delete_target: Option<DeleteTarget>,
+    cx: &mut Context<InboxApp>,
+) -> impl IntoElement {
     let mut list = div().flex().flex_col().gap_2();
     if notes.is_empty() {
         list = list.child(
@@ -91,7 +192,7 @@ pub fn notes(t: &Theme, notes: &[Note]) -> impl IntoElement {
         );
     }
     for note in notes {
-        list = list.child(note_card(t, note));
+        list = list.child(note_card(t, note, delete_target.clone(), cx));
     }
     div()
         .id("notes-view")
@@ -103,10 +204,17 @@ pub fn notes(t: &Theme, notes: &[Note]) -> impl IntoElement {
         .child(list)
 }
 
-fn clip_row(t: &Theme, clip: &ClipItem, cx: &mut Context<InboxApp>) -> impl IntoElement {
+fn clip_row(
+    t: &Theme,
+    clip: &ClipItem,
+    delete_target: Option<DeleteTarget>,
+    cx: &mut Context<InboxApp>,
+) -> impl IntoElement {
     let text = clip.content().clone();
+    let confirmed = delete_target == Some(DeleteTarget::Clip(clip.id().clone()));
     div()
         .id(SharedString::from(format!("clip-{}", clip.id())))
+        .relative()
         .flex()
         .items_center()
         .gap_2()
@@ -116,6 +224,12 @@ fn clip_row(t: &Theme, clip: &ClipItem, cx: &mut Context<InboxApp>) -> impl Into
         .bg(t.card())
         .cursor_pointer()
         .hover(|s| s.bg(t.hover()))
+        .child(delete_controls(
+            t,
+            DeleteTarget::Clip(clip.id().clone()),
+            confirmed,
+            cx,
+        ))
         .on_click(cx.listener(move |_, _: &ClickEvent, _, cx| {
             cx.write_to_clipboard(gpui::ClipboardItem::new_string(text.clone()));
             cx.notify();
@@ -146,7 +260,12 @@ fn clip_row(t: &Theme, clip: &ClipItem, cx: &mut Context<InboxApp>) -> impl Into
         )
 }
 
-pub fn clips(t: &Theme, clips: &[ClipItem], cx: &mut Context<InboxApp>) -> impl IntoElement {
+pub fn clips(
+    t: &Theme,
+    clips: &[ClipItem],
+    delete_target: Option<DeleteTarget>,
+    cx: &mut Context<InboxApp>,
+) -> impl IntoElement {
     let mut list = div().flex().flex_col();
     if clips.is_empty() {
         list = list.child(
@@ -157,7 +276,7 @@ pub fn clips(t: &Theme, clips: &[ClipItem], cx: &mut Context<InboxApp>) -> impl 
         );
     }
     for clip in clips {
-        list = list.child(clip_row(t, clip, cx));
+        list = list.child(clip_row(t, clip, delete_target.clone(), cx));
     }
     div()
         .id("clips-view")
@@ -268,12 +387,14 @@ fn todo_row(
     todo: &TodoItem,
     menu_open: Option<String>,
     depth: usize,
+    delete_target: Option<DeleteTarget>,
     cx: &mut Context<InboxApp>,
 ) -> impl IntoElement {
     let done = todo.done();
     let overdue = store::is_overdue(todo);
     let item_id = todo.id().clone();
     let completion_id = item_id.clone();
+    let confirmed = delete_target == Some(DeleteTarget::Todo(item_id.clone()));
     let mut tags = div().flex().gap_1();
     for tag in todo.tags().iter().take(3) {
         tags = tags.child(tag_chip(t, tag));
@@ -328,6 +449,12 @@ fn todo_row(
         .mb_2()
         .bg(t.card())
         .when(overdue, |el| el.border_1().border_color(t.red()));
+    row = row.child(delete_controls(
+        t,
+        DeleteTarget::Todo(item_id.clone()),
+        confirmed,
+        cx,
+    ));
     row = row.child(
         div()
             .flex()
@@ -403,6 +530,7 @@ pub fn todos(
     menu_open: Option<String>,
     todo_input: Entity<TextInput>,
     parent_target: Option<String>,
+    delete_target: Option<DeleteTarget>,
     cx: &mut Context<InboxApp>,
 ) -> impl IntoElement {
     let mut grouped_overdue = std::collections::HashSet::new();
@@ -473,9 +601,23 @@ pub fn todos(
     for (todo, depth, overdue_group) in ordered {
         if overdue_group {
             has_overdue = true;
-            overdue_list = overdue_list.child(todo_row(t, &todo, menu_open.clone(), depth, cx));
+            overdue_list = overdue_list.child(todo_row(
+                t,
+                &todo,
+                menu_open.clone(),
+                depth,
+                delete_target.clone(),
+                cx,
+            ));
         } else {
-            normal_list = normal_list.child(todo_row(t, &todo, menu_open.clone(), depth, cx));
+            normal_list = normal_list.child(todo_row(
+                t,
+                &todo,
+                menu_open.clone(),
+                depth,
+                delete_target.clone(),
+                cx,
+            ));
         }
     }
     let add_input = todo_input.clone();
