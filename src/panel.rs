@@ -75,9 +75,11 @@ impl PanelApp {
     }
 
     fn close(&mut self, window: &mut Window, cx: &mut App) {
-        let content = self.note_input.read(cx).content();
-        if !content.trim().is_empty() {
-            store::save_draft(cx, content);
+        if self.mode == PanelMode::Notes {
+            let content = self.note_input.read(cx).content();
+            if !content.trim().is_empty() {
+                store::save_draft(cx, content);
+            }
         }
         crate::summon::close_panel(window, cx);
     }

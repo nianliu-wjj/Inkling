@@ -115,11 +115,18 @@ pub fn init(cx: &mut App) {
     use global_hotkey::hotkey::{Code, HotKey, Modifiers};
     use global_hotkey::{GlobalHotKeyEvent, GlobalHotKeyManager, HotKeyState};
 
-    let manager = GlobalHotKeyManager::new().expect("初始化全局热键失败");
-    let hotkey = HotKey::new(Some(Modifiers::CONTROL | Modifiers::SHIFT), Code::Space);
-    manager.register(hotkey).expect("注册全局快捷键失败");
-    // 保持 manager 存活（drop 后热键失效）
-    std::mem::forget(manager);
+    match GlobalHotKeyManager::new() {
+        Ok(manager) => {
+            let hotkey = HotKey::new(Some(Modifiers::CONTROL | Modifiers::SHIFT), Code::Space);
+            if manager.register(hotkey).is_err() {
+                eprintln!("Inkling：Ctrl+Shift+Space 已被占用，已降级为触顶感应");
+            } else {
+                // 保持 manager 存活（drop 后热键失效）。
+                std::mem::forget(manager);
+            }
+        }
+        Err(_) => eprintln!("Inkling：初始化全局热键失败，已降级为触顶感应"),
+    }
     let receiver = GlobalHotKeyEvent::receiver();
 
     let screen_w = cx
