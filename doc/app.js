@@ -842,7 +842,7 @@
       openTodoEditor({ mode: 'create', prefillText: prefill });   // 弹窗：文本框+日期(默认今天)+时间
     }
   });
-  $('todoRemindBtn').addEventListener('click', () => showReminder('记得给产品文档补充截图'));
+  $('todoDueBtn').addEventListener('click', () => openTodoEditor({ mode: 'create' }));   // 打开新建弹窗设置完成时间
 
   // 归档页日期切换（默认当天；面板不可切日期）
   function switchTodoDate(offset) {
