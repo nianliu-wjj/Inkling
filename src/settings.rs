@@ -161,6 +161,29 @@ impl Default for Settings {
     }
 }
 
+#[cfg(target_os = "macos")]
+fn macos_launchctl_domain() -> String {
+    let uid = std::process::Command::new("id")
+        .arg("-u")
+        .output()
+        .ok()
+        .and_then(|output| String::from_utf8(output.stdout).ok())
+        .map(|value| value.trim().to_string())
+        .filter(|value| !value.is_empty())
+        .unwrap_or_else(|| "0".into());
+    format!("gui/{uid}")
+}
+
+#[cfg(target_os = "macos")]
+fn xml_escape(value: &str) -> String {
+    value
+        .replace('&', "&amp;")
+        .replace('<', "&lt;")
+        .replace('>', "&gt;")
+        .replace('"', "&quot;")
+        .replace('\'', "&apos;")
+}
+
 impl Settings {
     fn config_path() -> PathBuf {
         let dir = std::env::var("APPDATA")
@@ -185,7 +208,7 @@ impl Settings {
         }
     }
 
-    /// 开机自启：写 / 删 HKCU Run 注册表项（仅 Windows 生效）
+    /// 开机自启：Windows 使用 HKCU Run，macOS 使用当前用户 LaunchAgent。
     pub fn apply_autostart_registry(enable: bool) -> Result<(), String> {
         #[cfg(windows)]
         {
@@ -212,7 +235,47 @@ impl Settings {
                 }
             }
         }
-        #[cfg(not(windows))]
+        #[cfg(target_os = "macos")]
+        {
+            let home = std::env::var_os("HOME")
+                .map(PathBuf::from)
+                .ok_or_else(|| "无法确定用户主目录".to_string())?;
+            let agents_dir = home.join("Library/LaunchAgents");
+            let plist_path = agents_dir.join("com.inkling.app.plist");
+            if enable {
+                std::fs::create_dir_all(&agents_dir).map_err(|e| e.to_string())?;
+                let exe = std::env::current_exe().map_err(|e| e.to_string())?;
+                let plist = format!(
+                    r#"<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0"><dict>
+<key>Label</key><string>com.inkling.app</string>
+<key>ProgramArguments</key><array><string>{}</string><string>--autostart</string></array>
+<key>RunAtLoad</key><true/>
+</dict></plist>
+"# ,
+                    xml_escape(&exe.display().to_string())
+                );
+                std::fs::write(&plist_path, plist).map_err(|e| e.to_string())?;
+                let domain = macos_launchctl_domain();
+                let _ = std::process::Command::new("launchctl")
+                    .args(["bootstrap", &domain])
+                    .arg(&plist_path)
+                    .status();
+            } else {
+                let domain = macos_launchctl_domain();
+                let _ = std::process::Command::new("launchctl")
+                    .args(["bootout", &domain])
+                    .arg(&plist_path)
+                    .status();
+                match std::fs::remove_file(&plist_path) {
+                    Ok(()) => {}
+                    Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+                    Err(error) => return Err(error.to_string()),
+                }
+            }
+        }
+        #[cfg(all(not(windows), not(target_os = "macos")))]
         {
             let _ = enable;
         }
