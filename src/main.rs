@@ -5,6 +5,7 @@
 mod app;
 mod macros;
 mod panel;
+mod pin;
 mod settings;
 mod stats;
 mod store;

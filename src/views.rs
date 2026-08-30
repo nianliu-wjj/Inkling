@@ -219,6 +219,22 @@ fn note_card(
                 .child("✏️ 编辑"),
         );
     }
+    let pin_id_for_click = note.id().clone();
+    actions = actions.child(
+        div()
+            .id(SharedString::from(format!("pin-note-{}", note.id())))
+            .px_1p5()
+            .py_0p5()
+            .rounded_sm()
+            .text_size(px(10.))
+            .text_color(t.accent())
+            .cursor_pointer()
+            .hover(|s| s.bg(t.hover()))
+            .on_click(cx.listener(move |_, _: &ClickEvent, _, cx| {
+                crate::pin::show(cx, crate::pin::PinTarget::Note(pin_id_for_click.clone()));
+            }))
+            .child("📌 置顶"),
+    );
     let content = if editing {
         let save_id = note_id.clone();
         let save_input = edit_input.clone();
@@ -738,6 +754,22 @@ fn todo_row(
                 .child("✏️ 编辑"),
         );
     }
+    let pin_id_for_click = item_id.clone();
+    bottom = bottom.child(
+        div()
+            .id(SharedString::from(format!("pin-todo-{}", todo.id())))
+            .px_1p5()
+            .py_0p5()
+            .rounded_sm()
+            .text_size(px(10.))
+            .text_color(t.accent())
+            .cursor_pointer()
+            .hover(|s| s.bg(t.hover()))
+            .on_click(cx.listener(move |_, _: &ClickEvent, _, cx| {
+                crate::pin::show(cx, crate::pin::PinTarget::Todo(pin_id_for_click.clone()));
+            }))
+            .child("📌 置顶"),
+    );
     if let Some(remark) = (!todo.remark().is_empty()).then(|| todo.remark()) {
         bottom = bottom.child(div().text_size(px(10.)).text_color(t.text_dim()).child(
             if remark.len() > 100 {
