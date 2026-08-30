@@ -320,13 +320,13 @@ fn save_note(input: NoteInput, state: State<'_, AppState>) -> Result<Note, Strin
     } else {
         (input.content.clone(), None)
     };
+    store.db.execute("INSERT INTO notes(id, content, plain_text, file_path, is_draft, created_at, updated_at) VALUES(?,?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET content=excluded.content, plain_text=excluded.plain_text, file_path=excluded.file_path, is_draft=excluded.is_draft, updated_at=excluded.updated_at", params![id, content, input.content, file_path, input.draft as i64, created_at, timestamp]).map_err(db_err)?;
+    store.replace_tags("note_tags", "note_id", &id, &tags)?;
     if let Some(old_path) = old_file_path {
         if file_path.as_deref() != Some(old_path.as_str()) {
             let _ = fs::remove_file(store.data_dir.join(old_path));
         }
     }
-    store.db.execute("INSERT INTO notes(id, content, plain_text, file_path, is_draft, created_at, updated_at) VALUES(?,?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET content=excluded.content, plain_text=excluded.plain_text, file_path=excluded.file_path, is_draft=excluded.is_draft, updated_at=excluded.updated_at", params![id, content, input.content, file_path, input.draft as i64, created_at, timestamp]).map_err(db_err)?;
-    store.replace_tags("note_tags", "note_id", &id, &tags)?;
     store.note(&id)
 }
 
