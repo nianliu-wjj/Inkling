@@ -72,6 +72,7 @@ crate::accessors! {
         search_query: String,
         delete_target: Option<DeleteTarget>,
         sidebar_collapsed: bool,
+        export_status: Option<String>,
     }
 }
 
@@ -154,6 +155,7 @@ impl InboxApp {
             search_query: String::new(),
             delete_target: None,
             sidebar_collapsed: false,
+            export_status: None,
         }
     }
 
@@ -586,6 +588,17 @@ impl InboxApp {
                 .child(self.render_remark_dropdown(cx)),
         );
         rows = rows.child(
+            self.setting_row("数据导出", cx)
+                .child(self.render_export(cx)),
+        );
+        rows = rows.child(div().when_some(self.export_status().clone(), |el, status| {
+            el.pl(px(140.))
+                .text_size(px(11.))
+                .text_color(theme.accent())
+                .child(status)
+        }));
+
+        rows = rows.child(
             self.setting_row("全局快捷键", cx).child(
                 div()
                     .flex()
@@ -645,6 +658,41 @@ impl InboxApp {
                     .text_color(theme.text_dim())
                     .child(label.to_string()),
             )
+    }
+
+    fn render_export(&self, cx: &mut Context<Self>) -> impl IntoElement {
+        let theme = self.theme();
+        let mut row = div().flex().items_center().gap_1();
+        for format in ["md", "txt", "html"] {
+            let label = match format {
+                "md" => "Markdown",
+                "txt" => "TXT",
+                _ => "HTML",
+            };
+            row = row.child(
+                div()
+                    .id(SharedString::from(format!("export-{format}")))
+                    .px_2()
+                    .py_1()
+                    .rounded_md()
+                    .text_size(px(11.))
+                    .text_color(theme.text_dim())
+                    .border_1()
+                    .border_color(theme.border())
+                    .cursor_pointer()
+                    .hover(|el| el.bg(theme.hover()).text_color(theme.text()))
+                    .on_click(cx.listener(move |this, _: &ClickEvent, _, cx| {
+                        let status = match crate::store::export_archive(cx, format) {
+                            Ok(path) => format!("已导出：{path}"),
+                            Err(error) => format!("导出失败：{error}"),
+                        };
+                        this.set_export_status(Some(status));
+                        cx.notify();
+                    }))
+                    .child(label),
+            );
+        }
+        row
     }
 
     fn render_theme_dropdown(&self, theme: &Theme, cx: &mut Context<Self>) -> impl IntoElement {

@@ -401,6 +401,87 @@ pub fn init(cx: &mut App) {
 pub fn error(cx: &mut App) -> Option<String> {
     store(cx).last_error.clone()
 }
+
+/// 将本地归档导出到应用数据目录的 exports 子目录，并通过临时文件替换保证写入完整。
+pub fn export_archive(cx: &mut App, format: &str) -> Result<String, String> {
+    let extension = match format {
+        "md" | "txt" | "html" => format,
+        _ => return Err("当前支持 Markdown、TXT 和 HTML 导出".into()),
+    };
+    let s = store(cx);
+    let notes = s.notes.clone();
+    let clips = s.clips.clone();
+    let todos = s.todos.clone();
+    let mut markdown = String::from("# Inkling 归档\n\n## 笔记\n\n");
+    for note in notes {
+        markdown.push_str(&format!(
+            "### {}\n\n{}\n\n",
+            display_timestamp(&note.created_at()),
+            note.content()
+        ));
+        if !note.tags().is_empty() {
+            markdown.push_str(&format!(
+                "标签：{}\n\n",
+                note.tags()
+                    .iter()
+                    .map(|tag| format!("#{tag}"))
+                    .collect::<Vec<_>>()
+                    .join(" ")
+            ));
+        }
+    }
+    markdown.push_str("## 剪贴板\n\n");
+    for clip in clips {
+        markdown.push_str(&format!(
+            "- [{}] {} {}\n",
+            display_timestamp(&clip.captured_at()),
+            clip.kind(),
+            clip.content().replace('\n', " ")
+        ));
+    }
+    markdown.push_str("\n## 待办\n\n");
+    for todo in todos {
+        let marker = if todo.done() { "x" } else { " " };
+        markdown.push_str(&format!(
+            "- [{}] {}（{}，优先级：{}）\n",
+            marker,
+            todo.text(),
+            display_timestamp(&todo.due_at()),
+            todo.priority().label()
+        ));
+        if !todo.remark().is_empty() {
+            markdown.push_str(&format!("  - 备注：{}\n", todo.remark()));
+        }
+    }
+    let output = match extension {
+        "md" => markdown,
+        "txt" => markdown
+            .replace("# ", "")
+            .replace("## ", "")
+            .replace("### ", ""),
+        "html" => format!(
+            "<!doctype html><meta charset=\"utf-8\"><title>Inkling 归档</title><pre>{}</pre>",
+            html_escape(&markdown)
+        ),
+        _ => unreachable!(),
+    };
+    let dir = app_data_dir().join("exports");
+    std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
+    let stamp = now_secs();
+    let path = dir.join(format!("inkling-{stamp}.{extension}"));
+    let temp = path.with_extension(format!("{extension}.tmp"));
+    std::fs::write(&temp, output).map_err(|e| e.to_string())?;
+    std::fs::rename(&temp, &path).map_err(|e| e.to_string())?;
+    Ok(path.display().to_string())
+}
+
+fn html_escape(value: &str) -> String {
+    value
+        .replace('&', "&amp;")
+        .replace('<', "&lt;")
+        .replace('>', "&gt;")
+        .replace('\"', "&quot;")
+}
 pub fn notes(cx: &mut App) -> Vec<Note> {
     store(cx).notes.clone()
 }
