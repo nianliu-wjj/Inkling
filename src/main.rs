@@ -6,6 +6,7 @@ mod app;
 mod macros;
 mod panel;
 mod pin;
+mod reminder;
 mod settings;
 mod stats;
 mod store;
@@ -28,6 +29,7 @@ fn main() {
         cx.bind_keys(key_bindings());
         cx.bind_keys(text_input::key_bindings());
         summon::init(cx);
+        reminder::init(cx);
 
         let bounds = Bounds::centered(None, size(px(880.), px(680.)), cx);
         let window = cx

@@ -99,6 +99,16 @@ crate::accessors! {
     }
 }
 
+crate::accessors! {
+    #[derive(Clone, Debug)]
+    pub struct Reminder {
+        id: String,
+        todo_id: String,
+        text: String,
+        trigger_at: String,
+    }
+}
+
 #[derive(Default)]
 pub struct Store {
     notes: Vec<Note>,
@@ -166,6 +176,11 @@ CREATE TABLE IF NOT EXISTS todos (
 );
 CREATE INDEX IF NOT EXISTS idx_todos_due ON todos(due_at, status);
 CREATE INDEX IF NOT EXISTS idx_todos_parent ON todos(parent_id);
+CREATE TABLE IF NOT EXISTS reminder_events (
+ id TEXT PRIMARY KEY, todo_id TEXT NOT NULL REFERENCES todos(id) ON DELETE CASCADE,
+ trigger_at TEXT NOT NULL, triggered_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_reminder_events_todo ON reminder_events(todo_id);
 CREATE TABLE IF NOT EXISTS todo_tags (
  todo_id TEXT NOT NULL REFERENCES todos(id) ON DELETE CASCADE,
  tag TEXT NOT NULL, PRIMARY KEY(todo_id, tag)
@@ -191,7 +206,11 @@ fn now_string() -> String {
 }
 
 pub fn default_due_at() -> String {
-    (now_secs() + 86_400).to_string()
+    (now_secs() + 3_600).to_string()
+}
+
+pub fn reminder_after(seconds: u64) -> String {
+    (now_secs() + seconds).to_string()
 }
 
 /// 将内部 Unix 秒时间戳转换为稳定、可读的本地日期时间文本。
@@ -487,6 +506,105 @@ pub fn notes(cx: &mut App) -> Vec<Note> {
 }
 pub fn todos(cx: &mut App) -> Vec<TodoItem> {
     store(cx).todos.clone()
+}
+
+/// 取出当前到期且尚未触发的提醒。事件键由待办 ID 与触发时刻组成，保证重启、
+/// 重复轮询和多个窗口不会重复弹出同一提醒。
+pub fn take_due_reminders(cx: &mut App) -> Vec<Reminder> {
+    let now = now_secs();
+    let s = store(cx);
+    with_db(s, |conn| {
+        let tx = conn.transaction()?;
+        let mut stmt = tx.prepare(
+            "SELECT id, content, due_at, remind_at FROM todos WHERE status='open'",
+        )?;
+        let rows = stmt
+            .query_map([], |row| {
+                Ok((
+                    row.get::<_, String>(0)?,
+                    row.get::<_, String>(1)?,
+                    row.get::<_, String>(2)?,
+                    row.get::<_, Option<String>>(3)?,
+                ))
+            })?
+            .collect::<rusqlite::Result<Vec<_>>>()?;
+        drop(stmt);
+        let mut due = Vec::new();
+        for (todo_id, text, due_at, remind_at) in rows {
+            let Some(due_seconds) = due_at.parse::<u64>().ok() else {
+                continue;
+            };
+            let triggers = if let Some(remind_at) = remind_at {
+                remind_at
+                    .parse::<u64>()
+                    .ok()
+                    .into_iter()
+                    .collect::<Vec<_>>()
+            } else {
+                vec![
+                    due_seconds.saturating_sub(1_800),
+                    due_seconds.saturating_sub(300),
+                    due_seconds,
+                ]
+            };
+            for trigger in triggers {
+                if trigger > now {
+                    continue;
+                }
+                let trigger_at = trigger.to_string();
+                let event_id = format!("{todo_id}:{trigger_at}");
+                let inserted = tx.execute(
+                    "INSERT OR IGNORE INTO reminder_events(id,todo_id,trigger_at,triggered_at) VALUES(?1,?2,?3,?4)",
+                    params![event_id, todo_id, trigger_at, now.to_string()],
+                )?;
+                if inserted > 0 {
+                    due.push(Reminder {
+                        id: event_id,
+                        todo_id: todo_id.clone(),
+                        text: text.clone(),
+                        trigger_at,
+                    });
+                }
+            }
+        }
+        tx.commit()?;
+        Ok(due)
+    })
+    .unwrap_or_default()
+}
+
+/// 设置下一次提醒时间。仅允许未完成待办修改提醒，完成事项不会被重新唤醒。
+pub fn set_todo_remind_at(cx: &mut App, id: &str, remind_at: Option<String>) -> bool {
+    if let Some(value) = remind_at.as_ref() {
+        if value.parse::<u64>().is_err() {
+            return false;
+        }
+    }
+    let s = store(cx);
+    let now = now_string();
+    let result = with_db(s, |conn| {
+        let changed = conn.execute(
+            "UPDATE todos SET remind_at=?1,updated_at=?2 WHERE id=?3 AND status='open'",
+            params![remind_at, now, id],
+        )?;
+        if changed == 0 {
+            return Err(rusqlite::Error::QueryReturnedNoRows);
+        }
+        Ok(())
+    });
+    if result.is_ok() {
+        if let Some(todo) = s
+            .todos
+            .iter_mut()
+            .find(|todo| todo.id() == id && !todo.done())
+        {
+            todo.set_remind_at(remind_at);
+            todo.set_updated_at(now);
+        }
+        true
+    } else {
+        false
+    }
 }
 pub fn clips(cx: &mut App) -> Vec<ClipItem> {
     let mut clips = store(cx).clips.clone();

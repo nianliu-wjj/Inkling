@@ -1036,7 +1036,7 @@ pub fn todos(
             div().text_size(px(10.)).text_color(t.accent()).child(
                 target_label
                     .map(|label| format!("子任务 → {label}"))
-                    .unwrap_or_else(|| "默认明日到期".into()),
+                    .unwrap_or_else(|| "默认 1 小时后到期".into()),
             ),
         )
         .child(

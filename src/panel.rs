@@ -65,7 +65,7 @@ impl PanelApp {
         });
         let todo_input = cx.new(|cx| {
             TextInput::new(
-                "新增待办，默认明日到期…",
+                "新增待办，默认 1 小时后到期…",
                 gpui::hsla(0.0, 0.0, 1.0, 0.35),
                 gpui::hsla(0.65, 0.08, 0.95, 1.0),
                 cx,
@@ -374,20 +374,18 @@ impl Render for PanelApp {
                             ),
                     );
                 }
-                content = content.child(
-                    div()
-                        .flex()
-                        .flex_col()
-                        .gap_2()
-                        .child(add_bar)
-                        .child(
-                            div()
-                                .text_size(px(11.))
-                                .text_color(theme.text_dim())
-                                .child("点击条目完成 · 新增待办默认明日到期，可在主窗口继续编辑"),
-                        )
-                        .child(list),
-                );
+                content =
+                    content.child(
+                        div()
+                            .flex()
+                            .flex_col()
+                            .gap_2()
+                            .child(add_bar)
+                            .child(div().text_size(px(11.)).text_color(theme.text_dim()).child(
+                                "点击条目完成 · 新增待办默认 1 小时后到期，可在主窗口继续编辑",
+                            ))
+                            .child(list),
+                    );
             }
         }
 
