@@ -1099,18 +1099,774 @@ mark { background: rgba(255,215,110,.35); color: inherit; border-radius: 2px; pa
   --select-arrow: url("data:image/svg+xml,%3Csvg width='10' height='6' viewBox='0 0 10 6' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1l4 4 4-4' stroke='rgba(240,230,220,.5)' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E");
 }
 
-/* 主题选择器（设置页） */
-.theme-grid { display: flex; flex-wrap: wrap; gap: 8px; }
-.theme-chip {
-  display: inline-flex; align-items: center; gap: 8px;
-  padding: 6px 12px; border-radius: 10px; cursor: pointer; font-size: 12.5px;
-  color: var(--text-dim); background: rgba(var(--wsa), .05);
-  border: 1px solid rgba(var(--wsa), .14); transition: all .15s;
+/* 主题下拉选择器（设置页） */
+.theme-dd { position: relative; width: 240px; }
+.theme-dd-trigger {
+  display: flex; align-items: center; gap: 8px; width: 100%;
+  padding: 7px 12px; border-radius: 9px; cursor: pointer; font-size: 12.5px;
+  color: var(--text); background: rgba(var(--wsa), .07);
+  border: 1px solid rgba(var(--wsa), .16); transition: border-color .15s;
 }
-.theme-chip:hover { color: var(--text); background: rgba(var(--wsa), .1); }
-.theme-chip.active {
-  color: var(--text); background: rgba(var(--accent-rgb), .14);
-  border-color: rgba(var(--accent-rgb), .55);
+.theme-dd-trigger:hover { border-color: rgba(var(--accent-rgb), .5); }
+.theme-dd-trigger .dd-name { flex: 1; text-align: left; }
+.theme-dd-trigger .dd-chevron { font-size: 10px; color: var(--text-dim); transition: transform .15s; }
+.theme-dd.open .dd-chevron { transform: rotate(180deg); }
+.theme-dd-menu {
+  position: absolute; top: calc(100% + 6px); left: 0; right: 0; z-index: 40;
+  max-height: 264px; overflow-y: auto; padding: 5px;
+  background: var(--menu-bg); border: 1px solid var(--glass-border); border-radius: 10px;
+  box-shadow: 0 10px 30px rgba(0,0,0,.35);
 }
-.theme-dots { display: grid; grid-template-columns: repeat(2, 7px); gap: 2px; }
+.theme-dd-opt {
+  display: flex; align-items: center; gap: 8px;
+  padding: 7px 10px; border-radius: 7px; cursor: pointer; font-size: 12.5px;
+  color: var(--text); transition: background .12s;
+}
+.theme-dd-opt:hover { background: rgba(var(--wsa), .1); }
+.theme-dd-opt.active { background: rgba(var(--accent-rgb), .16); }
+.theme-dd-opt .dd-check { margin-left: auto; color: rgb(var(--accent-rgb)); font-size: 11px; visibility: hidden; }
+.theme-dd-opt.active .dd-check { visibility: visible; }
+.theme-dots { display: grid; grid-template-columns: repeat(2, 7px); gap: 2px; flex-shrink: 0; }
 .theme-dots i { width: 7px; height: 7px; border-radius: 50%; box-shadow: inset 0 0 0 1px rgba(0,0,0,.12); }
+
+/* ═══ 扩展主题（第 11–30 套） ═══ */
+
+/* 奇幻 */
+:root[data-theme="fantasy"] {
+  --scheme: dark;
+  --wsa: 232,225,255;
+  --body-bg: linear-gradient(135deg, #1c1030 0%, #2a1445 60%, #1a0d33 100%);
+  --glass-bg: rgba(44,26,78,.6);
+  --glass-border: rgba(192,132,252,.22);
+  --glass-shadow: 0 12px 40px rgba(0,0,0,.5), inset 0 1px 0 rgba(232,225,255,.08);
+  --menubar-bg: rgba(40,22,70,.8);
+  --menu-bg: rgba(40,22,70,.95);
+  --tip-bg: rgba(40,22,70,.97);
+  --confirm-bg: rgba(40,22,70,.96);
+  --toggle-bg: rgb(40,22,70);
+  --option-bg: rgb(40,22,70);
+  --accent: #c084fc;
+  --accent-rgb: 192,132,252;
+  --hm-base: 192,132,252;
+  --text: rgba(232,225,255,.93);
+  --text-dim: rgba(232,225,255,.54);
+  --text-strong: rgba(232,225,255,.82);
+  --gold: #fcd34d;
+  --red-soft: #fb7185;
+  --red: #f43f5e;
+  --cyan: #7dd3fc;
+  --blue-soft: #c4b5fd;
+  --green: #86efac;
+  --pink: #f0abfc;
+  --code-green: #86efac;
+  --c-note: 192,132,252;
+  --c-clip: 252,211,77;
+  --c-todo: 134,239,172;
+  --trend-note: #fb7185;
+  --trend-clip: #fcd34d;
+  --trend-todo: #86efac;
+  --select-arrow: url("data:image/svg+xml,%3Csvg width='10' height='6' viewBox='0 0 10 6' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1l4 4 4-4' stroke='rgba(232,225,255,.55)' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E");
+}
+
+/* 极黑 */
+:root[data-theme="oled"] {
+  --scheme: dark;
+  --wsa: 245,245,245;
+  --body-bg: linear-gradient(135deg, #050505 0%, #000000 100%);
+  --glass-bg: rgba(12,12,14,.72);
+  --glass-border: rgba(255,255,255,.1);
+  --glass-shadow: 0 12px 40px rgba(0,0,0,.5), inset 0 1px 0 rgba(245,245,245,.08);
+  --menubar-bg: rgba(8,8,10,.8);
+  --menu-bg: rgba(8,8,10,.95);
+  --tip-bg: rgba(8,8,10,.97);
+  --confirm-bg: rgba(8,8,10,.96);
+  --toggle-bg: rgb(8,8,10);
+  --option-bg: rgb(8,8,10);
+  --accent: #4d8dff;
+  --accent-rgb: 77,141,255;
+  --hm-base: 77,141,255;
+  --text: rgba(245,245,245,.93);
+  --text-dim: rgba(245,245,245,.54);
+  --text-strong: rgba(245,245,245,.82);
+  --gold: #f5c518;
+  --red-soft: #ff6b6b;
+  --red: #ff4d4d;
+  --cyan: #4dd0e1;
+  --blue-soft: #9ab8ff;
+  --green: #66bb6a;
+  --pink: #f06292;
+  --code-green: #a5d6a7;
+  --c-note: 77,141,255;
+  --c-clip: 245,197,24;
+  --c-todo: 102,187,106;
+  --trend-note: #ff6b6b;
+  --trend-clip: #f5c518;
+  --trend-todo: #66bb6a;
+  --select-arrow: url("data:image/svg+xml,%3Csvg width='10' height='6' viewBox='0 0 10 6' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1l4 4 4-4' stroke='rgba(245,245,245,.55)' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E");
+}
+
+/* 奢华 */
+:root[data-theme="luxury"] {
+  --scheme: dark;
+  --wsa: 238,226,200;
+  --body-bg: linear-gradient(135deg, #14100a 0%, #241c0f 100%);
+  --glass-bg: rgba(38,30,16,.66);
+  --glass-border: rgba(212,175,55,.28);
+  --glass-shadow: 0 12px 40px rgba(0,0,0,.5), inset 0 1px 0 rgba(238,226,200,.08);
+  --menubar-bg: rgba(26,21,12,.8);
+  --menu-bg: rgba(26,21,12,.95);
+  --tip-bg: rgba(26,21,12,.97);
+  --confirm-bg: rgba(26,21,12,.96);
+  --toggle-bg: rgb(26,21,12);
+  --option-bg: rgb(26,21,12);
+  --accent: #d4af37;
+  --accent-rgb: 212,175,55;
+  --hm-base: 212,175,55;
+  --text: rgba(238,226,200,.93);
+  --text-dim: rgba(238,226,200,.54);
+  --text-strong: rgba(238,226,200,.82);
+  --gold: #e8c96a;
+  --red-soft: #e0705c;
+  --red: #cf4a3a;
+  --cyan: #9fc6c9;
+  --blue-soft: #c9b487;
+  --green: #a8c686;
+  --pink: #d98cb3;
+  --code-green: #b5c98a;
+  --c-note: 212,175,55;
+  --c-clip: 232,201,106;
+  --c-todo: 168,198,134;
+  --trend-note: #e0705c;
+  --trend-clip: #e8c96a;
+  --trend-todo: #a8c686;
+  --select-arrow: url("data:image/svg+xml,%3Csvg width='10' height='6' viewBox='0 0 10 6' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1l4 4 4-4' stroke='rgba(238,226,200,.55)' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E");
+}
+
+/* 德古拉 */
+:root[data-theme="dracula"] {
+  --scheme: dark;
+  --wsa: 248,248,242;
+  --body-bg: linear-gradient(135deg, #282a36 0%, #1e202b 100%);
+  --glass-bg: rgba(40,42,54,.72);
+  --glass-border: rgba(189,147,249,.25);
+  --glass-shadow: 0 12px 40px rgba(0,0,0,.5), inset 0 1px 0 rgba(248,248,242,.08);
+  --menubar-bg: rgba(40,42,54,.8);
+  --menu-bg: rgba(40,42,54,.95);
+  --tip-bg: rgba(40,42,54,.97);
+  --confirm-bg: rgba(40,42,54,.96);
+  --toggle-bg: rgb(40,42,54);
+  --option-bg: rgb(40,42,54);
+  --accent: #bd93f9;
+  --accent-rgb: 189,147,249;
+  --hm-base: 189,147,249;
+  --text: rgba(248,248,242,.93);
+  --text-dim: rgba(248,248,242,.54);
+  --text-strong: rgba(248,248,242,.82);
+  --gold: #f1fa8c;
+  --red-soft: #ff5555;
+  --red: #ff5555;
+  --cyan: #8be9fd;
+  --blue-soft: #bd93f9;
+  --green: #50fa7b;
+  --pink: #ff79c6;
+  --code-green: #50fa7b;
+  --c-note: 189,147,249;
+  --c-clip: 241,250,140;
+  --c-todo: 80,250,123;
+  --trend-note: #ff5555;
+  --trend-clip: #f1fa8c;
+  --trend-todo: #50fa7b;
+  --select-arrow: url("data:image/svg+xml,%3Csvg width='10' height='6' viewBox='0 0 10 6' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1l4 4 4-4' stroke='rgba(248,248,242,.55)' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E");
+}
+
+/* 印刷色 */
+:root[data-theme="print"] {
+  --scheme: light;
+  --wsa: 26,26,30;
+  --body-bg: linear-gradient(135deg, #f5f5f1 0%, #ecece6 100%);
+  --glass-bg: rgba(255,255,255,.8);
+  --glass-border: rgba(26,26,30,.16);
+  --glass-shadow: 0 12px 36px rgba(31,45,90,.16);
+  --menubar-bg: rgba(255,255,255,.74);
+  --menu-bg: rgba(255,255,255,.97);
+  --tip-bg: rgba(255,255,255,.99);
+  --confirm-bg: rgba(255,255,255,.98);
+  --toggle-bg: #ffffff;
+  --option-bg: #ffffff;
+  --accent: #1f1f24;
+  --accent-rgb: 31,31,36;
+  --hm-base: 31,31,36;
+  --text: rgba(26,26,30,.93);
+  --text-dim: rgba(26,26,30,.54);
+  --text-strong: rgba(26,26,30,.82);
+  --gold: #8a6d1a;
+  --red-soft: #c94436;
+  --red: #c0392b;
+  --cyan: #0e7490;
+  --blue-soft: #3457a5;
+  --green: #3d7d2c;
+  --pink: #b04678;
+  --code-green: #3d7d2c;
+  --c-note: 31,31,36;
+  --c-clip: 138,109,26;
+  --c-todo: 61,125,44;
+  --trend-note: #c94436;
+  --trend-clip: #8a6d1a;
+  --trend-todo: #3d7d2c;
+  --select-arrow: url("data:image/svg+xml,%3Csvg width='10' height='6' viewBox='0 0 10 6' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1l4 4 4-4' stroke='rgba(26,26,30,.55)' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E");
+}
+
+/* 秋日 */
+:root[data-theme="autumn"] {
+  --scheme: light;
+  --wsa: 82,52,24;
+  --body-bg: linear-gradient(135deg, #f7ecd9 0%, #f0dcc0 100%);
+  --glass-bg: rgba(255,250,240,.8);
+  --glass-border: rgba(82,52,24,.16);
+  --glass-shadow: 0 12px 36px rgba(31,45,90,.16);
+  --menubar-bg: rgba(255,255,255,.74);
+  --menu-bg: rgba(255,255,255,.97);
+  --tip-bg: rgba(255,255,255,.99);
+  --confirm-bg: rgba(255,255,255,.98);
+  --toggle-bg: #ffffff;
+  --option-bg: #ffffff;
+  --accent: #c6612c;
+  --accent-rgb: 198,97,44;
+  --hm-base: 198,97,44;
+  --text: rgba(82,52,24,.93);
+  --text-dim: rgba(82,52,24,.54);
+  --text-strong: rgba(82,52,24,.82);
+  --gold: #a06a10;
+  --red-soft: #c24b2e;
+  --red: #bf3f26;
+  --cyan: #2e7268;
+  --blue-soft: #56619e;
+  --green: #7d8a2c;
+  --pink: #b0527e;
+  --code-green: #7d8a2c;
+  --c-note: 198,97,44;
+  --c-clip: 160,106,16;
+  --c-todo: 125,138,44;
+  --trend-note: #c24b2e;
+  --trend-clip: #a06a10;
+  --trend-todo: #7d8a2c;
+  --select-arrow: url("data:image/svg+xml,%3Csvg width='10' height='6' viewBox='0 0 10 6' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1l4 4 4-4' stroke='rgba(82,52,24,.55)' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E");
+}
+
+/* 商务灰 */
+:root[data-theme="businessgray"] {
+  --scheme: light;
+  --wsa: 33,37,41;
+  --body-bg: linear-gradient(135deg, #eef0f2 0%, #e3e6e9 100%);
+  --glass-bg: rgba(255,255,255,.8);
+  --glass-border: rgba(33,37,41,.14);
+  --glass-shadow: 0 12px 36px rgba(31,45,90,.16);
+  --menubar-bg: rgba(255,255,255,.74);
+  --menu-bg: rgba(255,255,255,.97);
+  --tip-bg: rgba(255,255,255,.99);
+  --confirm-bg: rgba(255,255,255,.98);
+  --toggle-bg: #ffffff;
+  --option-bg: #ffffff;
+  --accent: #495057;
+  --accent-rgb: 73,80,87;
+  --hm-base: 73,80,87;
+  --text: rgba(33,37,41,.93);
+  --text-dim: rgba(33,37,41,.54);
+  --text-strong: rgba(33,37,41,.82);
+  --gold: #8a6d3b;
+  --red-soft: #c44536;
+  --red: #b23a2e;
+  --cyan: #37717c;
+  --blue-soft: #51618c;
+  --green: #4a7c59;
+  --pink: #a35376;
+  --code-green: #4a7c59;
+  --c-note: 73,80,87;
+  --c-clip: 138,109,59;
+  --c-todo: 74,124,89;
+  --trend-note: #c44536;
+  --trend-clip: #8a6d3b;
+  --trend-todo: #4a7c59;
+  --select-arrow: url("data:image/svg+xml,%3Csvg width='10' height='6' viewBox='0 0 10 6' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1l4 4 4-4' stroke='rgba(33,37,41,.55)' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E");
+}
+
+/* 迷幻 */
+:root[data-theme="psychedelic"] {
+  --scheme: dark;
+  --wsa: 244,238,255;
+  --body-bg: linear-gradient(135deg, #12002e 0%, #33005a 50%, #001a4d 100%);
+  --glass-bg: rgba(52,16,92,.6);
+  --glass-border: rgba(255,62,200,.25);
+  --glass-shadow: 0 12px 40px rgba(0,0,0,.5), inset 0 1px 0 rgba(244,238,255,.08);
+  --menubar-bg: rgba(34,10,64,.8);
+  --menu-bg: rgba(34,10,64,.95);
+  --tip-bg: rgba(34,10,64,.97);
+  --confirm-bg: rgba(34,10,64,.96);
+  --toggle-bg: rgb(34,10,64);
+  --option-bg: rgb(34,10,64);
+  --accent: #ff3ec8;
+  --accent-rgb: 255,62,200;
+  --hm-base: 255,62,200;
+  --text: rgba(244,238,255,.93);
+  --text-dim: rgba(244,238,255,.54);
+  --text-strong: rgba(244,238,255,.82);
+  --gold: #ffe14d;
+  --red-soft: #ff5c8a;
+  --red: #ff3860;
+  --cyan: #3ee8ff;
+  --blue-soft: #9d7bff;
+  --green: #3ef98a;
+  --pink: #ff8ae0;
+  --code-green: #3ef98a;
+  --c-note: 255,62,200;
+  --c-clip: 255,225,77;
+  --c-todo: 62,232,255;
+  --trend-note: #ff5c8a;
+  --trend-clip: #ffe14d;
+  --trend-todo: #3ef98a;
+  --select-arrow: url("data:image/svg+xml,%3Csvg width='10' height='6' viewBox='0 0 10 6' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1l4 4 4-4' stroke='rgba(244,238,255,.55)' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E");
+}
+
+/* 柠檬 */
+:root[data-theme="lemon"] {
+  --scheme: light;
+  --wsa: 64,58,10;
+  --body-bg: linear-gradient(135deg, #fbf8d8 0%, #f8f3bd 100%);
+  --glass-bg: rgba(255,255,248,.82);
+  --glass-border: rgba(64,58,10,.16);
+  --glass-shadow: 0 12px 36px rgba(31,45,90,.16);
+  --menubar-bg: rgba(255,255,255,.74);
+  --menu-bg: rgba(255,255,255,.97);
+  --tip-bg: rgba(255,255,255,.99);
+  --confirm-bg: rgba(255,255,255,.98);
+  --toggle-bg: #ffffff;
+  --option-bg: #ffffff;
+  --accent: #9b7900;
+  --accent-rgb: 155,121,0;
+  --hm-base: 155,121,0;
+  --text: rgba(64,58,10,.93);
+  --text-dim: rgba(64,58,10,.54);
+  --text-strong: rgba(64,58,10,.82);
+  --gold: #8a6d00;
+  --red-soft: #c2410c;
+  --red: #b3400c;
+  --cyan: #0e7490;
+  --blue-soft: #4d6a9e;
+  --green: #5c8a2c;
+  --pink: #b0527e;
+  --code-green: #5c8a2c;
+  --c-note: 155,121,0;
+  --c-clip: 138,109,0;
+  --c-todo: 92,138,44;
+  --trend-note: #c2410c;
+  --trend-clip: #8a6d00;
+  --trend-todo: #5c8a2c;
+  --select-arrow: url("data:image/svg+xml,%3Csvg width='10' height='6' viewBox='0 0 10 6' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1l4 4 4-4' stroke='rgba(64,58,10,.55)' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E");
+}
+
+/* 夜色 */
+:root[data-theme="night"] {
+  --scheme: dark;
+  --wsa: 226,232,245;
+  --body-bg: linear-gradient(135deg, #0b1026 0%, #101735 100%);
+  --glass-bg: rgba(20,27,58,.66);
+  --glass-border: rgba(92,124,250,.2);
+  --glass-shadow: 0 12px 40px rgba(0,0,0,.5), inset 0 1px 0 rgba(226,232,245,.08);
+  --menubar-bg: rgba(14,20,44,.8);
+  --menu-bg: rgba(14,20,44,.95);
+  --tip-bg: rgba(14,20,44,.97);
+  --confirm-bg: rgba(14,20,44,.96);
+  --toggle-bg: rgb(14,20,44);
+  --option-bg: rgb(14,20,44);
+  --accent: #5c7cfa;
+  --accent-rgb: 92,124,250;
+  --hm-base: 92,124,250;
+  --text: rgba(226,232,245,.93);
+  --text-dim: rgba(226,232,245,.54);
+  --text-strong: rgba(226,232,245,.82);
+  --gold: #fbbf24;
+  --red-soft: #f87171;
+  --red: #ef4444;
+  --cyan: #7dd3fc;
+  --blue-soft: #93b4fd;
+  --green: #4ade80;
+  --pink: #f0a6c9;
+  --code-green: #86efac;
+  --c-note: 92,124,250;
+  --c-clip: 251,191,36;
+  --c-todo: 74,222,128;
+  --trend-note: #f87171;
+  --trend-clip: #fbbf24;
+  --trend-todo: #4ade80;
+  --select-arrow: url("data:image/svg+xml,%3Csvg width='10' height='6' viewBox='0 0 10 6' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1l4 4 4-4' stroke='rgba(226,232,245,.55)' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E");
+}
+
+/* 咖啡 */
+:root[data-theme="coffee"] {
+  --scheme: dark;
+  --wsa: 240,225,210;
+  --body-bg: linear-gradient(135deg, #1b1210 0%, #241813 100%);
+  --glass-bg: rgba(44,30,24,.66);
+  --glass-border: rgba(192,133,82,.24);
+  --glass-shadow: 0 12px 40px rgba(0,0,0,.5), inset 0 1px 0 rgba(240,225,210,.08);
+  --menubar-bg: rgba(32,22,17,.8);
+  --menu-bg: rgba(32,22,17,.95);
+  --tip-bg: rgba(32,22,17,.97);
+  --confirm-bg: rgba(32,22,17,.96);
+  --toggle-bg: rgb(32,22,17);
+  --option-bg: rgb(32,22,17);
+  --accent: #c08552;
+  --accent-rgb: 192,133,82;
+  --hm-base: 192,133,82;
+  --text: rgba(240,225,210,.93);
+  --text-dim: rgba(240,225,210,.54);
+  --text-strong: rgba(240,225,210,.82);
+  --gold: #ddb271;
+  --red-soft: #e07856;
+  --red: #c65b3c;
+  --cyan: #9cc0bd;
+  --blue-soft: #b39a7d;
+  --green: #9caf88;
+  --pink: #cf9aa5;
+  --code-green: #9caf88;
+  --c-note: 192,133,82;
+  --c-clip: 221,178,113;
+  --c-todo: 156,175,136;
+  --trend-note: #e07856;
+  --trend-clip: #ddb271;
+  --trend-todo: #9caf88;
+  --select-arrow: url("data:image/svg+xml,%3Csvg width='10' height='6' viewBox='0 0 10 6' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1l4 4 4-4' stroke='rgba(240,225,210,.55)' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E");
+}
+
+/* 冬日 */
+:root[data-theme="winter"] {
+  --scheme: light;
+  --wsa: 30,45,66;
+  --body-bg: linear-gradient(135deg, #eef4fa 0%, #e2ebf5 100%);
+  --glass-bg: rgba(255,255,255,.8);
+  --glass-border: rgba(30,45,66,.13);
+  --glass-shadow: 0 12px 36px rgba(31,45,90,.16);
+  --menubar-bg: rgba(255,255,255,.74);
+  --menu-bg: rgba(255,255,255,.97);
+  --tip-bg: rgba(255,255,255,.99);
+  --confirm-bg: rgba(255,255,255,.98);
+  --toggle-bg: #ffffff;
+  --option-bg: #ffffff;
+  --accent: #4a7fb5;
+  --accent-rgb: 74,127,181;
+  --hm-base: 74,127,181;
+  --text: rgba(30,45,66,.93);
+  --text-dim: rgba(30,45,66,.54);
+  --text-strong: rgba(30,45,66,.82);
+  --gold: #8a6d3b;
+  --red-soft: #c05b6a;
+  --red: #b04a55;
+  --cyan: #2e7d9c;
+  --blue-soft: #4a7fb5;
+  --green: #4d8a6a;
+  --pink: #a86a94;
+  --code-green: #4d8a6a;
+  --c-note: 74,127,181;
+  --c-clip: 138,109,59;
+  --c-todo: 77,138,106;
+  --trend-note: #c05b6a;
+  --trend-clip: #8a6d3b;
+  --trend-todo: #4d8a6a;
+  --select-arrow: url("data:image/svg+xml,%3Csvg width='10' height='6' viewBox='0 0 10 6' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1l4 4 4-4' stroke='rgba(30,45,66,.55)' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E");
+}
+
+/* 深渊 */
+:root[data-theme="abyss"] {
+  --scheme: dark;
+  --wsa: 220,235,245;
+  --body-bg: linear-gradient(135deg, #020c14 0%, #041018 100%);
+  --glass-bg: rgba(6,20,30,.7);
+  --glass-border: rgba(14,116,144,.25);
+  --glass-shadow: 0 12px 40px rgba(0,0,0,.5), inset 0 1px 0 rgba(220,235,245,.08);
+  --menubar-bg: rgba(3,14,22,.8);
+  --menu-bg: rgba(3,14,22,.95);
+  --tip-bg: rgba(3,14,22,.97);
+  --confirm-bg: rgba(3,14,22,.96);
+  --toggle-bg: rgb(3,14,22);
+  --option-bg: rgb(3,14,22);
+  --accent: #0e9db8;
+  --accent-rgb: 14,157,184;
+  --hm-base: 14,157,184;
+  --text: rgba(220,235,245,.93);
+  --text-dim: rgba(220,235,245,.54);
+  --text-strong: rgba(220,235,245,.82);
+  --gold: #e0b84d;
+  --red-soft: #e07070;
+  --red: #cf4444;
+  --cyan: #4dd0e1;
+  --blue-soft: #7fb4d9;
+  --green: #34c98e;
+  --pink: #d473b8;
+  --code-green: #34c98e;
+  --c-note: 14,157,184;
+  --c-clip: 224,184,77;
+  --c-todo: 52,201,142;
+  --trend-note: #e07070;
+  --trend-clip: #e0b84d;
+  --trend-todo: #34c98e;
+  --select-arrow: url("data:image/svg+xml,%3Csvg width='10' height='6' viewBox='0 0 10 6' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1l4 4 4-4' stroke='rgba(220,235,245,.55)' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E");
+}
+
+/* 水色 */
+:root[data-theme="aqua"] {
+  --scheme: light;
+  --wsa: 20,60,72;
+  --body-bg: linear-gradient(135deg, #e4f6f8 0%, #d9f0f4 100%);
+  --glass-bg: rgba(255,255,255,.8);
+  --glass-border: rgba(20,60,72,.13);
+  --glass-shadow: 0 12px 36px rgba(31,45,90,.16);
+  --menubar-bg: rgba(255,255,255,.74);
+  --menu-bg: rgba(255,255,255,.97);
+  --tip-bg: rgba(255,255,255,.99);
+  --confirm-bg: rgba(255,255,255,.98);
+  --toggle-bg: #ffffff;
+  --option-bg: #ffffff;
+  --accent: #0891b2;
+  --accent-rgb: 8,145,178;
+  --hm-base: 8,145,178;
+  --text: rgba(20,60,72,.93);
+  --text-dim: rgba(20,60,72,.54);
+  --text-strong: rgba(20,60,72,.82);
+  --gold: #8a6d1a;
+  --red-soft: #c9484f;
+  --red: #b83c42;
+  --cyan: #0891b2;
+  --blue-soft: #3a6ea5;
+  --green: #2c8a6b;
+  --pink: #b0527e;
+  --code-green: #2c8a6b;
+  --c-note: 8,145,178;
+  --c-clip: 138,109,26;
+  --c-todo: 44,138,107;
+  --trend-note: #c9484f;
+  --trend-clip: #8a6d1a;
+  --trend-todo: #2c8a6b;
+  --select-arrow: url("data:image/svg+xml,%3Csvg width='10' height='6' viewBox='0 0 10 6' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1l4 4 4-4' stroke='rgba(20,60,72,.55)' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E");
+}
+
+/* 焦糖拿铁 */
+:root[data-theme="latte"] {
+  --scheme: light;
+  --wsa: 70,50,34;
+  --body-bg: linear-gradient(135deg, #f2e7d8 0%, #ecdbc5 100%);
+  --glass-bg: rgba(252,246,238,.82);
+  --glass-border: rgba(70,50,34,.15);
+  --glass-shadow: 0 12px 36px rgba(31,45,90,.16);
+  --menubar-bg: rgba(255,255,255,.74);
+  --menu-bg: rgba(255,255,255,.97);
+  --tip-bg: rgba(255,255,255,.99);
+  --confirm-bg: rgba(255,255,255,.98);
+  --toggle-bg: #ffffff;
+  --option-bg: #ffffff;
+  --accent: #a0673c;
+  --accent-rgb: 160,103,60;
+  --hm-base: 160,103,60;
+  --text: rgba(70,50,34,.93);
+  --text-dim: rgba(70,50,34,.54);
+  --text-strong: rgba(70,50,34,.82);
+  --gold: #9a6a1c;
+  --red-soft: #c05b4a;
+  --red: #ad4a3a;
+  --cyan: #2e7268;
+  --blue-soft: #6b5b9e;
+  --green: #6b8a4a;
+  --pink: #b06a8a;
+  --code-green: #6b8a4a;
+  --c-note: 160,103,60;
+  --c-clip: 154,106,28;
+  --c-todo: 107,138,74;
+  --trend-note: #c05b4a;
+  --trend-clip: #9a6a1c;
+  --trend-todo: #6b8a4a;
+  --select-arrow: url("data:image/svg+xml,%3Csvg width='10' height='6' viewBox='0 0 10 6' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1l4 4 4-4' stroke='rgba(70,50,34,.55)' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E");
+}
+
+/* 暗色 */
+:root[data-theme="dim"] {
+  --scheme: dark;
+  --wsa: 228,230,235;
+  --body-bg: linear-gradient(135deg, #17181c 0%, #1f2024 100%);
+  --glass-bg: rgba(30,32,37,.68);
+  --glass-border: rgba(228,230,235,.12);
+  --glass-shadow: 0 12px 40px rgba(0,0,0,.5), inset 0 1px 0 rgba(228,230,235,.08);
+  --menubar-bg: rgba(26,28,32,.8);
+  --menu-bg: rgba(26,28,32,.95);
+  --tip-bg: rgba(26,28,32,.97);
+  --confirm-bg: rgba(26,28,32,.96);
+  --toggle-bg: rgb(26,28,32);
+  --option-bg: rgb(26,28,32);
+  --accent: #7c8cf8;
+  --accent-rgb: 124,140,248;
+  --hm-base: 124,140,248;
+  --text: rgba(228,230,235,.93);
+  --text-dim: rgba(228,230,235,.54);
+  --text-strong: rgba(228,230,235,.82);
+  --gold: #d9b44a;
+  --red-soft: #e07a72;
+  --red: #d64545;
+  --cyan: #6cc4d9;
+  --blue-soft: #9aa8f8;
+  --green: #6fbf8f;
+  --pink: #d98cb3;
+  --code-green: #6fbf8f;
+  --c-note: 124,140,248;
+  --c-clip: 217,180,74;
+  --c-todo: 111,191,143;
+  --trend-note: #e07a72;
+  --trend-clip: #d9b44a;
+  --trend-todo: #6fbf8f;
+  --select-arrow: url("data:image/svg+xml,%3Csvg width='10' height='6' viewBox='0 0 10 6' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1l4 4 4-4' stroke='rgba(228,230,235,.55)' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E");
+}
+
+/* 北极光 */
+:root[data-theme="aurora"] {
+  --scheme: dark;
+  --wsa: 225,245,240;
+  --body-bg: linear-gradient(135deg, #06131a 0%, #0a1f24 100%);
+  --glass-bg: rgba(8,30,36,.68);
+  --glass-border: rgba(52,211,153,.22);
+  --glass-shadow: 0 12px 40px rgba(0,0,0,.5), inset 0 1px 0 rgba(225,245,240,.08);
+  --menubar-bg: rgba(6,22,26,.8);
+  --menu-bg: rgba(6,22,26,.95);
+  --tip-bg: rgba(6,22,26,.97);
+  --confirm-bg: rgba(6,22,26,.96);
+  --toggle-bg: rgb(6,22,26);
+  --option-bg: rgb(6,22,26);
+  --accent: #34d399;
+  --accent-rgb: 52,211,153;
+  --hm-base: 52,211,153;
+  --text: rgba(225,245,240,.93);
+  --text-dim: rgba(225,245,240,.54);
+  --text-strong: rgba(225,245,240,.82);
+  --gold: #fbbf24;
+  --red-soft: #f472b6;
+  --red: #ef4444;
+  --cyan: #67e8f9;
+  --blue-soft: #93c5fd;
+  --green: #34d399;
+  --pink: #f472b6;
+  --code-green: #a3e635;
+  --c-note: 52,211,153;
+  --c-clip: 251,191,36;
+  --c-todo: 103,232,249;
+  --trend-note: #f472b6;
+  --trend-clip: #fbbf24;
+  --trend-todo: #34d399;
+  --select-arrow: url("data:image/svg+xml,%3Csvg width='10' height='6' viewBox='0 0 10 6' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1l4 4 4-4' stroke='rgba(225,245,240,.55)' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E");
+}
+
+/* 粉彩 */
+:root[data-theme="pastel"] {
+  --scheme: light;
+  --wsa: 80,60,90;
+  --body-bg: linear-gradient(135deg, #fdf0f7 0%, #eef4ff 100%);
+  --glass-bg: rgba(255,255,255,.78);
+  --glass-border: rgba(80,60,90,.12);
+  --glass-shadow: 0 12px 36px rgba(31,45,90,.16);
+  --menubar-bg: rgba(255,255,255,.74);
+  --menu-bg: rgba(255,255,255,.97);
+  --tip-bg: rgba(255,255,255,.99);
+  --confirm-bg: rgba(255,255,255,.98);
+  --toggle-bg: #ffffff;
+  --option-bg: #ffffff;
+  --accent: #9d7bd8;
+  --accent-rgb: 157,123,216;
+  --hm-base: 157,123,216;
+  --text: rgba(80,60,90,.93);
+  --text-dim: rgba(80,60,90,.54);
+  --text-strong: rgba(80,60,90,.82);
+  --gold: #a16207;
+  --red-soft: #d67ba0;
+  --red: #c25b74;
+  --cyan: #5bb0c4;
+  --blue-soft: #7a8fd4;
+  --green: #6bbf95;
+  --pink: #d67ba0;
+  --code-green: #6bbf95;
+  --c-note: 157,123,216;
+  --c-clip: 176,124,80;
+  --c-todo: 107,191,149;
+  --trend-note: #d67ba0;
+  --trend-clip: #a16207;
+  --trend-todo: #6bbf95;
+  --select-arrow: url("data:image/svg+xml,%3Csvg width='10' height='6' viewBox='0 0 10 6' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1l4 4 4-4' stroke='rgba(80,60,90,.55)' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E");
+}
+
+/* 日落 */
+:root[data-theme="sunset"] {
+  --scheme: dark;
+  --wsa: 255,235,225;
+  --body-bg: linear-gradient(135deg, #1f1030 0%, #3a1520 100%);
+  --glass-bg: rgba(58,26,42,.64);
+  --glass-border: rgba(251,146,60,.22);
+  --glass-shadow: 0 12px 40px rgba(0,0,0,.5), inset 0 1px 0 rgba(255,235,225,.08);
+  --menubar-bg: rgba(40,20,32,.8);
+  --menu-bg: rgba(40,20,32,.95);
+  --tip-bg: rgba(40,20,32,.97);
+  --confirm-bg: rgba(40,20,32,.96);
+  --toggle-bg: rgb(40,20,32);
+  --option-bg: rgb(40,20,32);
+  --accent: #fb923c;
+  --accent-rgb: 251,146,60;
+  --hm-base: 251,146,60;
+  --text: rgba(255,235,225,.93);
+  --text-dim: rgba(255,235,225,.54);
+  --text-strong: rgba(255,235,225,.82);
+  --gold: #fde047;
+  --red-soft: #fb7185;
+  --red: #f43f5e;
+  --cyan: #7dd3fc;
+  --blue-soft: #c084fc;
+  --green: #86efac;
+  --pink: #f472b6;
+  --code-green: #86efac;
+  --c-note: 251,146,60;
+  --c-clip: 253,224,71;
+  --c-todo: 134,239,172;
+  --trend-note: #fb7185;
+  --trend-clip: #fde047;
+  --trend-todo: #86efac;
+  --select-arrow: url("data:image/svg+xml,%3Csvg width='10' height='6' viewBox='0 0 10 6' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1l4 4 4-4' stroke='rgba(255,235,225,.55)' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E");
+}
+
+/* 线框 */
+:root[data-theme="wireframe"] {
+  --scheme: light;
+  --wsa: 40,40,45;
+  --body-bg: linear-gradient(135deg, #f8f8f6 0%, #f0f0ec 100%);
+  --glass-bg: rgba(255,255,255,.85);
+  --glass-border: rgba(40,40,45,.4);
+  --glass-shadow: 0 12px 36px rgba(31,45,90,.16);
+  --menubar-bg: rgba(255,255,255,.74);
+  --menu-bg: rgba(255,255,255,.97);
+  --tip-bg: rgba(255,255,255,.99);
+  --confirm-bg: rgba(255,255,255,.98);
+  --toggle-bg: #ffffff;
+  --option-bg: #ffffff;
+  --accent: #52525b;
+  --accent-rgb: 82,82,91;
+  --hm-base: 82,82,91;
+  --text: rgba(40,40,45,.93);
+  --text-dim: rgba(40,40,45,.54);
+  --text-strong: rgba(40,40,45,.82);
+  --gold: #7a6a1a;
+  --red-soft: #c04440;
+  --red: #b23a35;
+  --cyan: #22707a;
+  --blue-soft: #4b5563;
+  --green: #4a7c59;
+  --pink: #9e4f78;
+  --code-green: #4a7c59;
+  --c-note: 82,82,91;
+  --c-clip: 122,106,26;
+  --c-todo: 74,124,89;
+  --trend-note: #c04440;
+  --trend-clip: #7a6a1a;
+  --trend-todo: #4a7c59;
+  --select-arrow: url("data:image/svg+xml,%3Csvg width='10' height='6' viewBox='0 0 10 6' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1l4 4 4-4' stroke='rgba(40,40,45,.55)' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E");
+}

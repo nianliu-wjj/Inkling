@@ -1271,38 +1271,78 @@
     pasteAtCursor(c);
   });
 
-  // ── 多主题系统（设置页切换 · localStorage 持久化 · 默认深色） ──
+  // ── 多主题系统（设置页下拉切换 · localStorage 持久化 · 默认深色，共 30 套） ──
   const THEMES = [
-    { id: 'dark',      name: '深色',     dots: ['#1e2232', '#6c8cff', '#ffd76e', '#7ee0a8'] },
-    { id: 'light',     name: '浅色',     dots: ['#f2f5fc', '#4c68e0', '#b8860b', '#12805c'] },
-    { id: 'cupcake',   name: '纸杯蛋糕', dots: ['#fdf0f4', '#e56ba5', '#8fd3c7', '#f5c26b'] },
-    { id: 'bumblebee', name: '大黄蜂',   dots: ['#f6f3ea', '#a3860b', '#2b2b2b', '#8a8a8a'] },
-    { id: 'emerald',   name: '翡翠绿',   dots: ['#e9f5ee', '#0f8f5f', '#2f7d6d', '#c2654a'] },
-    { id: 'business',  name: '商务蓝',   dots: ['#e8edf6', '#2752c4', '#5b7bd5', '#94a3c4'] },
-    { id: 'neon',      name: '霓虹未来', dots: ['#160b2e', '#22d3ee', '#e879f9', '#a3e635'] },
-    { id: 'retro',     name: '复古',     dots: ['#f0e4cc', '#b4713a', '#7a5c2e', '#c9a86a'] },
-    { id: 'romance',   name: '浪漫',     dots: ['#fbeaf1', '#d2568f', '#9f7aea', '#f4a7c3'] },
-    { id: 'halloween', name: '万圣节',   dots: ['#1a1220', '#ff7a1a', '#8a2be2', '#5c4033'] },
+    { id: 'dark',        name: '深色',     dots: ['#1e2232', '#6c8cff', '#ffd76e', '#7ee0a8'] },
+    { id: 'light',       name: '浅色',     dots: ['#f2f5fc', '#4c68e0', '#b8860b', '#12805c'] },
+    { id: 'cupcake',     name: '纸杯蛋糕', dots: ['#fdf0f4', '#e56ba5', '#8fd3c7', '#f5c26b'] },
+    { id: 'bumblebee',   name: '大黄蜂',   dots: ['#f6f3ea', '#a3860b', '#2b2b2b', '#8a8a8a'] },
+    { id: 'emerald',     name: '翡翠绿',   dots: ['#e9f5ee', '#0f8f5f', '#2f7d6d', '#c2654a'] },
+    { id: 'business',    name: '商务蓝',   dots: ['#e8edf6', '#2752c4', '#5b7bd5', '#94a3c4'] },
+    { id: 'neon',        name: '霓虹未来', dots: ['#160b2e', '#22d3ee', '#e879f9', '#a3e635'] },
+    { id: 'retro',       name: '复古',     dots: ['#f0e4cc', '#b4713a', '#7a5c2e', '#c9a86a'] },
+    { id: 'romance',     name: '浪漫',     dots: ['#fbeaf1', '#d2568f', '#9f7aea', '#f4a7c3'] },
+    { id: 'halloween',   name: '万圣节',   dots: ['#1a1220', '#ff7a1a', '#8a2be2', '#5c4033'] },
+    { id: 'fantasy',     name: '奇幻',     dots: ['#1c1030', '#c084fc', '#fcd34d', '#7dd3fc'] },
+    { id: 'oled',        name: '极黑',     dots: ['#050505', '#4d8dff', '#f5c518', '#66bb6a'] },
+    { id: 'luxury',      name: '奢华',     dots: ['#14100a', '#d4af37', '#e8c96a', '#a8c686'] },
+    { id: 'dracula',     name: '德古拉',   dots: ['#282a36', '#bd93f9', '#50fa7b', '#ff79c6'] },
+    { id: 'print',       name: '印刷色',   dots: ['#f5f5f1', '#1f1f24', '#0e7490', '#c0392b'] },
+    { id: 'autumn',      name: '秋日',     dots: ['#f7ecd9', '#c6612c', '#7d8a2c', '#b0527e'] },
+    { id: 'businessgray', name: '商务灰',  dots: ['#eef0f2', '#495057', '#4a7c59', '#a35376'] },
+    { id: 'psychedelic', name: '迷幻',     dots: ['#12002e', '#ff3ec8', '#3ee8ff', '#ffe14d'] },
+    { id: 'lemon',       name: '柠檬',     dots: ['#fbf8d8', '#9b7900', '#5c8a2c', '#b3400c'] },
+    { id: 'night',       name: '夜色',     dots: ['#0b1026', '#5c7cfa', '#fbbf24', '#7dd3fc'] },
+    { id: 'coffee',      name: '咖啡',     dots: ['#1b1210', '#c08552', '#ddb271', '#9caf88'] },
+    { id: 'winter',      name: '冬日',     dots: ['#eef4fa', '#4a7fb5', '#4d8a6a', '#c05b6a'] },
+    { id: 'abyss',       name: '深渊',     dots: ['#020c14', '#0e9db8', '#34c98e', '#e0b84d'] },
+    { id: 'aqua',        name: '水色',     dots: ['#e4f6f8', '#0891b2', '#2c8a6b', '#3a6ea5'] },
+    { id: 'latte',       name: '焦糖拿铁', dots: ['#f2e7d8', '#a0673c', '#6b8a4a', '#b06a8a'] },
+    { id: 'dim',         name: '暗色',     dots: ['#17181c', '#7c8cf8', '#d9b44a', '#6fbf8f'] },
+    { id: 'aurora',      name: '北极光',   dots: ['#06131a', '#34d399', '#67e8f9', '#fbbf24'] },
+    { id: 'pastel',      name: '粉彩',     dots: ['#fdf0f7', '#9d7bd8', '#6bbf95', '#d67ba0'] },
+    { id: 'sunset',      name: '日落',     dots: ['#1f1030', '#fb923c', '#fde047', '#f472b6'] },
+    { id: 'wireframe',   name: '线框',     dots: ['#f8f8f6', '#52525b', '#4a7c59', '#c04440'] },
   ];
   function applyTheme(id, save = true) {
     const t = THEMES.find(x => x.id === id) || THEMES[0];
     document.documentElement.dataset.theme = t.id;
     if (save) { try { localStorage.setItem('inkling-theme', t.id); } catch (_) {} }
-    document.querySelectorAll('.theme-chip').forEach(c => c.classList.toggle('active', c.dataset.theme === t.id));
+    renderThemeDD();
     // 主题相关图形（热力图/折线图的颜色读取自 CSS 变量）需要重绘
     if (!document.getElementById('archive-stats').classList.contains('hidden')) renderStats();
     if (!document.getElementById('miniHeat').classList.contains('hidden')) renderMiniHeat();
   }
-  function buildThemePicker() {
-    const grid = $('themeGrid');
-    grid.innerHTML = THEMES.map(t => `
-      <div class="theme-chip" data-theme="${t.id}" title="${t.name}">
-        <span class="theme-dots">${t.dots.map(c => `<i style="background:${c}"></i>`).join('')}</span>
-        <span>${t.name}</span>
+  function renderThemeDD() {
+    const trigger = $('themeDDTrigger'), menu = $('themeDDMenu');
+    if (!trigger || !menu) return;
+    const cur = document.documentElement.dataset.theme || 'dark';
+    const t = THEMES.find(x => x.id === cur) || THEMES[0];
+    const dots = (x) => `<span class="theme-dots">${x.dots.map(c => `<i style="background:${c}"></i>`).join('')}</span>`;
+    trigger.innerHTML = `${dots(t)}<span class="dd-name">${t.name}</span><span class="dd-chevron">▾</span>`;
+    menu.innerHTML = THEMES.map(x => `
+      <div class="theme-dd-opt ${x.id === t.id ? 'active' : ''}" data-theme="${x.id}">
+        ${dots(x)}<span class="dd-name">${x.name}</span><span class="dd-check">✓</span>
       </div>`).join('');
-    grid.addEventListener('click', (e) => {
-      const chip = e.target.closest('.theme-chip'); if (!chip) return;
-      applyTheme(chip.dataset.theme);
+  }
+  function closeThemeDD() {
+    $('themeDD').classList.remove('open');
+    $('themeDDMenu').classList.add('hidden');
+  }
+  function buildThemePicker() {
+    renderThemeDD();
+    $('themeDDTrigger').addEventListener('click', (e) => {
+      e.stopPropagation();
+      $('themeDD').classList.toggle('open');
+      $('themeDDMenu').classList.toggle('hidden');
+    });
+    $('themeDDMenu').addEventListener('click', (e) => {
+      const opt = e.target.closest('.theme-dd-opt'); if (!opt) return;
+      applyTheme(opt.dataset.theme);
+      closeThemeDD();
+    });
+    document.addEventListener('click', (e) => {
+      if (!e.target.closest('#themeDD')) closeThemeDD();
     });
     let saved = 'dark';
     try { saved = localStorage.getItem('inkling-theme') || 'dark'; } catch (_) {}
