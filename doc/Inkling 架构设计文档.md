@@ -52,6 +52,21 @@
 
 ### 1.2 数据流
 
+### 1.3 当前分支实现状态
+
+本分支从提交 `65bb5fd5fdec81be991a36d9c31d6ab57f5129ba` 创建，正式实现采用 Tauri 2 + Vue 3 + TypeScript + Vite；原 `doc/` 静态原型仅作为视觉和交互参考。当前已落地的实现边界如下：
+
+| 层次 | 当前实现 | 说明 |
+| --- | --- | --- |
+| 前端 | `web/` Vue 单页应用 | 笔记、剪贴板、待办、统计、设置均在同一窗口内切换；优先级使用锚定式三选一 Popover |
+| IPC | `web/src/api.ts` + Tauri commands | 渲染进程不直接访问 SQLite |
+| 数据 | `src-tauri/src/main.rs` + SQLite WAL | 已包含 notes、tags、clipboard_entries、todos、todo_tags、settings 表 |
+| 文件 | Tauri `app_data_dir/notes/` | 笔记超过 1MB 时使用原子临时文件写入并保存相对路径 |
+| 领域约束 | Rust command 层 | 子任务层级、最多 5 个子任务、已完成项只允许新增子任务、优先级限制等规则在后端校验 |
+
+以下能力仍按 P0/P1/P2 继续补齐：顶部 hotzone 与多窗口状态机、系统托盘、全局快捷键、真实剪贴板轮询、提醒调度、开机启动、置顶浮窗、导出和自动化测试。未完成能力必须在 README 和发布说明中明确标注，不得以原型交互代替验收。
+
+
 ```
 Vue 视图 ──invoke──▶ ipc/commands ──▶ domain(纯逻辑) ──▶ data(SQL/文件) ──▶ SQLite / app-data/notes/
    ▲                                                                     │

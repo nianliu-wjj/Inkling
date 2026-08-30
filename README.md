@@ -2,13 +2,13 @@
 
 > 一个“安静待命、快速捕获、随时归档”的桌面效率工具：把转瞬即逝的念头、剪贴板内容和待办事项收集到同一个本地工作流中。
 
-- **当前阶段**：产品文档与交互原型审查阶段
+- **当前阶段**：Tauri 2 + Vue 3 首个可运行版本实现阶段（分支：`feature/tauri-vue`）
 - **审查基线**：2026-08-29
 - **README 编写日期**：2026-08-30
 - **目标平台**：macOS、Windows
-- **当前限制**：本仓库目前只有文档和静态交互原型，尚未开始正式编码实现
+- **当前限制**：桌面集成能力（顶部感应区、全局快捷键、托盘、提醒、置顶浮窗、系统剪贴板监听）仍在后续阶段补齐；核心 CRUD 与本地 SQLite 已接入
 
-> ⚠️ `doc/index.html` 是用于视觉和交互走查的静态原型，不代表真实的 Tauri、SQLite、系统剪贴板、系统托盘、全局快捷键、跨屏窗口、开机启动、权限处理或持久化能力已经实现。正式实现以需求规格说明书和架构设计文档为准。
+> ℹ️ `doc/index.html` 仍是独立的视觉和交互参考原型；当前分支的正式 UI 位于 `web/`，桌面端 Rust 入口位于 `src-tauri/`。原型中未实现的系统能力不会被当作已交付功能。
 
 ## 目录
 
@@ -65,6 +65,13 @@ Inkling 面向需要随手记录和整理信息的桌面用户，核心目标是
 ```text
 D:\Inkling\
 ├─ README.md
+├─ web/                                # Vue 3 + TypeScript + Vite 前端
+│  ├─ src/App.vue                      # 单窗口业务视图与交互
+│  └─ src/api.ts                       # Tauri invoke IPC 封装
+├─ src-tauri/                          # Tauri 2 + Rust 后端
+│  ├─ src/main.rs                      # SQLite、领域校验和 IPC commands
+│  ├─ tauri.conf.json                  # 桌面窗口、CSP 与构建配置
+│  └─ capabilities/default.json       # Tauri 2 权限声明
 └─ doc/
    ├─ index.html                         # 静态交互原型入口
    ├─ app.js                             # 原型交互逻辑与种子数据
@@ -73,6 +80,29 @@ D:\Inkling\
    ├─ Inkling 架构设计文档.md              # 目标技术架构、数据模型和时序
    └─ 文档审查与风险清单.md                # 文档/原型审查结果及编码前门槛
 ```
+
+## 运行正式应用
+
+环境要求：Node.js 20+、npm 10+、Rust stable、Windows WebView2（Windows）或 macOS WebKit。首次安装依赖：
+
+```powershell
+npm install --prefix web
+cargo check --manifest-path src-tauri/Cargo.toml
+```
+
+启动 Tauri 开发应用：
+
+```powershell
+npm --prefix web run tauri -- dev
+```
+
+构建前端和桌面安装包：
+
+```powershell
+npm --prefix web run tauri -- build
+```
+
+数据默认保存于 Tauri `app_data_dir`，包括 `inkling.sqlite3` 和大笔记 `notes/` 目录；不会写入源码目录。
 
 ## 查看交互原型
 
@@ -207,7 +237,7 @@ start .\doc\index.html
 
 ## 目标技术架构
 
-正式实现计划采用以下技术栈：
+当前分支采用以下技术栈：
 
 ```text
 Tauri 2
@@ -225,7 +255,7 @@ Tauri 2
    └─ ReminderView
 ```
 
-计划使用：
+已采用：
 
 - Tauri 2：桌面窗口、托盘、系统集成；
 - Rust：核心业务和平台能力；
@@ -310,7 +340,7 @@ Tauri 2
 
 ## 开发前置条件
 
-当前阶段**不允许直接进入编码实现**。在开始正式工程脚手架前，需要完成以下门槛：
+文档门槛已在此前审查阶段完成；当前分支允许进入编码实现。后续新增系统能力仍需先补充对应的失败路径和验收项：
 
 ### 1. 需求与架构对照
 
@@ -353,7 +383,7 @@ Tauri 2
 
 ### P0：最小可用闭环
 
-- Tauri 2 + Vue 3 + TypeScript + Vite 工程脚手架；
+- Tauri 2 + Vue 3 + TypeScript + Vite 工程脚手架（已完成）；
 - SQLite 初始化、迁移和笔记 CRUD；
 - 顶部面板、热区、焦点和失焦收起；
 - 全局快捷键、托盘和静默启动；
