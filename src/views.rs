@@ -239,9 +239,12 @@ fn clip_row(
     cx: &mut Context<InboxApp>,
 ) -> impl IntoElement {
     let text = clip.content().clone();
+    let clip_id = clip.id().clone();
+    let favorite_id = clip.id().clone();
     let confirmed = delete_target == Some(DeleteTarget::Clip(clip.id().clone()));
-    div()
-        .id(SharedString::from(format!("clip-{}", clip.id())))
+    let favorite = clip.favorite();
+    let mut row = div()
+        .id(SharedString::from(format!("clip-{clip_id}")))
         .relative()
         .flex()
         .items_center()
@@ -285,7 +288,33 @@ fn clip_row(
                 .text_size(px(10.))
                 .text_color(t.text_dim())
                 .child(store::display_timestamp(&clip.captured_at())),
-        )
+        );
+    row = row.child(
+        div()
+            .id(SharedString::from(format!("favorite-clip-{}", favorite_id)))
+            .px_1()
+            .py_0p5()
+            .rounded_sm()
+            .text_size(px(13.))
+            .text_color(if favorite { t.gold() } else { t.text_dim() })
+            .cursor_pointer()
+            .hover(|s| s.bg(t.hover()).text_color(t.gold()))
+            .on_click(cx.listener(move |_, _: &ClickEvent, _, cx| {
+                store::set_clip_favorite(cx, &favorite_id, !favorite);
+                cx.notify();
+            }))
+            .child(if favorite { "★" } else { "☆" }),
+    );
+    row.child(
+        div()
+            .text_size(px(10.))
+            .text_color(t.text_dim())
+            .child(if clip.kind() == "link" {
+                "可打开链接"
+            } else {
+                "点击复制"
+            }),
+    )
 }
 
 pub fn clips(

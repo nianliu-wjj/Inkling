@@ -408,7 +408,13 @@ pub fn todos(cx: &mut App) -> Vec<TodoItem> {
     store(cx).todos.clone()
 }
 pub fn clips(cx: &mut App) -> Vec<ClipItem> {
-    store(cx).clips.clone()
+    let mut clips = store(cx).clips.clone();
+    clips.sort_by(|a, b| {
+        b.favorite()
+            .cmp(&a.favorite())
+            .then_with(|| b.captured_at().cmp(&a.captured_at()))
+    });
+    clips
 }
 
 /// 根据设置清理剪贴板历史。清理同时作用于 SQLite 和内存快照，避免重启前后看到不同数据。
@@ -674,6 +680,25 @@ pub fn update_note(cx: &mut App, id: &str, content: String, tags: Vec<String>) -
     }
 }
 
+fn classify_clip(content: &str) -> &'static str {
+    let trimmed = content.trim();
+    if trimmed.starts_with("https://") || trimmed.starts_with("http://") {
+        "link"
+    } else if trimmed.contains("fn ")
+        || trimmed.contains("=>")
+        || trimmed.contains("<div")
+        || trimmed.contains("</")
+        || (trimmed.contains(
+            "{
+",
+        ) && trimmed.contains("}"))
+    {
+        "code"
+    } else {
+        "text"
+    }
+}
+
 pub fn push_clip(cx: &mut App, content: String) {
     if content.trim().is_empty() {
         return;
@@ -681,6 +706,7 @@ pub fn push_clip(cx: &mut App, content: String) {
     let s = store(cx);
     let hash = hash_content(&content);
     let captured = now_string();
+    let kind = classify_clip(&content).to_string();
     let clip_id = id("clip");
     let result = with_db(s, |conn| {
         let tx = conn.transaction()?;
@@ -693,11 +719,11 @@ pub fn push_clip(cx: &mut App, content: String) {
             .optional()?;
         if let Some(existing) = existing {
             tx.execute(
-                "UPDATE clips SET captured_at=?1 WHERE id=?2",
-                params![captured, existing],
+                "UPDATE clips SET kind=?1,captured_at=?2 WHERE id=?3",
+                params![kind, captured, existing],
             )?;
         } else {
-            tx.execute("INSERT INTO clips(id,content,kind,content_hash,captured_at) VALUES(?1,?2,'text',?3,?4)", params![clip_id, content, hash, captured])?;
+            tx.execute("INSERT INTO clips(id,content,kind,content_hash,captured_at) VALUES(?1,?2,?3,?4,?5)", params![clip_id, content, kind, hash, captured])?;
             record_activity(&tx, "clipboard_captured", &clip_id)?;
         }
         tx.commit()?;
@@ -707,6 +733,7 @@ pub fn push_clip(cx: &mut App, content: String) {
         if let Some(pos) = s.clips.iter().position(|c| c.content() == content) {
             let mut item = s.clips.remove(pos);
             item.set_captured_at(captured);
+            item.set_kind(kind);
             s.clips.insert(0, item);
         } else {
             s.clips.insert(
@@ -714,13 +741,80 @@ pub fn push_clip(cx: &mut App, content: String) {
                 ClipItem {
                     id: clip_id,
                     content,
-                    kind: "text".into(),
+                    kind: kind.into(),
                     captured_at: captured,
                     favorite: false,
                 },
             );
         }
         s.clips.truncate(500);
+    }
+}
+
+pub fn set_clip_favorite(cx: &mut App, id: &str, favorite: bool) -> bool {
+    let s = store(cx);
+    let result = with_db(s, |conn| {
+        let changed = conn.execute(
+            "UPDATE clips SET favorite=?1 WHERE id=?2",
+            params![favorite as i64, id],
+        )?;
+        if changed == 0 {
+            return Err(rusqlite::Error::QueryReturnedNoRows);
+        }
+        Ok(())
+    });
+    if result.is_ok() {
+        if let Some(clip) = s.clips.iter_mut().find(|clip| clip.id() == id) {
+            clip.set_favorite(favorite);
+        }
+        true
+    } else {
+        false
+    }
+}
+
+pub fn update_clip_content(cx: &mut App, id: &str, content: String) -> bool {
+    let content = content.trim().to_string();
+    if content.is_empty() {
+        return false;
+    }
+    let hash = hash_content(&content);
+    let kind = classify_clip(&content).to_string();
+    let captured = now_string();
+    let s = store(cx);
+    let result = with_db(s, |conn| {
+        let tx = conn.transaction()?;
+        let duplicate: Option<String> = tx
+            .query_row(
+                "SELECT id FROM clips WHERE content_hash=?1 AND id<>?2",
+                params![hash, id],
+                |row| row.get(0),
+            )
+            .optional()?;
+        if duplicate.is_some() {
+            return Err(rusqlite::Error::InvalidParameterName(
+                "duplicate clipboard content".into(),
+            ));
+        }
+        let changed = tx.execute(
+            "UPDATE clips SET content=?1,kind=?2,content_hash=?3,captured_at=?4 WHERE id=?5",
+            params![content, kind, hash, captured, id],
+        )?;
+        if changed == 0 {
+            return Err(rusqlite::Error::QueryReturnedNoRows);
+        }
+        tx.commit()?;
+        Ok(())
+    });
+    if result.is_ok() {
+        if let Some(clip) = s.clips.iter_mut().find(|clip| clip.id() == id) {
+            clip.set_content(content);
+            clip.set_kind(kind);
+            clip.set_captured_at(captured);
+        }
+        true
+    } else {
+        false
     }
 }
 
