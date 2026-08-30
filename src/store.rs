@@ -1257,3 +1257,32 @@ pub fn todo_children(cx: &mut App, parent_id: &str) -> Vec<TodoItem> {
 pub fn is_overdue(todo: &TodoItem) -> bool {
     !todo.done() && todo.due_at() < now_string()
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn tags_are_trimmed_deduplicated_and_bounded() {
+        let tags = vec![
+            "  rust  ".into(),
+            "gpui".into(),
+            "rust".into(),
+            "sqlite-long".into(),
+            "fourth".into(),
+        ];
+        assert_eq!(normalize_tags(&tags, 3, 5), vec!["rust", "gpui", "sqlit"]);
+    }
+
+    #[test]
+    fn clipboard_classification_handles_links_and_code() {
+        assert_eq!(classify_clip("https://example.com"), "link");
+        assert_eq!(classify_clip("fn main() {\n}"), "code");
+        assert_eq!(classify_clip("普通文本"), "text");
+    }
+
+    #[test]
+    fn html_export_escapes_markup() {
+        assert_eq!(html_escape("<&>\""), "&lt;&amp;&gt;&quot;");
+    }
+}
