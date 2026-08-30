@@ -905,6 +905,51 @@ pub fn add_todo(
     let now = now_string();
     let result = with_db(s, |conn| {
         let tx = conn.transaction()?;
+        let due_seconds = due_at.parse::<u64>().ok();
+        if due_seconds.is_none() || due_seconds < Some(now_secs()) {
+            return Err(rusqlite::Error::InvalidParameterName(
+                "todo due_at must not be in the past".into(),
+            ));
+        }
+        // 子任务最多 5 个且只能挂在顶级待办下；开放父级要求子任务不晚于父级。
+        if let Some(parent) = parent_id.as_ref() {
+            let parent_meta: Option<(String, Option<String>)> = tx
+                .query_row(
+                    "SELECT status,parent_id FROM todos WHERE id=?1",
+                    [parent],
+                    |row| Ok((row.get(0)?, row.get::<_, Option<String>>(1)?)),
+                )
+                .optional()?;
+            let Some((parent_status, grandparent)) = parent_meta else {
+                return Err(rusqlite::Error::QueryReturnedNoRows);
+            };
+            if grandparent.is_some() {
+                return Err(rusqlite::Error::InvalidParameterName(
+                    "nested child tasks are not allowed".into(),
+                ));
+            }
+            let child_count: i64 = tx.query_row(
+                "SELECT COUNT(*) FROM todos WHERE parent_id=?1",
+                [parent],
+                |row| row.get(0),
+            )?;
+            if child_count >= 5 {
+                return Err(rusqlite::Error::InvalidParameterName(
+                    "a todo can have at most five children".into(),
+                ));
+            }
+            if parent_status == "open" {
+                let parent_due: String =
+                    tx.query_row("SELECT due_at FROM todos WHERE id=?1", [parent], |row| {
+                        row.get(0)
+                    })?;
+                if due_at.parse::<u64>().ok() > parent_due.parse::<u64>().ok() {
+                    return Err(rusqlite::Error::InvalidParameterName(
+                        "child due_at cannot exceed parent due_at".into(),
+                    ));
+                }
+            }
+        }
         // 子任务使用自己的计划完成时间；父级仅顺延到 max(原父级时间, 新子任务时间)。
         tx.execute("INSERT INTO todos(id,content,due_at,status,priority,parent_id,created_at,updated_at) VALUES(?1,?2,?3,'open','medium',?4,?5,?5)", params![todo_id, text, due_at, parent_id, now])?;
         if let Some(parent) = parent_id.as_ref() {
