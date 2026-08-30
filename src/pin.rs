@@ -2,11 +2,11 @@
 
 use gpui::{
     div, prelude::*, px, App, AppContext, Bounds, ClickEvent, Context, FontWeight, IntoElement,
-    ParentElement, Render, SharedString, Styled, Window, WindowBackgroundAppearance, WindowBounds,
+    ParentElement, Render, SharedString, StatefulInteractiveElement, Styled, Window, WindowBackgroundAppearance, WindowBounds,
     WindowKind, WindowOptions,
 };
 
-use crate::{store, theme::Theme};
+use crate::{store, text_input::TextInput, theme::Theme};
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum PinTarget {
@@ -36,13 +36,44 @@ struct PinWindows {
 
 impl gpui::Global for PinWindows {}
 
-pub struct PinnedApp {
-    target: PinTarget,
+crate::accessors! {
+    pub struct PinnedApp {
+        target: PinTarget,
+        editing: bool,
+        opacity: f32,
+        edit_input: gpui::Entity<TextInput>,
+    }
 }
 
 impl PinnedApp {
-    fn new(target: PinTarget, _cx: &mut Context<Self>) -> Self {
-        Self { target }
+    fn new(target: PinTarget, cx: &mut Context<Self>) -> Self {
+        let edit_input = cx.new(|cx| {
+            TextInput::new(
+                "双击后编辑内容…",
+                gpui::hsla(0.0, 0.0, 1.0, 0.35),
+                gpui::hsla(0.65, 0.08, 0.95, 1.0),
+                cx,
+            )
+        });
+        let initial_content = match &target {
+            PinTarget::Note(id) => store::notes(cx)
+                .into_iter()
+                .find(|note| note.id() == *id)
+                .map(|note| note.content().clone()),
+            PinTarget::Todo(id) => store::todos(cx)
+                .into_iter()
+                .find(|todo| todo.id() == *id)
+                .map(|todo| todo.text().clone()),
+        };
+        if let Some(content) = initial_content {
+            edit_input.update(cx, |input, cx| input.set_content(content, cx));
+        }
+        Self {
+            target,
+            editing: false,
+            opacity: 1.0,
+            edit_input,
+        }
     }
 
     fn close(&mut self, window: &mut Window, cx: &mut App) {
@@ -57,6 +88,25 @@ impl PinnedApp {
 
     fn theme(&self) -> &'static Theme {
         &crate::theme::THEMES[crate::theme::DEFAULT_THEME]
+    }
+
+    fn save_edit(&mut self, cx: &mut Context<Self>) {
+        let content = self.edit_input.read(cx).content();
+        let saved = match &self.target {
+            PinTarget::Note(id) => {
+                let tags = store::notes(cx)
+                    .into_iter()
+                    .find(|note| note.id() == *id)
+                    .map(|note| note.tags().clone())
+                    .unwrap_or_default();
+                store::update_note(cx, id, content, tags)
+            }
+            PinTarget::Todo(id) => store::update_todo_text(cx, id, content),
+        };
+        if saved {
+            self.set_editing(false);
+            cx.notify();
+        }
     }
 
     fn close_button(&self, t: &Theme, cx: &mut Context<Self>) -> impl IntoElement {
@@ -78,7 +128,7 @@ impl PinnedApp {
 impl Render for PinnedApp {
     fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let t = self.theme();
-        let mut body = div().flex().flex_col().gap_2();
+        let mut body = div().id("pinned-body").flex().flex_col().gap_2();
         match &self.target {
             PinTarget::Note(id) => {
                 if let Some(note) = store::notes(cx).into_iter().find(|note| note.id() == *id) {
@@ -142,7 +192,101 @@ impl Render for PinnedApp {
                 }
             }
         }
-        body = body.child(self.close_button(t, cx));
+        let edit_input = self.edit_input.clone();
+        let target_for_edit = self.target.clone();
+        body = body
+            .on_click(cx.listener(move |this, event: &ClickEvent, _, cx| {
+                if event.click_count() >= 2 {
+                    let content = match &target_for_edit {
+                        PinTarget::Note(id) => store::notes(cx)
+                            .into_iter()
+                            .find(|note| note.id() == *id)
+                            .map(|note| note.content().clone()),
+                        PinTarget::Todo(id) => store::todos(cx)
+                            .into_iter()
+                            .find(|todo| todo.id() == *id && !todo.done())
+                            .map(|todo| todo.text().clone()),
+                    };
+                    if let Some(content) = content {
+                        edit_input.update(cx, |input, cx| input.set_content(content, cx));
+                        this.set_editing(true);
+                        cx.notify();
+                    }
+                }
+            }))
+            .when(self.editing(), |el| {
+                el.child(
+                    div()
+                        .flex()
+                        .items_center()
+                        .gap_1()
+                        .child(div().flex_1().min_w_0().h(px(34.)).child(self.edit_input.clone()))
+                        .child(
+                            div()
+                                .id("save-pin-edit")
+                                .px_2()
+                                .py_1()
+                                .rounded_md()
+                                .bg(t.accent())
+                                .text_color(t.bg())
+                                .text_size(px(10.))
+                                .cursor_pointer()
+                                .on_click(cx.listener(|this, _: &ClickEvent, _, cx| {
+                                    this.save_edit(cx);
+                                }))
+                                .child("保存"),
+                        )
+                        .child(
+                            div()
+                                .id("cancel-pin-edit")
+                                .px_2()
+                                .py_1()
+                                .rounded_md()
+                                .text_color(t.text_dim())
+                                .text_size(px(10.))
+                                .cursor_pointer()
+                                .on_click(cx.listener(|this, _: &ClickEvent, _, cx| {
+                                    this.set_editing(false);
+                                    cx.notify();
+                                }))
+                                .child("取消"),
+                        ),
+                )
+            })
+            .child(
+                div()
+                    .flex()
+                    .items_center()
+                    .gap_1()
+                    .text_size(px(10.))
+                    .text_color(t.text_dim())
+                    .child("透明度")
+                    .child({
+                        let mut controls = div().flex().items_center().gap_1();
+                        for value in [0.3_f32, 0.5, 0.7, 1.0] {
+                            let label = format!("{}%", (value * 100.0) as u32);
+                            let selected = (self.opacity() - value).abs() < f32::EPSILON;
+                            controls = controls.child(
+                                div()
+                                    .id(SharedString::from(format!("pin-opacity-{}", label)))
+                                    .px_1()
+                                    .py_0p5()
+                                    .rounded_sm()
+                                    .text_size(px(9.))
+                                    .when(selected, |el| el.bg(t.accent()).text_color(t.bg()))
+                                    .when(!selected, |el| el.bg(t.hover()).text_color(t.text_dim()))
+                                    .cursor_pointer()
+                                    .on_click(cx.listener(move |this, _: &ClickEvent, _, cx| {
+                                        this.set_opacity(value);
+                                        cx.notify();
+                                    }))
+                                    .child(label),
+                            );
+                        }
+                        controls
+                    }),
+            )
+            .child(self.close_button(t, cx));
         div()
             .id("pinned-window")
             .size_full()
@@ -151,6 +295,7 @@ impl Render for PinnedApp {
             .bg(t.card())
             .border_1()
             .border_color(t.accent())
+            .opacity(self.opacity())
             .child(body)
     }
 }
