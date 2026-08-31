@@ -3,8 +3,11 @@
 html,
 body,
 #app {
-  margin: 0;
+  width: 100%;
+  min-width: 0;
   min-height: 100%;
+  margin: 0;
+  overflow: hidden;
   background: transparent;
 }
 .hotzone {
@@ -25,7 +28,7 @@ body,
   backdrop-filter: blur(18px);
 }
 .quick-panel {
-  width: 480px;
+  width: 100%;
   min-height: 180px;
 }
 .floating-card {
