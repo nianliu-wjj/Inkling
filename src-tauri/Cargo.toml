@@ -11,16 +11,22 @@ tauri-build = { version = "2", features = [] }
 [dependencies]
 tauri = { version = "2", features = ["tray-icon"] }
 tauri-plugin-global-shortcut = "2"
-tauri-plugin-clipboard-manager = "2"
 tauri-plugin-autostart = "2"
-tauri-plugin-notification = "2"
 tauri-plugin-opener = "2"
+tauri-plugin-dialog = "2"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 rusqlite = { version = "0.37", features = ["bundled"] }
 chrono = { version = "0.4", features = ["serde"] }
 uuid = { version = "1", features = ["v4", "serde"] }
 sha2 = "0.10"
+arboard = "3"
+window-vibrancy = "0.6"
+tokio = { version = "1", features = ["time"] }
+image = { version = "0.25", default-features = false, features = ["png"] }
+pulldown-cmark = "0.13"
+ab_glyph = "0.2"
+genpdfi = "0.2.7"
 
 [features]
 default = ["custom-protocol"]

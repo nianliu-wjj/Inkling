@@ -1,8 +1,14 @@
+.idea
+.vscode
+
 # Ignore generated frontend and desktop build artifacts
 node_modules/
+
 dist/
+target/
 src-tauri/target/
+
 *.log
 .DS_Store
-.idea/
-target/
+
+.cargo

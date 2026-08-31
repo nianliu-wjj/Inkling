@@ -1,14 +1,24 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
-  "description": "Inkling 默认窗口权限",
-  "windows": ["main"],
+  "description": "Inkling 全部窗口权限",
+  "windows": ["main", "panel", "hotzone", "pinned-*", "reminder-*"],
   "permissions": [
     "core:default",
+    "core:window:allow-start-dragging",
+    "core:window:allow-set-size",
+    "core:window:allow-set-position",
+    "core:window:allow-set-focus",
+    "core:window:allow-show",
+    "core:window:allow-hide",
+    "core:window:allow-close",
+    "core:window:allow-scale-factor",
+    "core:window:allow-inner-position",
+    "core:window:allow-outer-position",
+    "core:window:allow-is-visible",
     "global-shortcut:default",
-    "clipboard-manager:default",
     "autostart:default",
-    "notification:default",
-    "opener:default"
+    "opener:default",
+    "dialog:default"
   ]
 }
