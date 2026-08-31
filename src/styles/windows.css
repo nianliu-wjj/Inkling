@@ -1,5 +1,13 @@
 @import './index.css';
 
+/* 透明窗口的根节点必须保持透明，否则 WebView 会把 :root 背景绘制成黑色矩形。 */
+:root,
+html,
+body,
+#app {
+  background: transparent !important;
+}
+
 html,
 body,
 #app {

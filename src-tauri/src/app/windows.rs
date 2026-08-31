@@ -59,6 +59,8 @@ pub fn create_core_windows(app: &AppHandle, silent: bool) -> tauri::Result<()> {
         .resizable(false)
         .shadow(false)
         .build()?;
+    // Windows 上部分环境不会可靠继承 builder 的 skip_taskbar 配置，创建后再次显式设置。
+    let _ = hotzone.set_skip_taskbar(true);
     let _ = hotzone.set_ignore_cursor_events(false);
 
     // panel：预创建常驻隐藏，呼出只做 show + focus。
@@ -75,10 +77,13 @@ pub fn create_core_windows(app: &AppHandle, silent: bool) -> tauri::Result<()> {
         .shadow(false)
         .visible(false)
         .build()?;
+    let _ = panel.set_skip_taskbar(true);
     crate::platform::apply_panel_effects(&panel);
 
     // main：配置中 visible=false，这里按启动模式决定是否展示。
     if let Some(main) = app.get_webview_window("main") {
+        // 主窗口是唯一允许出现在任务栏中的窗口。
+        let _ = main.set_skip_taskbar(false);
         crate::platform::apply_main_backdrop(&main);
         if !silent {
             let _ = main.show();
@@ -198,6 +203,7 @@ pub fn pin_create(app: &AppHandle, kind: &str, id: &str) -> Result<(), String> {
         .visible(false)
         .build()
         .map_err(|e| format!("创建置顶浮窗失败: {e}"))?;
+    let _ = window.set_skip_taskbar(true);
     let _ = window.show();
     Ok(())
 }
@@ -259,6 +265,7 @@ pub fn reminder_show(app: &AppHandle, todo_id: &str) -> Result<(), String> {
         .visible(false)
         .build()
         .map_err(|e| format!("创建提醒窗口失败: {e}"))?;
+    let _ = window.set_skip_taskbar(true);
     let _ = window.show();
     let _ = app.emit_to(label, events::REMINDER_FIRED, todo_id.to_string());
     Ok(())
