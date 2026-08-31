@@ -21,21 +21,54 @@
 
     <main class="workspace">
       <aside class="sidebar">
-        <button
-          v-for="item in navItems"
-          :key="item.key"
-          :class="['nav-item', item.key, { active: view === item.key }]"
-          @click="view = item.key"
-        >
-          <span>{{ item.icon }}</span
-          ><span>{{ item.label }}</span
-          ><b>{{ item.count }}</b>
-        </button>
-        <div class="sidebar-spacer" />
-        <div class="quick-capture"><span>快捷捕获</span><kbd>Ctrl</kbd><kbd>Shift</kbd><kbd>Space</kbd></div>
-        <button class="nav-item settings" :class="{ active: view === 'settings' }" @click="view = 'settings'">
-          <span>⚙</span><span>偏好设置</span>
-        </button>
+        <nav class="side-nav" aria-label="归档分类">
+          <button
+            v-for="item in archiveNavItems"
+            :key="item.key"
+            :class="['nav-item', item.key, { active: view === item.key }]"
+            @click="view = item.key"
+          >
+            <span>{{ item.icon }}</span
+            ><span>{{ item.label }}</span
+            ><b>{{ item.count }}</b>
+          </button>
+        </nav>
+        <div class="mini-heat" aria-label="本月活跃度">
+          <div class="mini-heat-title">本月活跃度</div>
+          <div class="mini-heat-grid">
+            <span v-for="(day, index) in miniMonthCells" :key="day ? day.date : `blank-${index}`">
+              <button
+                v-if="day"
+                :class="[
+                  'heat-cell',
+                  heatLevel(day),
+                  { overdue: day.overdue > 0, selected: selectedStatsDate === day.date },
+                ]"
+                :title="`${day.date}：笔记 ${day.notes}，剪贴板 ${day.clips}，待办 ${day.todos}`"
+                @click="selectMiniDay(day.date)"
+              />
+              <i v-else class="mini-heat-blank" aria-hidden="true" />
+            </span>
+          </div>
+        </div>
+        <div class="side-foot">
+          <button
+            class="side-button"
+            :class="{ active: view === 'settings' }"
+            title="偏好设置"
+            @click="view = 'settings'"
+          >
+            <span>⚙</span><span>偏好设置</span>
+          </button>
+          <button
+            class="side-icon-button"
+            :class="{ active: view === 'stats' }"
+            title="统计数据"
+            @click="view = 'stats'"
+          >
+            📊
+          </button>
+        </div>
       </aside>
 
       <section class="content">
@@ -539,6 +572,19 @@ const navItems = computed(() =>
             : 0,
   })),
 )
+const archiveNavItems = computed(() => navItems.value.filter((item) => item.key !== 'stats'))
+const miniMonthCells = computed<(ActivityDay | null)[]>(() => {
+  const now = new Date()
+  const firstDay = new Date(now.getFullYear(), now.getMonth(), 1)
+  const dayCount = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate()
+  const byDate = new Map(activity.value.map((item) => [item.date, item]))
+  const cells: (ActivityDay | null)[] = Array.from({ length: firstDay.getDay() }, () => null)
+  for (let day = 1; day <= dayCount; day += 1) {
+    const date = toDateKey(new Date(now.getFullYear(), now.getMonth(), day))
+    cells.push(byDate.get(date) ?? { date, notes: 0, clips: 0, todos: 0, completed: 0, overdue: 0 })
+  }
+  return cells
+})
 const filteredNotes = computed(() =>
   notes.value.filter(
     (x) =>
@@ -864,6 +910,10 @@ async function pollClipboard() {
 async function loadDayDetails(date: string) {
   selectedStatsDate.value = date
   dayDetails.value = await api.stats.day(date).catch(() => [])
+}
+function selectMiniDay(date: string) {
+  void loadDayDetails(date)
+  view.value = 'stats'
 }
 async function exportSelected(format: string) {
   const refs = [
