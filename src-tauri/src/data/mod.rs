@@ -57,9 +57,12 @@ pub struct Store {
 
 impl Store {
     pub fn open(data_dir: PathBuf) -> Result<Self, String> {
-        std::fs::create_dir_all(data_dir.join("notes")).map_err(|e| format!("创建应用数据目录失败: {e}"))?;
-        std::fs::create_dir_all(data_dir.join("clipboard")).map_err(|e| format!("创建剪贴板附件目录失败: {e}"))?;
-        let db = Connection::open(data_dir.join("inkling.sqlite3")).map_err(|e| format!("打开数据库失败: {e}"))?;
+        std::fs::create_dir_all(data_dir.join("notes"))
+            .map_err(|e| format!("创建应用数据目录失败: {e}"))?;
+        std::fs::create_dir_all(data_dir.join("clipboard"))
+            .map_err(|e| format!("创建剪贴板附件目录失败: {e}"))?;
+        let db = Connection::open(data_dir.join("inkling.sqlite3"))
+            .map_err(|e| format!("打开数据库失败: {e}"))?;
         db.execute_batch(
             "PRAGMA foreign_keys = ON;
              PRAGMA journal_mode = WAL;
@@ -138,8 +141,11 @@ impl Store {
             .map_err(|e| format!("初始化数据库失败: {e}"))?;
 
         if version < 1 {
-            self.with_v1().map_err(|e| format!("数据库迁移到 v1 失败: {e}"))?;
-            self.db.pragma_update(None, "user_version", 1).map_err(db_err)?;
+            self.with_v1()
+                .map_err(|e| format!("数据库迁移到 v1 失败: {e}"))?;
+            self.db
+                .pragma_update(None, "user_version", 1)
+                .map_err(db_err)?;
         }
         Ok(())
     }
@@ -147,6 +153,8 @@ impl Store {
     /// v1 增量：notes.archived_at、todo remind_off、提醒实例表、活动事件与每日聚合表。
     fn with_v1(&self) -> Result<(), String> {
         self.add_column_if_missing("notes", "archived_at", "TEXT")?;
+        self.add_column_if_missing("clipboard_entries", "file_path", "TEXT")?;
+        self.add_column_if_missing("clipboard_entries", "created_at", "TEXT")?;
         self.add_column_if_missing("todos", "remind_off", "INTEGER NOT NULL DEFAULT 0")?;
         self.db
             .execute_batch(
@@ -203,7 +211,10 @@ impl Store {
         };
         if !existing.iter().any(|c| c == column) {
             self.db
-                .execute(&format!("ALTER TABLE {table} ADD COLUMN {column} {decl}"), [])
+                .execute(
+                    &format!("ALTER TABLE {table} ADD COLUMN {column} {decl}"),
+                    [],
+                )
                 .map_err(db_err)?;
         }
         Ok(())
@@ -220,7 +231,8 @@ impl Store {
         self.db
             .execute(&format!("DELETE FROM {table} WHERE {id_column}=?"), [id])
             .map_err(db_err)?;
-        let insert_sql = format!("INSERT OR IGNORE INTO {table} ({id_column}, tag_id) VALUES (?, ?)");
+        let insert_sql =
+            format!("INSERT OR IGNORE INTO {table} ({id_column}, tag_id) VALUES (?, ?)");
         for raw in tags.iter().map(|t| t.trim()).filter(|t| !t.is_empty()) {
             let normalized = raw.to_lowercase();
             self.db
@@ -231,7 +243,11 @@ impl Store {
                 .map_err(db_err)?;
             let tag_id: i64 = self
                 .db
-                .query_row("SELECT id FROM tags WHERE normalized=?", [normalized], |r| r.get(0))
+                .query_row(
+                    "SELECT id FROM tags WHERE normalized=?",
+                    [normalized],
+                    |r| r.get(0),
+                )
                 .map_err(db_err)?;
             self.db
                 .execute(&insert_sql, rusqlite::params![id, tag_id])
@@ -246,10 +262,12 @@ impl Store {
             "SELECT t.name FROM tags t JOIN {table} x ON x.tag_id=t.id WHERE x.{id_column}=? ORDER BY t.name"
         );
         let mut stmt = self.db.prepare(&sql).map_err(db_err)?;
-        stmt.query_map([id], |row| row.get(0))
+        let rows = stmt
+            .query_map([id], |row| row.get(0))
             .map_err(db_err)?
             .collect::<Result<Vec<_>, _>>()
-            .map_err(db_err)
+            .map_err(db_err)?;
+        Ok(rows)
     }
 
     /// 打开事务（unchecked_transaction 允许借用 &self）。
@@ -258,7 +276,12 @@ impl Store {
     }
 
     /// 幂等写入活动事件并聚合到 stats_daily。
-    pub fn record_event(&self, event_type: &str, entity_id: &str, occurred_at: &str) -> Result<(), String> {
+    pub fn record_event(
+        &self,
+        event_type: &str,
+        entity_id: &str,
+        occurred_at: &str,
+    ) -> Result<(), String> {
         let date = local_date_key(
             DateTime::parse_from_rfc3339(occurred_at)
                 .map(|dt| dt.with_timezone(&Utc))
@@ -352,7 +375,9 @@ impl Store {
             )
             .optional()
             .map_err(db_err)?;
-        let Some((id, content, file_path, draft, pinned, archived_at, created_at, updated_at)) = row else {
+        let Some((id, content, file_path, draft, pinned, archived_at, created_at, updated_at)) =
+            row
+        else {
             return Err("笔记不存在".into());
         };
         let mut content = content.unwrap_or_default();

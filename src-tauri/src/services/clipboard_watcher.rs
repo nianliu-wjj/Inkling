@@ -8,7 +8,7 @@ use crate::app::state::AppState;
 use crate::domain::clipboard as logic;
 use crate::domain::models::ClipboardEntry;
 use crate::events;
-use tauri::{AppHandle, Emitter};
+use tauri::{AppHandle, Emitter, Manager};
 
 const POLL_INTERVAL: Duration = Duration::from_millis(500);
 const CLEANUP_INTERVAL: Duration = Duration::from_secs(24 * 60 * 60);

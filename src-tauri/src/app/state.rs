@@ -11,7 +11,10 @@ pub struct AppState {
 
 impl AppState {
     pub fn with_store(store: Store) -> Self {
-        Self { store: Mutex::new(store), echo: Mutex::new(None) }
+        Self {
+            store: Mutex::new(store),
+            echo: Mutex::new(None),
+        }
     }
 
     pub fn lock_store(&self) -> Result<std::sync::MutexGuard<'_, Store>, String> {

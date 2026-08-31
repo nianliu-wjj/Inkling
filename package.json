@@ -11,8 +11,8 @@
     "typecheck": "vue-tsc --noEmit",
     "tauri:dev": "tauri dev --config src-tauri/tauri.conf.json",
     "tauri:build": "tauri build --config src-tauri/tauri.conf.json",
-    "format": "prettier --write \"src/**/*.{ts,vue,css}\" \"*.{ts,js,json,yaml,yml,md,html}\" \"src-tauri/**/*.json\"",
-    "format:check": "prettier --check \"src/**/*.{ts,vue,css}\" \"*.{ts,js,json,yaml,yml,md,html}\" \"src-tauri/**/*.json\""
+    "format": "prettier --write \"src/**/*.{ts,vue,css}\" \"*.{ts,js,json,md,html}\" \"src-tauri/**/*.json\"",
+    "format:check": "prettier --check \"src/**/*.{ts,vue,css}\" \"*.{ts,js,json,md,html}\" \"src-tauri/**/*.json\""
   },
   "dependencies": {
     "@codemirror/lang-markdown": "^6.5.2",

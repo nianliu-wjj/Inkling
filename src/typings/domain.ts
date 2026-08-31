@@ -8,6 +8,7 @@ export interface Note {
   tags: string[]
   is_draft: boolean
   pinned: boolean
+  archived_at: string | null
   created_at: string
   updated_at: string
 }
@@ -17,6 +18,7 @@ export interface ClipboardEntry {
   content_type: string
   content: string
   preview: string
+  file_path?: string | null
   pinned: boolean
   copied_at: string
   modified_at: string
@@ -29,7 +31,8 @@ export interface Todo {
   completed_at: string | null
   status: 'open' | 'done'
   remind_at: string | null
-  repeat_rule: string | null
+  repeat_rule: 'daily' | 'weekly' | string | null
+  remind_off: boolean
   priority: Priority
   remark: string
   parent_id: string | null
@@ -55,6 +58,7 @@ export interface TodoInput {
   remark: string
   tags: string[]
   parent_id?: string | null
+  allow_past?: boolean
 }
 
 export interface Settings {
@@ -73,4 +77,28 @@ export interface ActivityDay {
   todos: number
   completed: number
   overdue: number
+}
+
+export interface MonthTrend {
+  month: string
+  notes: number
+  clips: number
+  todos: number
+  completed: number
+}
+
+export interface StatsSummary {
+  notes: number
+  clips: number
+  todos: number
+  completed: number
+  overdue: number
+}
+
+export interface DayDetailItem {
+  kind: 'note' | 'clip' | 'todo' | string
+  time: string
+  note?: Note
+  clip?: ClipboardEntry
+  todo?: Todo
 }

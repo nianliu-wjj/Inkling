@@ -41,7 +41,14 @@ impl ExportItem {
                 md.push_str(&note.content);
                 if !note.tags.is_empty() {
                     md.push_str("\n\n---\n标签：");
-                    md.push_str(&note.tags.iter().map(|t| format!("#{t}")).collect::<Vec<_>>().join(" "));
+                    md.push_str(
+                        &note
+                            .tags
+                            .iter()
+                            .map(|t| format!("#{t}"))
+                            .collect::<Vec<_>>()
+                            .join(" "),
+                    );
                 }
                 md
             }
@@ -56,7 +63,10 @@ impl ExportItem {
                     todo.remark
                 )
             }
-            ExportItem::Clip(clip) => format!("> {}（类型 {}，捕获于 {}）", clip.content, clip.content_type, clip.copied_at),
+            ExportItem::Clip(clip) => format!(
+                "> {}（类型 {}，捕获于 {}）",
+                clip.content, clip.content_type, clip.copied_at
+            ),
         }
     }
 
@@ -64,7 +74,17 @@ impl ExportItem {
         match self {
             ExportItem::Note(note) => note.content.clone(),
             ExportItem::Todo(todo) => {
-                format!("[{}] {}\n完成时间：{}\n备注：{}", if todo.status == "done" { "已完成" } else { "未完成" }, todo.content, todo.due_at, todo.remark)
+                format!(
+                    "[{}] {}\n完成时间：{}\n备注：{}",
+                    if todo.status == "done" {
+                        "已完成"
+                    } else {
+                        "未完成"
+                    },
+                    todo.content,
+                    todo.due_at,
+                    todo.remark
+                )
             }
             ExportItem::Clip(clip) => clip.content.clone(),
         }
@@ -164,7 +184,8 @@ fn render_html(items: &[ExportItem], title: &str) -> String {
     use pulldown_cmark::{html, Options, Parser};
     let mut body = String::new();
     for item in items {
-        let parser = Parser::new_ext(&item.markdown(), Options::all());
+        let markdown = item.markdown();
+        let parser = Parser::new_ext(&markdown, Options::all());
         html::push_html(&mut body, parser);
     }
     format!(
@@ -188,21 +209,33 @@ const CJK_FONT_CANDIDATES: [&str; 6] = [
 ];
 
 fn find_cjk_font() -> Option<PathBuf> {
-    CJK_FONT_CANDIDATES.iter().map(PathBuf::from).find(|p| p.exists())
+    CJK_FONT_CANDIDATES
+        .iter()
+        .map(PathBuf::from)
+        .find(|p| p.exists())
 }
 
 fn render_pdf(items: &[ExportItem], title: &str) -> Result<Vec<u8>, String> {
+    use genpdfi::Element;
     let font_path = find_cjk_font().ok_or("未找到可用的中文字体，无法导出 PDF")?;
     let font_family = genpdfi::fonts::from_files(
-        font_path.parent().unwrap_or(PathBuf::from(".")),
-        font_path.file_stem().and_then(|s| s.to_str()).unwrap_or("msyh"),
+        font_path
+            .parent()
+            .unwrap_or_else(|| std::path::Path::new(".")),
+        font_path
+            .file_stem()
+            .and_then(|s| s.to_str())
+            .unwrap_or("msyh"),
         None,
     )
     .map_err(|e| format!("加载字体失败: {e}"))?;
     let mut doc = genpdfi::Document::new(font_family);
     doc.set_title(title);
     doc.set_font_size(11);
-    doc.push(genpdfi::elements::Paragraph::new(title).styled(genpdfi::style::Style::new().bold().with_font_size(16)));
+    doc.push(
+        genpdfi::elements::Paragraph::new(title)
+            .styled(genpdfi::style::Style::new().bold().with_font_size(16)),
+    );
     doc.push(genpdfi::elements::Break::new(0.5));
     for item in items {
         let text = item.plain();
@@ -212,7 +245,8 @@ fn render_pdf(items: &[ExportItem], title: &str) -> Result<Vec<u8>, String> {
         doc.push(genpdfi::elements::Break::new(0.3));
     }
     let mut buffer = Vec::new();
-    doc.render(&mut buffer).map_err(|e| format!("生成 PDF 失败: {e}"))?;
+    doc.render(&mut buffer)
+        .map_err(|e| format!("生成 PDF 失败: {e}"))?;
     Ok(buffer)
 }
 
@@ -222,18 +256,20 @@ fn render_png(items: &[ExportItem], title: &str) -> Result<Vec<u8>, String> {
 
 pub mod png {
     //! ab_glyph 文本渲染：简版白色画布 + 黑色文本位图导出。
-    use super::{find_cjk_font, ExportItem};
+    use super::find_cjk_font;
     use ab_glyph::{Font, FontArc, Glyph, PxScale, ScaleFont};
 
-    const WIDTH: u32 = 900;
+    const WIDTH: f32 = 900.0;
     const LINE_HEIGHT: f32 = 26.0;
     const PADDING: f32 = 24.0;
     const MAX_LINES: usize = 40;
 
     pub fn render_text_png(items: &[super::ExportItem], title: &str) -> Result<Vec<u8>, String> {
         let font_path = find_cjk_font().ok_or("未找到可用的中文字体，无法导出 PNG")?;
-        let font = FontArc::try_from_vec(std::fs::read(&font_path).map_err(|e| format!("读取字体失败: {e}"))?)
-            .map_err(|e| format!("解析字体失败: {e}"))?;
+        let font = FontArc::try_from_vec(
+            std::fs::read(&font_path).map_err(|e| format!("读取字体失败: {e}"))?,
+        )
+        .map_err(|e| format!("解析字体失败: {e}"))?;
         let scale = PxScale { x: 18.0, y: 18.0 };
         let scaled = font.as_scaled(scale);
 
@@ -248,27 +284,31 @@ pub mod png {
         lines.truncate(MAX_LINES + 2);
         let height = (PADDING * 2.0 + LINE_HEIGHT * lines.len() as f32).ceil() as u32;
 
-        let mut buffer = vec![255u8; (WIDTH * height * 3) as usize]; // 白底 RGB
+        let width = WIDTH as u32;
+        let mut buffer = vec![255u8; (width * height * 3) as usize]; // 白底 RGB
         let mut baseline = PADDING + scaled.ascent();
         for line in &lines {
             let mut caret = PADDING;
             for ch in line.chars() {
-                let Some(glyph_id) = font.glyph_id(ch).into_opt() else { continue };
+                let glyph_id = font.glyph_id(ch);
                 let glyph = Glyph {
                     id: glyph_id,
                     scale,
-                    position: ab_glyph::Point { x: caret, y: baseline },
+                    position: ab_glyph::Point {
+                        x: caret,
+                        y: baseline,
+                    },
                 };
                 if let Some(outlined) = font.outline_glyph(glyph) {
                     let bounds = outlined.px_bounds();
                     outlined.draw(|x, y, coverage| {
                         let px = bounds.min.x as u32 + x;
                         let py = bounds.min.y as u32 + y;
-                        if px >= WIDTH || py >= height {
+                        if px >= width || py >= height {
                             return;
                         }
                         let alpha = 1.0 - coverage;
-                        let idx = ((py * WIDTH + px) * 3) as usize;
+                        let idx = ((py * width + px) * 3) as usize;
                         for channel in buffer.iter_mut().skip(idx).take(3) {
                             *channel = (*channel as f32 * alpha).clamp(0.0, 255.0) as u8;
                         }
@@ -283,10 +323,11 @@ pub mod png {
         }
 
         let mut out = Vec::new();
-        let header = image::RgbaImage::from_raw(WIDTH, height, vec![255; (WIDTH * height * 4) as usize])
-            .ok_or("画布分配失败")?;
+        let header =
+            image::RgbaImage::from_raw(width, height, vec![255; (width * height * 4) as usize])
+                .ok_or("画布分配失败")?;
         // RGB → PNG（走 image 库编码）。
-        let rgb = image::RgbImage::from_raw(WIDTH, height, buffer).ok_or("画布分配失败")?;
+        let rgb = image::RgbImage::from_raw(width, height, buffer).ok_or("画布分配失败")?;
         image::DynamicImage::ImageRgb8(rgb)
             .write_to(&mut std::io::Cursor::new(&mut out), image::ImageFormat::Png)
             .map_err(|e| format!("编码 PNG 失败: {e}"))?;

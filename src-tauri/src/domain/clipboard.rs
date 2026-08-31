@@ -53,14 +53,28 @@ fn looks_like_code(text: &str) -> bool {
         return false;
     }
     const SIGNS: [&str; 10] = [
-        "fn ", "let ", "const ", "function ", "class ", "import ", "export ", "#include", "=>",
+        "fn ",
+        "let ",
+        "const ",
+        "function ",
+        "class ",
+        "import ",
+        "export ",
+        "#include",
+        "=>",
         "&&",
     ];
     let has_sign = SIGNS.iter().any(|s| trimmed.contains(s));
     let has_block = trimmed.contains('{') && trimmed.contains('}');
     let has_semicolons = trimmed.matches(';').count() >= 2;
-    let indented = trimmed.lines().filter(|l| l.starts_with("    ") || l.starts_with('\t')).count() >= 2;
-    (has_sign && (has_block || has_semicolons)) || (has_block && has_semicolons) || indented && has_block
+    let indented = trimmed
+        .lines()
+        .filter(|l| l.starts_with("    ") || l.starts_with('\t'))
+        .count()
+        >= 2;
+    (has_sign && (has_block || has_semicolons))
+        || (has_block && has_semicolons)
+        || indented && has_block
 }
 
 /// 根据文本与 HTML 特征分类内容。
@@ -78,7 +92,16 @@ pub fn classify_text(text: &str, has_html: bool) -> CaptureKind {
 
 /// 生成条目预览（去换行、截断）。
 pub fn build_preview(text: &str, limit: usize) -> String {
-    let flat: String = text.chars().map(|c| if c == '\n' || c == '\r' || c == '\t' { ' ' } else { c }).collect();
+    let flat: String = text
+        .chars()
+        .map(|c| {
+            if c == '\n' || c == '\r' || c == '\t' {
+                ' '
+            } else {
+                c
+            }
+        })
+        .collect();
     flat.chars().take(limit).collect()
 }
 
@@ -93,7 +116,10 @@ pub fn validate_todo_tags(tags: &[String]) -> Result<Vec<String>, String> {
         if tag.chars().count() > 10 {
             return Err("待办标签最多 10 个字".into());
         }
-        if !result.iter().any(|item: &String| item.eq_ignore_ascii_case(tag)) {
+        if !result
+            .iter()
+            .any(|item: &String| item.eq_ignore_ascii_case(tag))
+        {
             result.push(tag.to_string());
         }
     }
@@ -114,7 +140,10 @@ pub fn validate_note_tags(tags: &[String]) -> Result<Vec<String>, String> {
         if tag.chars().count() > 5 {
             return Err("笔记标签最多 5 个字".into());
         }
-        if !result.iter().any(|item: &String| item.eq_ignore_ascii_case(tag)) {
+        if !result
+            .iter()
+            .any(|item: &String| item.eq_ignore_ascii_case(tag))
+        {
             result.push(tag.to_string());
         }
     }
@@ -136,9 +165,18 @@ mod tests {
 
     #[test]
     fn classifies_links() {
-        assert_eq!(classify_text("https://example.com/a?b=1", false), CaptureKind::Link);
-        assert_eq!(classify_text("http://localhost:1420", false), CaptureKind::Link);
-        assert_ne!(classify_text("https://a.com and more", false), CaptureKind::Link);
+        assert_eq!(
+            classify_text("https://example.com/a?b=1", false),
+            CaptureKind::Link
+        );
+        assert_eq!(
+            classify_text("http://localhost:1420", false),
+            CaptureKind::Link
+        );
+        assert_ne!(
+            classify_text("https://a.com and more", false),
+            CaptureKind::Link
+        );
     }
 
     #[test]
@@ -152,7 +190,10 @@ mod tests {
 
     #[test]
     fn classifies_richtext_before_code() {
-        assert_eq!(classify_text("const a = 1;\nconst b = 2;", true), CaptureKind::RichText);
+        assert_eq!(
+            classify_text("const a = 1;\nconst b = 2;", true),
+            CaptureKind::RichText
+        );
     }
 
     #[test]
@@ -163,14 +204,20 @@ mod tests {
 
     #[test]
     fn todo_tags_validated() {
-        assert_eq!(validate_todo_tags(&["  Rust ".into(), "rust".into()]).unwrap(), vec!["Rust"]);
+        assert_eq!(
+            validate_todo_tags(&["  Rust ".into(), "rust".into()]).unwrap(),
+            vec!["Rust"]
+        );
         assert!(validate_todo_tags(&["a".into(), "b".into(), "c".into(), "d".into()]).is_err());
         assert!(validate_todo_tags(&["12345678901".into()]).is_err());
     }
 
     #[test]
     fn note_tags_validated() {
-        assert_eq!(validate_note_tags(&["念头".into(), "想法".into()]).unwrap(), vec!["念头", "想法"]);
+        assert_eq!(
+            validate_note_tags(&["念头".into(), "想法".into()]).unwrap(),
+            vec!["念头", "想法"]
+        );
         assert!(validate_note_tags(&["123456".into()]).is_err());
         assert!(validate_note_tags(&["a".into(), "b".into(), "c".into(), "d".into()]).is_err());
     }

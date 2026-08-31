@@ -3,8 +3,8 @@
 //! 完成数按 completed_at、逾期数按查询时刻从业务数据推导。
 
 use super::{db_err, local_day_end, local_day_start, Store};
-use crate::domain::models::{ClipboardEntry, DayActivity, DayDetailItem, MonthTrend, Note, StatsSummary, Todo};
-use chrono::{Days, Local, Utc};
+use crate::domain::models::{DayActivity, DayDetailItem, MonthTrend, Note, StatsSummary, Todo};
+use chrono::{Datelike, Days, Local, Utc};
 
 impl Store {
     fn notes_archived_on(&self, date: &str) -> Result<i64, String> {
@@ -102,7 +102,13 @@ impl Store {
                     |r| r.get(0),
                 )
                 .map_err(db_err)?;
-            result.push(MonthTrend { month, notes, clips, todos, completed });
+            result.push(MonthTrend {
+                month,
+                notes,
+                clips,
+                todos,
+                completed,
+            });
         }
         Ok(result)
     }
@@ -112,7 +118,9 @@ impl Store {
         let mut summary = StatsSummary::default();
         summary.notes = self
             .db
-            .query_row("SELECT COUNT(*) FROM notes WHERE is_draft=0", [], |r| r.get(0))
+            .query_row("SELECT COUNT(*) FROM notes WHERE is_draft=0", [], |r| {
+                r.get(0)
+            })
             .map_err(db_err)?;
         summary.clips = self
             .db
@@ -124,7 +132,9 @@ impl Store {
             .map_err(db_err)?;
         summary.completed = self
             .db
-            .query_row("SELECT COUNT(*) FROM todos WHERE status='done'", [], |r| r.get(0))
+            .query_row("SELECT COUNT(*) FROM todos WHERE status='done'", [], |r| {
+                r.get(0)
+            })
             .map_err(db_err)?;
         summary.overdue = self
             .db
@@ -152,15 +162,26 @@ impl Store {
                      AND COALESCE(archived_at, created_at) >= ? AND COALESCE(archived_at, created_at) < ?",
                 )
                 .map_err(db_err)?;
-            stmt.query_map(rusqlite::params![start, end], |r| r.get(0))
+            let rows = stmt
+                .query_map(rusqlite::params![start, end], |r| r.get(0))
                 .map_err(db_err)?
                 .collect::<Result<Vec<_>, _>>()
-                .map_err(db_err)?
+                .map_err(db_err)?;
+            rows
         };
         for id in note_ids {
             let note: Note = self.note(&id)?;
-            let time = note.archived_at.clone().unwrap_or_else(|| note.created_at.clone());
-            items.push(DayDetailItem { kind: "note".into(), time, note: Some(note), clip: None, todo: None });
+            let time = note
+                .archived_at
+                .clone()
+                .unwrap_or_else(|| note.created_at.clone());
+            items.push(DayDetailItem {
+                kind: "note".into(),
+                time,
+                note: Some(note),
+                clip: None,
+                todo: None,
+            });
         }
 
         let clip_ids: Vec<String> = {
@@ -168,10 +189,12 @@ impl Store {
                 .db
                 .prepare("SELECT id FROM clipboard_entries WHERE copied_at >= ? AND copied_at < ?")
                 .map_err(db_err)?;
-            stmt.query_map(rusqlite::params![start, end], |r| r.get(0))
+            let rows = stmt
+                .query_map(rusqlite::params![start, end], |r| r.get(0))
                 .map_err(db_err)?
                 .collect::<Result<Vec<_>, _>>()
-                .map_err(db_err)?
+                .map_err(db_err)?;
+            rows
         };
         for id in clip_ids {
             if let Some(clip) = self.clipboard_entry(&id)? {
@@ -191,15 +214,23 @@ impl Store {
                 .db
                 .prepare("SELECT id FROM todos WHERE due_at >= ? AND due_at < ?")
                 .map_err(db_err)?;
-            stmt.query_map(rusqlite::params![start, end], |r| r.get(0))
+            let rows = stmt
+                .query_map(rusqlite::params![start, end], |r| r.get(0))
                 .map_err(db_err)?
                 .collect::<Result<Vec<_>, _>>()
-                .map_err(db_err)?
+                .map_err(db_err)?;
+            rows
         };
         for id in todo_ids {
             let todo: Todo = self.todo(&id)?;
             let time = todo.due_at.clone();
-            items.push(DayDetailItem { kind: "todo".into(), time, todo: Some(todo), note: None, clip: None });
+            items.push(DayDetailItem {
+                kind: "todo".into(),
+                time,
+                todo: Some(todo),
+                note: None,
+                clip: None,
+            });
         }
 
         items.sort_by(|a, b| a.time.cmp(&b.time));
@@ -209,7 +240,7 @@ impl Store {
 
 /// 距今 months_back 个月份的当月第一天。
 fn first_day_of_month_offset(today: chrono::NaiveDate, months_back: u32) -> chrono::NaiveDate {
-    let total = today.year() * 12 + i32::from(today.month0()) - months_back as i32;
+    let total = today.year() * 12 + today.month0() as i32 - months_back as i32;
     let year = total.div_euclid(12);
     let month0 = total.rem_euclid(12);
     chrono::NaiveDate::from_ymd_opt(year, month0 as u32 + 1, 1).unwrap_or(today)

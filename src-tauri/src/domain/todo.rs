@@ -103,6 +103,7 @@ pub fn reminder_instance_key(todo_id: &str, slot: &str, when: DateTime<Utc>) -> 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use chrono::TimeZone;
 
     fn t(y: i32, m: u32, d: u32, h: u32, min: u32) -> DateTime<Utc> {
         Utc.with_ymd_and_hms(y, m, d, h, min, 0).unwrap()
@@ -127,13 +128,61 @@ mod tests {
 
     #[test]
     fn parent_validation_blocks_deep_nesting_and_late_children() {
-        assert!(validate_parent("open", "2026-08-30T18:00:00+00:00", Some("x"), "2026-08-30T19:00:00+00:00", 0, true).is_err());
-        assert!(validate_parent("open", "2026-08-30T18:00:00+00:00", None, "2026-08-30T19:00:00+00:00", 0, true).is_err());
-        assert!(validate_parent("open", "2026-08-30T18:00:00+00:00", None, "2026-08-30T17:00:00+00:00", 0, true).is_ok());
+        assert!(validate_parent(
+            "open",
+            "2026-08-30T18:00:00+00:00",
+            Some("x"),
+            "2026-08-30T19:00:00+00:00",
+            0,
+            true
+        )
+        .is_err());
+        assert!(validate_parent(
+            "open",
+            "2026-08-30T18:00:00+00:00",
+            None,
+            "2026-08-30T19:00:00+00:00",
+            0,
+            true
+        )
+        .is_err());
+        assert!(validate_parent(
+            "open",
+            "2026-08-30T18:00:00+00:00",
+            None,
+            "2026-08-30T17:00:00+00:00",
+            0,
+            true
+        )
+        .is_ok());
         // 已完成父级豁免“不得晚于父级”约束
-        assert!(validate_parent("done", "2026-08-30T10:00:00+00:00", None, "2026-08-30T19:00:00+00:00", 0, true).is_ok());
-        assert!(validate_parent("open", "2026-08-30T18:00:00+00:00", None, "2026-08-30T17:00:00+00:00", 5, true).is_err());
-        assert!(validate_parent("open", "2026-08-30T18:00:00+00:00", None, "2026-08-30T17:00:00+00:00", 5, false).is_ok());
+        assert!(validate_parent(
+            "done",
+            "2026-08-30T10:00:00+00:00",
+            None,
+            "2026-08-30T19:00:00+00:00",
+            0,
+            true
+        )
+        .is_ok());
+        assert!(validate_parent(
+            "open",
+            "2026-08-30T18:00:00+00:00",
+            None,
+            "2026-08-30T17:00:00+00:00",
+            5,
+            true
+        )
+        .is_err());
+        assert!(validate_parent(
+            "open",
+            "2026-08-30T18:00:00+00:00",
+            None,
+            "2026-08-30T17:00:00+00:00",
+            5,
+            false
+        )
+        .is_ok());
     }
 
     #[test]

@@ -1,39 +1,72 @@
 import { invoke } from '@tauri-apps/api/core'
-import type { ActivityDay, ClipboardEntry, Note, Settings, Todo, TodoInput, NoteInput } from '@/typings/domain'
+import type {
+  ActivityDay,
+  ClipboardEntry,
+  DayDetailItem,
+  MonthTrend,
+  Note,
+  NoteInput,
+  Settings,
+  StatsSummary,
+  Todo,
+  TodoInput,
+} from '@/typings/domain'
 
 export const api = {
+  windows: {
+    panelShow: () => invoke<void>('panel_show'),
+    panelHide: () => invoke<void>('panel_hide'),
+    panelResize: (height: number) => invoke<void>('panel_resize', { height }),
+    showMain: (view: string) => invoke<void>('show_main', { view }),
+    hideMain: () => invoke<void>('hide_main'),
+    quit: () => invoke<void>('quit_app'),
+    pinCreate: (kind: 'note' | 'todo' | 'clip', id: string) => invoke<void>('pin_create', { kind, id }),
+    pinClose: (label: string) => invoke<void>('pin_close', { label }),
+    pinSetEditing: (label: string, expanded: boolean) => invoke<void>('pin_set_editing', { label, expanded }),
+    reminderClose: (todoId: string) => invoke<void>('reminder_close', { todoId }),
+  },
+  shortcut: {
+    rebind: (combo: string) => invoke<string>('rebind_shortcut', { combo }),
+  },
   notes: {
-    list: () => invoke<Note[]>('list_notes'),
-    save: (input: NoteInput) => invoke<Note>('save_note', { input }),
-    remove: (id: string) => invoke<void>('delete_note', { id }),
+    list: () => invoke<Note[]>('notes_list'),
+    draft: () => invoke<Note | null>('note_draft'),
+    save: (input: NoteInput) => invoke<Note>('note_save', { input }),
+    remove: (id: string) => invoke<void>('note_delete', { id }),
+    pin: (id: string, pinned: boolean) => invoke<Note>('note_set_pinned', { id, pinned }),
   },
   clipboard: {
-    list: () => invoke<ClipboardEntry[]>('list_clipboard'),
-    capture: (content: string, contentType = 'text') =>
-      invoke<ClipboardEntry>('save_clipboard', { content, contentType }),
-    update: (id: string, content: string) => invoke<void>('update_clipboard', { id, content }),
-    pin: (id: string, pinned: boolean) => invoke<void>('set_clipboard_pinned', { id, pinned }),
-    remove: (id: string) => invoke<void>('delete_clipboard', { id }),
+    list: () => invoke<ClipboardEntry[]>('clipboard_list'),
+    capture: () => invoke<ClipboardEntry | null>('clipboard_capture'),
+    write: (id: string) => invoke<void>('clipboard_write', { id }),
+    update: (id: string, content: string) => invoke<ClipboardEntry>('clipboard_update', { id, content }),
+    pin: (id: string, pinned: boolean) => invoke<void>('clipboard_pin', { id, pinned }),
+    remove: (id: string) => invoke<void>('clipboard_delete', { id }),
+    cleanup: () => invoke<number>('clipboard_cleanup'),
   },
   todos: {
-    list: () => invoke<Todo[]>('list_todos'),
-    save: (input: TodoInput) => invoke<Todo>('save_todo', { input }),
-    complete: (id: string, completed: boolean) => invoke<Todo[]>('complete_todo', { id, completed }),
-    child: (parentId: string, input: Pick<TodoInput, 'content' | 'due_at' | 'priority' | 'remark' | 'tags'>) =>
-      invoke<Todo>('create_child_todo', {
-        parentId,
-        content: input.content,
-        dueAt: input.due_at,
-        priority: input.priority,
-        remark: input.remark,
-        tags: input.tags,
-      }),
-    priority: (id: string, priority: string) => invoke<void>('set_todo_priority', { id, priority }),
-    remove: (id: string) => invoke<void>('delete_todo', { id }),
+    list: () => invoke<Todo[]>('todos_list'),
+    save: (input: TodoInput) => invoke<Todo>('todo_save', { input }),
+    complete: (id: string, completed: boolean) => invoke<Todo[]>('todo_complete', { id, completed }),
+    priority: (id: string, priority: string) => invoke<Todo>('todo_priority', { id, priority }),
+    due: (id: string, dueAt: string) => invoke<Todo>('todo_due', { id, dueAt }),
+    reminder: (id: string, remindAt: string | null, repeatRule: string | null) =>
+      invoke<Todo>('todo_reminder', { id, remindAt, repeatRule }),
+    remove: (id: string) => invoke<void>('todo_delete', { id }),
+    snooze: (id: string, minutes: number) => invoke<Todo>('todo_snooze', { id, minutes }),
+    dismissReminder: (id: string) => invoke<void>('todo_dismiss_reminder', { id }),
   },
   settings: {
-    get: () => invoke<Settings>('get_settings'),
-    save: (settings: Settings) => invoke<void>('save_settings', { settings }),
+    get: () => invoke<Settings>('settings_get'),
+    save: (settings: Settings) => invoke<void>('settings_save', { settings }),
   },
-  activity: () => invoke<ActivityDay[]>('get_activity'),
+  stats: {
+    heatmap: (days = 182) => invoke<ActivityDay[]>('stats_heatmap', { days }),
+    trend: () => invoke<MonthTrend[]>('stats_trend'),
+    summary: () => invoke<StatsSummary>('stats_summary'),
+    day: (date: string) => invoke<DayDetailItem[]>('stats_day', { date }),
+  },
+  exportItems: (refs: string[], format: string, outputDir?: string | null) =>
+    invoke<string>('export_items', { payload: { refs, format, outputDir: outputDir ?? null } }),
+  dataDir: () => invoke<string>('data_dir'),
 }

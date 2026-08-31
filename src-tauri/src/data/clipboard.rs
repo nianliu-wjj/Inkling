@@ -49,12 +49,16 @@ impl Store {
     }
 
     pub fn list_clipboard(&self) -> Result<Vec<ClipboardEntry>, String> {
-        let sql = format!("SELECT {ROW_COLUMNS} FROM clipboard_entries ORDER BY pinned DESC, modified_at DESC");
+        let sql = format!(
+            "SELECT {ROW_COLUMNS} FROM clipboard_entries ORDER BY pinned DESC, modified_at DESC"
+        );
         let mut stmt = self.db.prepare(&sql).map_err(db_err)?;
-        stmt.query_map([], |r| row_entry(r))
+        let rows = stmt
+            .query_map([], |r| row_entry(r))
             .map_err(db_err)?
             .collect::<Result<Vec<_>, _>>()
-            .map_err(db_err)
+            .map_err(db_err)?;
+        Ok(rows)
     }
 
     /// 事务内按哈希去重入库；重复内容直接忽略并返回既有条目。
@@ -125,10 +129,7 @@ impl Store {
     }
 
     pub fn delete_clipboard(&self, id: &str) -> Result<(), String> {
-        if let Some(path) = self
-            .clipboard_entry(id)?
-            .and_then(|e| e.file_path)
-        {
+        if let Some(path) = self.clipboard_entry(id)?.and_then(|e| e.file_path) {
             let _ = std::fs::remove_file(self.data_dir.join(path));
         }
         self.db
@@ -147,10 +148,12 @@ impl Store {
                     "SELECT id, file_path FROM clipboard_entries WHERE pinned=0 AND modified_at < ?",
                 )
                 .map_err(db_err)?;
-            stmt.query_map([&threshold], |r| Ok((r.get(0)?, r.get(1)?)))
+            let rows = stmt
+                .query_map([&threshold], |r| Ok((r.get(0)?, r.get(1)?)))
                 .map_err(db_err)?
                 .collect::<Result<Vec<_>, _>>()
-                .map_err(db_err)?
+                .map_err(db_err)?;
+            rows
         };
         for (id, file) in &expired {
             if let Some(path) = file {
@@ -164,7 +167,10 @@ impl Store {
     }
 
     /// 将条目内容写回系统剪贴板时所需的数据（文本或图片文件路径）。
-    pub fn paste_payload(&self, id: &str) -> Result<(ClipboardEntry, Option<std::path::PathBuf>), String> {
+    pub fn paste_payload(
+        &self,
+        id: &str,
+    ) -> Result<(ClipboardEntry, Option<std::path::PathBuf>), String> {
         let entry = self.clipboard_entry(id)?.ok_or("剪贴板条目不存在")?;
         let file = entry.file_path.as_ref().map(|p| self.data_dir.join(p));
         Ok((entry, file))

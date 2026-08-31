@@ -30,7 +30,11 @@ pub fn cursor_monitor(app: &AppHandle) -> Option<tauri::Monitor> {
         .find(|m| {
             let p = m.position();
             let s = m.size();
-            ix >= p.x as i64 && ix < (p.x + s.width as i64) && iy >= p.y as i64 && iy < (p.y + s.height as i64)
+            let left = p.x as i64;
+            let top = p.y as i64;
+            let right = left + s.width as i64;
+            let bottom = top + s.height as i64;
+            ix >= left && ix < right && iy >= top && iy < bottom
         })
         .or_else(|| app.primary_monitor().ok().flatten())
 }
@@ -100,9 +104,7 @@ fn top_center_offset(monitor: &tauri::Monitor, width: f64, offset: f64) -> (f64,
 
 /// 呼出面板：定位到光标所在屏顶部居中，show + focus，并屏蔽感应区防止误触。
 pub fn panel_show(app: &AppHandle) -> Result<(), String> {
-    let panel = app
-        .get_webview_window("panel")
-        .ok_or("面板窗口未初始化")?;
+    let panel = app.get_webview_window("panel").ok_or("面板窗口未初始化")?;
     let monitor = cursor_monitor(app).ok_or("未找到可用显示器")?;
     let (x, y) = top_center(&monitor, PANEL_WIDTH, 6.0);
     let _ = panel.set_position(LogicalPosition::new(x, y));
@@ -155,7 +157,10 @@ pub fn hide_main(app: &AppHandle) -> Result<(), String> {
 }
 
 fn pinned_count(app: &AppHandle) -> usize {
-    app.webview_windows().keys().filter(|l| l.starts_with("pinned-")).count()
+    app.webview_windows()
+        .keys()
+        .filter(|l| l.starts_with("pinned-"))
+        .count()
 }
 
 /// 创建（或唤起）桌面置顶浮窗。
@@ -208,14 +213,21 @@ pub fn pin_close(app: &AppHandle, label: &str) -> Result<(), String> {
 /// 置顶浮窗编辑态：展开为可编辑尺寸。
 pub fn pin_set_editing(app: &AppHandle, label: &str, expanded: bool) -> Result<(), String> {
     if let Some(window) = app.get_webview_window(label) {
-        let size = if expanded { (300.0, 320.0) } else { PINNED_SIZE };
+        let size = if expanded {
+            (300.0, 320.0)
+        } else {
+            PINNED_SIZE
+        };
         let _ = window.set_size(LogicalSize::new(size.0, size.1));
     }
     Ok(())
 }
 
 fn reminder_count(app: &AppHandle) -> usize {
-    app.webview_windows().keys().filter(|l| l.starts_with("reminder-")).count()
+    app.webview_windows()
+        .keys()
+        .filter(|l| l.starts_with("reminder-"))
+        .count()
 }
 
 /// 弹出右上角提醒卡片（同一待办复用既有窗口）。

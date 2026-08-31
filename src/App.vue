@@ -15,7 +15,7 @@
       </div>
       <div class="titlebar-actions">
         <span class="save-indicator">{{ loading ? '同步中…' : message || '本地已保存' }}</span
-        ><button class="icon-button" title="收起面板" @click="captureMode = 'note'">⌃</button>
+        ><button class="icon-button" title="隐藏窗口" @click="api.windows.hideMain()">⌃</button>
       </div>
     </header>
 
@@ -68,7 +68,12 @@
           </div>
           <div class="card-grid">
             <article v-for="note in filteredNotes" :key="note.id" class="data-card note-card">
-              <div class="card-actions"><button @click="removeNote(note)" title="删除">×</button></div>
+              <div class="card-actions">
+                <button @click="api.windows.pinCreate('note', note.id)" title="桌面置顶">📌</button
+                ><button :class="{ pinned: note.pinned }" @click="toggleNotePin(note)" title="置顶">
+                  {{ note.pinned ? '★' : '☆' }}</button
+                ><button @click="removeNote(note)" title="删除">×</button>
+              </div>
               <div class="card-content markdown" v-html="renderMarkdown(note.content)"></div>
               <div class="card-meta">
                 <time>{{ formatTime(note.updated_at) }}</time
@@ -233,7 +238,8 @@
                 </div>
               </div>
               <div class="card-actions visible">
-                <button v-if="todo.status === 'done'" @click.stop="addChild(todo)">＋ 子任务</button
+                <button @click.stop="api.windows.pinCreate('todo', todo.id)" title="桌面置顶">📌</button
+                ><button v-if="todo.status === 'done'" @click.stop="addChild(todo)">＋ 子任务</button
                 ><button v-else @click.stop="openTodoEditor(todo)">编辑</button
                 ><button v-if="todo.status !== 'done'" @click.stop="removeTodo(todo)">×</button>
               </div>
@@ -267,21 +273,75 @@
               ><span>待办完成</span>
             </div>
           </div>
+          <div class="stats-summary compact-summary">
+            <div>
+              <b>{{ summary.overdue }}</b
+              ><span>当前逾期</span>
+            </div>
+          </div>
           <section class="data-card heatmap-card">
-            <h3>近 180 天活跃度</h3>
+            <div class="section-title">
+              <h3>近 180 天活跃度</h3>
+              <span class="muted">点击日期查看详情</span>
+            </div>
             <div class="heatmap">
-              <div
+              <button
                 v-for="day in activity"
                 :key="day.date"
-                :class="['heat-cell', heatLevel(day), { overdue: day.overdue > 0 }]"
+                :class="[
+                  'heat-cell',
+                  heatLevel(day),
+                  { overdue: day.overdue > 0, selected: selectedStatsDate === day.date },
+                ]"
                 :title="`${day.date}：笔记 ${day.notes}，剪贴板 ${day.clips}，待办 ${day.todos}，完成 ${day.completed}，逾期 ${day.overdue}`"
-              ></div>
+                @click="loadDayDetails(day.date)"
+              />
             </div>
             <div class="legend">
               <span>少</span><i class="heat-cell level-0" /><i class="heat-cell level-1" /><i
                 class="heat-cell level-2"
               /><i class="heat-cell level-3" /><span>多</span><em>红框表示存在逾期</em>
             </div>
+          </section>
+          <section class="data-card trend-card">
+            <div class="section-title">
+              <h3>近 6 个月趋势</h3>
+              <div class="heading-actions">
+                <button class="secondary-button" @click="exportSelected('md')">导出 Markdown</button
+                ><button class="secondary-button" @click="exportSelected('html')">导出 HTML</button>
+              </div>
+            </div>
+            <div class="trend-list">
+              <div v-for="item in trend" :key="item.month" class="trend-row">
+                <strong>{{ item.month }}</strong
+                ><span>笔记 {{ item.notes }}</span
+                ><span>剪贴板 {{ item.clips }}</span
+                ><span>待办 {{ item.todos }}</span
+                ><span>完成 {{ item.completed }}</span>
+              </div>
+            </div>
+          </section>
+          <section class="data-card day-detail-card">
+            <div class="section-title">
+              <h3>{{ selectedStatsDate }} 详情</h3>
+              <span class="muted">{{ dayDetails.length }} 条记录</span>
+            </div>
+            <div v-if="dayDetails.length" class="day-detail-list">
+              <div
+                v-for="item in dayDetails"
+                :key="`${item.kind}-${item.time}-${item.note?.id || item.clip?.id || item.todo?.id}`"
+                class="day-detail-row"
+              >
+                <span class="detail-kind">{{
+                  item.kind === 'note' ? '笔记' : item.kind === 'clip' ? '剪贴板' : '待办'
+                }}</span
+                ><time>{{ formatTime(item.time) }}</time
+                ><span class="detail-content">{{
+                  item.note?.content || item.clip?.preview || item.todo?.content
+                }}</span>
+              </div>
+            </div>
+            <div v-else class="empty">这一天没有记录。</div>
           </section>
         </div>
 
@@ -343,8 +403,17 @@
             </select></label
           >
         </div>
-        <label>提醒时间<input v-model="todoForm.remind_at" type="datetime-local" /></label
-        ><label>标签<input v-model="todoForm.tagsText" placeholder="最多 3 个，每个不超过 10 字" /></label
+        <div class="form-grid">
+          <label>提醒时间<input v-model="todoForm.remind_at" type="datetime-local" /></label
+          ><label
+            >重复提醒<select v-model="todoForm.repeat_rule">
+              <option value="">不重复</option>
+              <option value="daily">每天</option>
+              <option value="weekly">每周</option>
+            </select></label
+          >
+        </div>
+        <label>标签<input v-model="todoForm.tagsText" placeholder="最多 3 个，每个不超过 10 字" /></label
         ><label
           >备注<textarea v-model="todoForm.remark" rows="3" maxlength="200" /><small class="field-hint"
             >{{ todoForm.remark.length }}/200</small
@@ -389,14 +458,24 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, reactive, ref, watch } from 'vue'
 import { api } from '@/service/tauri'
-import { readText, writeText } from '@tauri-apps/plugin-clipboard-manager'
-import { enable as enableAutostart, disable as disableAutostart } from '@tauri-apps/plugin-autostart'
 import { listen } from '@tauri-apps/api/event'
 import { captureModes } from '@/constants/capture'
 import { navigationItems } from '@/constants/navigation'
 import { themes } from '@/constants/themes'
 import { formatDue, formatTime, renderMarkdown, toDateKey, toLocalInput } from '@/utils/format'
-import type { ActivityDay, CaptureMode, ClipboardEntry, Note, Priority, Settings, Todo, View } from '@/typings/domain'
+import type {
+  ActivityDay,
+  CaptureMode,
+  ClipboardEntry,
+  DayDetailItem,
+  MonthTrend,
+  Note,
+  Priority,
+  Settings,
+  StatsSummary,
+  Todo,
+  View,
+} from '@/typings/domain'
 
 const captureMode = ref<CaptureMode>('note')
 const view = ref<View>('notes')
@@ -408,6 +487,10 @@ const notes = ref<Note[]>([])
 const clips = ref<ClipboardEntry[]>([])
 const todos = ref<Todo[]>([])
 const activity = ref<ActivityDay[]>([])
+const trend = ref<MonthTrend[]>([])
+const summary = ref<StatsSummary>({ notes: 0, clips: 0, todos: 0, completed: 0, overdue: 0 })
+const dayDetails = ref<DayDetailItem[]>([])
+const selectedStatsDate = ref(toDateKey(new Date()))
 const noteDraft = ref('')
 let clipboardTimer: number | undefined
 let lastClipboard = ''
@@ -432,6 +515,7 @@ const todoForm = reactive({
   content: '',
   due_at: toLocalInput(new Date(Date.now() + 3600000)),
   remind_at: '',
+  repeat_rule: '' as '' | 'daily' | 'weekly',
   priority: 'medium' as Priority,
   remark: '',
   tagsText: '',
@@ -531,13 +615,16 @@ function notify(text: string) {
 }
 async function refresh() {
   await run(async () => {
-    ;[notes.value, clips.value, todos.value, activity.value] = await Promise.all([
+    ;[notes.value, clips.value, todos.value, activity.value, trend.value, summary.value] = await Promise.all([
       api.notes.list(),
       api.clipboard.list(),
       api.todos.list(),
-      api.activity(),
+      api.stats.heatmap(),
+      api.stats.trend(),
+      api.stats.summary(),
     ])
     Object.assign(settings, await api.settings.get())
+    await loadDayDetails(selectedStatsDate.value)
   })
 }
 function scheduleDraft() {
@@ -578,6 +665,10 @@ function editNote(note: Note) {
   noteTags.value = note.tags.join(',')
   editingNoteId.value = note.id
 }
+async function toggleNotePin(note: Note) {
+  const updated = await run(() => api.notes.pin(note.id, !note.pinned), note.pinned ? '笔记已取消置顶' : '笔记已置顶')
+  Object.assign(note, updated)
+}
 const editingNoteId = ref<string | undefined>()
 async function removeNote(note: Note) {
   if (!window.confirm('确认删除该笔记？')) return
@@ -587,19 +678,15 @@ async function removeNote(note: Note) {
   }, '笔记已删除')
 }
 async function captureClipboard() {
-  const content = (await readText().catch(() => navigator.clipboard?.readText().catch(() => '') || '')) || ''
-  if (!content) {
+  const clip = await run(() => api.clipboard.capture(), '已捕获当前剪贴板')
+  if (!clip) {
     notify('当前剪贴板没有可读取的文本')
     return
   }
-  const clip = await run(() => api.clipboard.capture(content), '已捕获当前剪贴板')
   clips.value = [clip, ...clips.value.filter((x) => x.id !== clip.id)]
 }
 async function pasteClip(clip: ClipboardEntry) {
-  await writeText(clip.content).catch(() => navigator.clipboard?.writeText(clip.content))
-  await api.clipboard.pin(clip.id, true)
-  clip.pinned = true
-  notify('已复制并置顶')
+  await run(() => api.clipboard.write(clip.id), '已复制到系统剪贴板')
 }
 async function toggleClipPin(clip: ClipboardEntry) {
   await run(() => api.clipboard.pin(clip.id, !clip.pinned))
@@ -611,13 +698,9 @@ function editClip(clip: ClipboardEntry) {
 async function saveClipEdit() {
   if (!clipEditor.value) return
   await run(async () => {
-    await api.clipboard.update(clipEditor.value!.id, clipEditor.value!.content)
-    const current = clips.value.find((x) => x.id === clipEditor.value!.id)
-    if (current)
-      Object.assign(current, clipEditor.value, {
-        preview: clipEditor.value!.content.slice(0, 240),
-        modified_at: new Date().toISOString(),
-      })
+    const updated = await api.clipboard.update(clipEditor.value!.id, clipEditor.value!.content)
+    const current = clips.value.find((x) => x.id === updated.id)
+    if (current) Object.assign(current, updated)
     clipEditor.value = null
   }, '剪贴板条目已更新')
 }
@@ -635,6 +718,7 @@ function openTodoEditor(todo?: Todo, parentId: string | null = null) {
           content: todo.content,
           due_at: toLocalInput(new Date(todo.due_at)),
           remind_at: todo.remind_at ? toLocalInput(new Date(todo.remind_at)) : '',
+          repeat_rule: todo.repeat_rule || '',
           priority: todo.priority,
           remark: todo.remark,
           tagsText: todo.tags.join(','),
@@ -644,6 +728,7 @@ function openTodoEditor(todo?: Todo, parentId: string | null = null) {
           content: '',
           due_at: toLocalInput(new Date(Date.now() + 3600000)),
           remind_at: '',
+          repeat_rule: '',
           priority: 'medium',
           remark: '',
           tagsText: '',
@@ -662,23 +747,6 @@ async function saveTodo() {
     notify('待办备注最多 200 个字')
     return
   }
-  if (todoForm.parent_id && !editingTodoRef.value) {
-    const child = await run(
-      () =>
-        api.todos.child(todoForm.parent_id!, {
-          content: todoForm.content,
-          due_at: new Date(todoForm.due_at).toISOString(),
-          priority: todoForm.priority,
-          remark: todoForm.remark,
-          tags,
-        }),
-      '子任务已新增',
-    )
-    todos.value = [...todos.value.filter((item) => item.id !== child.id), child]
-    await refresh()
-    todoEditor.value = false
-    return
-  }
   const input = {
     id: editingTodoRef.value?.id,
     content: todoForm.content,
@@ -688,6 +756,7 @@ async function saveTodo() {
     remark: todoForm.remark,
     tags,
     parent_id: todoForm.parent_id,
+    repeat_rule: todoForm.repeat_rule || null,
   }
   await run(async () => {
     const todo = await api.todos.save(input)
@@ -703,7 +772,7 @@ async function toggleTodo(todo: Todo) {
     return
   }
   const updated = await run(() => api.todos.complete(todo.id, true))
-  todos.value = updated
+  todos.value = [...todos.value.filter((item) => !updated.some((changed) => changed.id === item.id)), ...updated]
   notify('待办已完成')
 }
 function addChild(todo: Todo) {
@@ -724,21 +793,7 @@ function openDueEditor(todo: Todo) {
 async function saveDueEdit() {
   const todo = dueEditor.value
   if (!todo || !dueForm.value) return
-  const updated = await run(
-    () =>
-      api.todos.save({
-        id: todo.id,
-        content: todo.content,
-        due_at: new Date(dueForm.value).toISOString(),
-        remind_at: todo.remind_at,
-        repeat_rule: todo.repeat_rule,
-        priority: todo.priority,
-        remark: todo.remark,
-        tags: todo.tags,
-        parent_id: todo.parent_id,
-      }),
-    '完成时间已更新',
-  )
+  const updated = await run(() => api.todos.due(todo.id, new Date(dueForm.value).toISOString()), '完成时间已更新')
   const index = todos.value.findIndex((item) => item.id === updated.id)
   if (index >= 0) todos.value[index] = updated
   dueEditor.value = null
@@ -765,11 +820,12 @@ async function removeTodo(todo: Todo) {
   todos.value = todos.value.filter((x) => x.id !== todo.id && x.parent_id !== todo.id)
 }
 async function saveSettings() {
-  await run(async () => {
-    await api.settings.save({ ...settings })
-    if (settings.start_on_boot) await enableAutostart().catch(() => undefined)
-    else await disableAutostart().catch(() => undefined)
-  }, '设置已保存')
+  await run(() => api.settings.save({ ...settings }), '设置已保存')
+  if (settings.shortcut) {
+    await run(async () => {
+      settings.shortcut = await api.shortcut.rebind(settings.shortcut)
+    }, '快捷键已更新').catch(() => undefined)
+  }
 }
 function todoSort(left: Todo, right: Todo): number {
   const leftOverdue = isOverdue(left) || childTodos(left.id).some(isOverdue)
@@ -802,13 +858,25 @@ function isOverdue(todo: Todo) {
   return todo.status === 'open' && new Date(todo.due_at).getTime() < Date.now()
 }
 async function pollClipboard() {
-  const content = await readText().catch(() => '')
-  if (!content || content === lastClipboard) return
-  lastClipboard = content
-  const clip = await api.clipboard
-    .capture(content, content.startsWith('http') ? 'link' : content.includes('\n') ? 'code' : 'text')
-    .catch(() => null)
-  if (clip && !clips.value.some((item) => item.id === clip.id)) clips.value.unshift(clip)
+  const latest = await api.clipboard.list().catch(() => [])
+  clips.value = latest
+}
+async function loadDayDetails(date: string) {
+  selectedStatsDate.value = date
+  dayDetails.value = await api.stats.day(date).catch(() => [])
+}
+async function exportSelected(format: string) {
+  const refs = [
+    ...notes.value.map((item) => `note:${item.id}`),
+    ...todos.value.map((item) => `todo:${item.id}`),
+    ...clips.value.map((item) => `clip:${item.id}`),
+  ]
+  if (!refs.length) {
+    notify('当前没有可导出的数据')
+    return
+  }
+  const path = await run(() => api.exportItems(refs, format), `已导出为 ${format.toUpperCase()}`)
+  notify(`导出文件：${path}`)
 }
 function heatLevel(day: ActivityDay) {
   const total = day.notes + day.clips + day.todos
@@ -830,7 +898,7 @@ onMounted(() => {
   document.addEventListener('click', () => {
     activePriority.value = null
   })
-  void listen<string>('navigate', (event) => {
+  void listen<string>('inkling://navigate', (event) => {
     if (
       event.payload === 'notes' ||
       event.payload === 'clips' ||
@@ -840,10 +908,14 @@ onMounted(() => {
     )
       view.value = event.payload
   }).catch(() => undefined)
+  void listen('inkling://notes-changed', () => void refresh()).catch(() => undefined)
+  void listen('inkling://clipboard-changed', () => void refresh()).catch(() => undefined)
+  void listen('inkling://todos-changed', () => void refresh()).catch(() => undefined)
+  void listen<string>('inkling://reminder-fired', () => notify('待办提醒已触发')).catch(() => undefined)
   void refresh().catch(() => notify('当前需要在 Tauri 应用中运行才能访问本地数据库'))
   clipboardTimer = window.setInterval(() => {
     void pollClipboard()
-  }, 500)
+  }, 1500)
 })
 onUnmounted(() => {
   if (clipboardTimer) window.clearInterval(clipboardTimer)

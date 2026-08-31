@@ -27,10 +27,12 @@ impl Store {
     fn todo_ids(&self, where_clause: &str, order_clause: &str) -> Result<Vec<String>, String> {
         let sql = format!("SELECT id FROM todos {where_clause} {order_clause}");
         let mut stmt = self.db.prepare(&sql).map_err(db_err)?;
-        stmt.query_map([], |r| r.get::<_, String>(0))
+        let rows = stmt
+            .query_map([], |r| r.get::<_, String>(0))
             .map_err(db_err)?
             .collect::<Result<Vec<_>, _>>()
-            .map_err(db_err)
+            .map_err(db_err)?;
+        Ok(rows)
     }
 
     pub fn list_todos(&self) -> Result<Vec<Todo>, String> {
@@ -45,25 +47,34 @@ impl Store {
     }
 
     pub fn list_open_remindable_todos(&self) -> Result<Vec<Todo>, String> {
-        self.todo_ids("WHERE status='open' AND remind_off=0", "ORDER BY remind_at ASC")?
-            .iter()
-            .map(|id| self.todo(id))
-            .collect()
+        self.todo_ids(
+            "WHERE status='open' AND remind_off=0",
+            "ORDER BY remind_at ASC",
+        )?
+        .iter()
+        .map(|id| self.todo(id))
+        .collect()
     }
 
     fn child_count(&self, parent_id: &str) -> Result<i64, String> {
         self.db
-            .query_row("SELECT COUNT(*) FROM todos WHERE parent_id=?", [parent_id], |r| r.get(0))
+            .query_row(
+                "SELECT COUNT(*) FROM todos WHERE parent_id=?",
+                [parent_id],
+                |r| r.get(0),
+            )
             .map_err(db_err)
     }
 
     fn child_ids(&self, parent_id: &str) -> Result<Vec<String>, String> {
         let sql = "SELECT id FROM todos WHERE parent_id=?";
         let mut stmt = self.db.prepare(sql).map_err(db_err)?;
-        stmt.query_map([parent_id], |r| r.get::<_, String>(0))
+        let rows = stmt
+            .query_map([parent_id], |r| r.get::<_, String>(0))
             .map_err(db_err)?
             .collect::<Result<Vec<_>, _>>()
-            .map_err(db_err)
+            .map_err(db_err)?;
+        Ok(rows)
     }
 
     /// 新建或编辑待办。
@@ -75,7 +86,10 @@ impl Store {
             }
         }
         let due = logic::parse_time(&input.due_at).ok_or("完成时间格式无效")?;
-        let id = input.id.clone().unwrap_or_else(|| uuid::Uuid::new_v4().to_string());
+        let id = input
+            .id
+            .clone()
+            .unwrap_or_else(|| uuid::Uuid::new_v4().to_string());
         let old = self.todo(&id).ok();
         if old.as_ref().is_some_and(|x| x.status == "done") {
             return Err("已完成待办不可编辑".into());
@@ -99,7 +113,10 @@ impl Store {
             )?;
         }
         let timestamp = now();
-        let created_at = old.as_ref().map(|x| x.created_at.clone()).unwrap_or_else(|| timestamp.clone());
+        let created_at = old
+            .as_ref()
+            .map(|x| x.created_at.clone())
+            .unwrap_or_else(|| timestamp.clone());
         let remind_at = input.remind_at.as_deref().filter(|x| !x.is_empty());
         let repeat_rule = input.repeat_rule.as_deref().filter(|x| !x.is_empty());
         self.db
@@ -136,6 +153,11 @@ impl Store {
     /// 父级 due_at 顺延为 max(原父级, 新子任务)。
     pub fn create_child_todo(&self, parent_id: &str, input: &TodoInput) -> Result<Todo, String> {
         logic::validate_fields(&input.content, &input.priority, &input.remark, &input.tags)?;
+        if let Some(rule) = &input.repeat_rule {
+            if !rule.is_empty() && !logic::is_valid_repeat_rule(rule) {
+                return Err("无效的重复规则".into());
+            }
+        }
         let tags = crate::domain::clipboard::validate_todo_tags(&input.tags)?;
         let parent = self.todo(parent_id)?;
         logic::validate_parent(
@@ -151,12 +173,14 @@ impl Store {
 
         let tx = self.tx()?;
         tx.execute(
-            "INSERT INTO todos(id, content, due_at, status, remind_off, priority, remark, parent_id, created_at, updated_at) \
-             VALUES(?,?,?,'open',0,?,?,?,?)",
+            "INSERT INTO todos(id, content, due_at, remind_at, repeat_rule, status, remind_off, priority, remark, parent_id, created_at, updated_at) \
+             VALUES(?,?,?,?,?,'open',0,?,?,?,?,?)",
             rusqlite::params![
                 id,
                 input.content.trim(),
                 input.due_at,
+                input.remind_at.as_deref().filter(|value| !value.is_empty()),
+                input.repeat_rule.as_deref().filter(|value| !value.is_empty()),
                 input.priority,
                 input.remark,
                 parent_id,
@@ -165,7 +189,7 @@ impl Store {
             ],
         )
         .map_err(db_err)?;
-        let reopened = parent.status == "done";
+        let _reopened = parent.status == "done";
         tx.execute(
             "UPDATE todos SET status='open', completed_at=NULL, \
                due_at=CASE WHEN due_at < ? THEN ? ELSE due_at END, updated_at=? WHERE id=?",
@@ -181,7 +205,11 @@ impl Store {
             )
             .map_err(db_err)?;
             let tag_id: i64 = tx
-                .query_row("SELECT id FROM tags WHERE normalized=?", [normalized], |r| r.get(0))
+                .query_row(
+                    "SELECT id FROM tags WHERE normalized=?",
+                    [normalized],
+                    |r| r.get(0),
+                )
                 .map_err(db_err)?;
             tx.execute(
                 "INSERT OR IGNORE INTO todo_tags(todo_id, tag_id) VALUES(?, ?)",
@@ -280,13 +308,13 @@ impl Store {
         }
         if let Some(parent_id) = &todo.parent_id {
             let parent = self.todo(parent_id)?;
-            if parent.status == "open" && due_at > parent.due_at {
+            if parent.status == "open" && due_at > parent.due_at.as_str() {
                 return Err("子任务的完成时间不能晚于父待办".into());
             }
         } else {
             for child_id in self.child_ids(id)? {
                 let child = self.todo(&child_id)?;
-                if child.status == "open" && child.due_at > due_at {
+                if child.status == "open" && child.due_at.as_str() > due_at {
                     return Err("存在完成时间晚于新时间的子任务，请先调整子任务".into());
                 }
             }
@@ -366,7 +394,12 @@ impl Store {
     }
 
     /// 推进重复提醒的下一次触发时间（只改 remind_at，不改计划完成时间）。
-    pub fn advance_repeat(&self, todo_id: &str, from: DateTime<Utc>, rule: &str) -> Result<(), String> {
+    pub fn advance_repeat(
+        &self,
+        todo_id: &str,
+        from: DateTime<Utc>,
+        rule: &str,
+    ) -> Result<(), String> {
         let Some(period) = logic::repeat_period(rule) else {
             return Ok(());
         };
@@ -410,7 +443,9 @@ impl Store {
     pub fn todo_created_date(&self, id: &str) -> Result<String, String> {
         let created: String = self
             .db
-            .query_row("SELECT created_at FROM todos WHERE id=?", [id], |r| r.get(0))
+            .query_row("SELECT created_at FROM todos WHERE id=?", [id], |r| {
+                r.get(0)
+            })
             .map_err(db_err)?;
         let dt = DateTime::parse_from_rfc3339(&created)
             .map(|x| x.with_timezone(&Utc))

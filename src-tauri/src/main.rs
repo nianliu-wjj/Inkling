@@ -33,23 +33,21 @@ fn main() {
                 .app_data_dir()
                 .map_err(|e| format!("获取应用数据目录失败: {e}"))?;
             let store = data::Store::open(data_dir).map_err(std::io::Error::other)?;
-            let settings = store
-                .get_settings()
-                .map_err(std::io::Error::other)?;
+            let settings = store.get_settings().map_err(std::io::Error::other)?;
             app_handle.manage(app::state::AppState::with_store(store));
+            let app = app_handle.handle().clone();
 
-            app::windows::create_core_windows(app_handle, silent)
-                .map_err(std::io::Error::other)?;
-            app::tray::build_tray(app_handle).map_err(std::io::Error::other)?;
-            app::shortcut::register_startup(app_handle).map_err(std::io::Error::other)?;
+            app::windows::create_core_windows(&app, silent).map_err(std::io::Error::other)?;
+            app::tray::build_tray(&app).map_err(std::io::Error::other)?;
+            app::shortcut::register_startup(&app).map_err(std::io::Error::other)?;
             if settings.start_on_boot {
-                let _ = app_handle.autostart().enable();
+                let _ = app.autolaunch().enable();
             }
 
-            services::clipboard_watcher::start(app_handle.clone());
-            services::reminder::start(app_handle.clone());
+            services::clipboard_watcher::start(app.clone());
+            services::reminder::start(app.clone());
             // 启动时按保留策略清理一次过期剪贴板。
-            let handle_for_cleanup = app_handle.clone();
+            let handle_for_cleanup = app.clone();
             std::thread::spawn(move || {
                 std::thread::sleep(std::time::Duration::from_secs(5));
                 let _ = services::clipboard_watcher::cleanup(&handle_for_cleanup);

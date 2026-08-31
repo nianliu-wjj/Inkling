@@ -18,10 +18,12 @@ impl Store {
     fn note_row_ids(&self, where_clause: &str) -> Result<Vec<String>, String> {
         let sql = format!("SELECT id FROM notes {where_clause}");
         let mut stmt = self.db.prepare(&sql).map_err(db_err)?;
-        stmt.query_map([], |r| r.get::<_, String>(0))
+        let rows = stmt
+            .query_map([], |r| r.get::<_, String>(0))
             .map_err(db_err)?
             .collect::<Result<Vec<_>, _>>()
-            .map_err(db_err)
+            .map_err(db_err)?;
+        Ok(rows)
     }
 
     pub fn list_notes(&self) -> Result<Vec<Note>, String> {
@@ -48,7 +50,8 @@ impl Store {
         if let Err(error) = fs::rename(&temp, &target) {
             if target.exists() {
                 fs::remove_file(&target).map_err(|e| format!("替换大笔记失败: {e}"))?;
-                fs::rename(&temp, &target).map_err(|e| format!("提交大笔记失败: {e}; 原始错误: {error}"))?;
+                fs::rename(&temp, &target)
+                    .map_err(|e| format!("提交大笔记失败: {e}; 原始错误: {error}"))?;
             } else {
                 return Err(format!("提交大笔记失败: {error}"));
             }
@@ -60,7 +63,10 @@ impl Store {
     /// 数据库与文件写入遵循“先文件后库”，失败时保留旧状态可恢复。
     pub fn save_note(&self, input: &NoteInput) -> Result<Note, String> {
         let tags = crate::domain::clipboard::validate_note_tags(&input.tags)?;
-        let id = input.id.clone().unwrap_or_else(|| uuid::Uuid::new_v4().to_string());
+        let id = input
+            .id
+            .clone()
+            .unwrap_or_else(|| uuid::Uuid::new_v4().to_string());
         let timestamp = now();
         let existing: Option<(String, String, Option<String>, i64)> = self
             .db
@@ -89,7 +95,10 @@ impl Store {
         };
 
         let (content, file_path) = if input.content.len() > MAX_NOTE_BYTES && !input.draft {
-            (String::new(), Some(self.write_large_note(&id, &input.content)?))
+            (
+                String::new(),
+                Some(self.write_large_note(&id, &input.content)?),
+            )
         } else {
             (input.content.clone(), None)
         };

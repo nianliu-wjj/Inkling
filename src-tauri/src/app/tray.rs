@@ -19,7 +19,7 @@ pub fn build_tray(app: &AppHandle) -> tauri::Result<()> {
         .cloned()
         .ok_or_else(|| tauri::Error::AssetNotFound("default icon".into()))?;
 
-    let mut builder = TrayIconBuilder::with_id("main-tray")
+    let builder = TrayIconBuilder::with_id("main-tray")
         .icon(icon)
         .tooltip("✒️ Inkling · 念头捕手")
         .menu(&menu)

@@ -1,12 +1,12 @@
 //! IPC 命令层：#[tauri::command] 入口。命令只做参数搬运与事件广播，业务在 domain/data。
 
 use serde::Deserialize;
-use tauri::{AppHandle, Emitter, State};
+use tauri::{AppHandle, Emitter, Manager, State};
 use tauri_plugin_autostart::ManagerExt;
 
 use crate::app::state::AppState;
 use crate::app::windows;
-use crate::data::{clipboard as clipboard_data, notes as notes_data, todos as todos_data};
+use crate::data::{notes as notes_data, todos as todos_data};
 use crate::domain::models::{
     ClipboardEntry, DayActivity, DayDetailItem, MonthTrend, Note, Settings, StatsSummary, Todo,
 };
@@ -96,7 +96,11 @@ pub fn note_draft(state: State<'_, AppState>) -> Result<Option<Note>, String> {
 }
 
 #[tauri::command]
-pub fn note_save(app: AppHandle, state: State<'_, AppState>, input: NotePayload) -> Result<Note, String> {
+pub fn note_save(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    input: NotePayload,
+) -> Result<Note, String> {
     let note = state.lock_store()?.save_note(&notes_data::NoteInput {
         id: input.id,
         content: input.content,
@@ -119,7 +123,12 @@ pub fn note_delete(app: AppHandle, state: State<'_, AppState>, id: String) -> Re
 }
 
 #[tauri::command]
-pub fn note_set_pinned(app: AppHandle, state: State<'_, AppState>, id: String, pinned: bool) -> Result<Note, String> {
+pub fn note_set_pinned(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    id: String,
+    pinned: bool,
+) -> Result<Note, String> {
     let store = state.lock_store()?;
     store
         .db
@@ -164,7 +173,11 @@ fn read_system_text() -> Option<String> {
 
 /// 写回系统剪贴板并登记回声哈希（防止应用记录自身写回）。
 #[tauri::command]
-pub fn clipboard_write(app: AppHandle, state: State<'_, AppState>, id: String) -> Result<(), String> {
+pub fn clipboard_write(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    id: String,
+) -> Result<(), String> {
     let (entry, file) = {
         let store = state.lock_store()?;
         let (entry, file) = store.paste_payload(&id)?;
@@ -177,7 +190,11 @@ pub fn clipboard_write(app: AppHandle, state: State<'_, AppState>, id: String) -
         let rgba = image.to_rgba8();
         let (width, height) = (rgba.width() as usize, rgba.height() as usize);
         board
-            .set_image(arboard::ImageData { width, height, bytes: rgba.into_raw().into() })
+            .set_image(arboard::ImageData {
+                width,
+                height,
+                bytes: rgba.into_raw().into(),
+            })
             .map_err(|e| format!("写回剪贴板失败: {e}"))?;
         crate::domain::clipboard::hash_content(&format!("image:{width}x{height}").as_bytes())
     } else {
@@ -186,7 +203,9 @@ pub fn clipboard_write(app: AppHandle, state: State<'_, AppState>, id: String) -
         } else {
             entry.content.clone()
         };
-        board.set_text(&text).map_err(|e| format!("写回剪贴板失败: {e}"))?;
+        board
+            .set_text(&text)
+            .map_err(|e| format!("写回剪贴板失败: {e}"))?;
         crate::domain::clipboard::hash_content(text.as_bytes())
     };
     app.state::<AppState>().set_echo(Some(hash));
@@ -218,7 +237,11 @@ pub fn clipboard_pin(
 }
 
 #[tauri::command]
-pub fn clipboard_delete(app: AppHandle, state: State<'_, AppState>, id: String) -> Result<(), String> {
+pub fn clipboard_delete(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    id: String,
+) -> Result<(), String> {
     state.lock_store()?.delete_clipboard(&id)?;
     emit_all(&app, events::CLIPBOARD_CHANGED, id);
     Ok(())
@@ -268,10 +291,16 @@ pub fn todos_list(state: State<'_, AppState>) -> Result<Vec<Todo>, String> {
 }
 
 #[tauri::command]
-pub fn todo_save(app: AppHandle, state: State<'_, AppState>, input: TodoPayload) -> Result<Todo, String> {
+pub fn todo_save(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    input: TodoPayload,
+) -> Result<Todo, String> {
     let parent_id = input.parent_id.clone();
     let todo = if let Some(parent) = parent_id.filter(|_| input.id.is_none()) {
-        state.lock_store()?.create_child_todo(&parent, &todo_input(input))?
+        state
+            .lock_store()?
+            .create_child_todo(&parent, &todo_input(input))?
     } else {
         state.lock_store()?.save_todo(&todo_input(input))?
     };
@@ -294,14 +323,24 @@ pub fn todo_complete(
 }
 
 #[tauri::command]
-pub fn todo_priority(app: AppHandle, state: State<'_, AppState>, id: String, priority: String) -> Result<Todo, String> {
+pub fn todo_priority(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    id: String,
+    priority: String,
+) -> Result<Todo, String> {
     let todo = state.lock_store()?.set_todo_priority(&id, &priority)?;
     emit_all(&app, events::TODOS_CHANGED, id);
     Ok(todo)
 }
 
 #[tauri::command]
-pub fn todo_due(app: AppHandle, state: State<'_, AppState>, id: String, due_at: String) -> Result<Todo, String> {
+pub fn todo_due(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    id: String,
+    due_at: String,
+) -> Result<Todo, String> {
     let todo = state.lock_store()?.set_todo_due(&id, &due_at)?;
     emit_all(&app, events::TODOS_CHANGED, id);
     emit_all(&app, events::STATS_CHANGED, ());
@@ -316,9 +355,10 @@ pub fn todo_reminder(
     remind_at: Option<String>,
     repeat_rule: Option<String>,
 ) -> Result<Todo, String> {
-    let todo = state
-        .lock_store()?
-        .set_todo_reminder(&id, remind_at.as_deref(), repeat_rule.as_deref())?;
+    let todo =
+        state
+            .lock_store()?
+            .set_todo_reminder(&id, remind_at.as_deref(), repeat_rule.as_deref())?;
     emit_all(&app, events::TODOS_CHANGED, id);
     Ok(todo)
 }
@@ -349,11 +389,18 @@ pub fn todo_snooze(
 
 /// 提醒卡片「不再提醒」：关闭抑制。
 #[tauri::command]
-pub fn todo_dismiss_reminder(app: AppHandle, state: State<'_, AppState>, id: String) -> Result<(), String> {
+pub fn todo_dismiss_reminder(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    id: String,
+) -> Result<(), String> {
     let store = state.lock_store()?;
     store
         .db
-        .execute("UPDATE todos SET remind_off=1, updated_at=? WHERE id=?", rusqlite::params![crate::data::now(), id])
+        .execute(
+            "UPDATE todos SET remind_off=1, updated_at=? WHERE id=?",
+            rusqlite::params![crate::data::now(), id],
+        )
         .map_err(crate::data::db_err)?;
     drop(store);
     emit_all(&app, events::TODOS_CHANGED, id);
@@ -368,20 +415,29 @@ pub fn settings_get(state: State<'_, AppState>) -> Result<Settings, String> {
 }
 
 #[tauri::command]
-pub fn settings_save(app: AppHandle, state: State<'_, AppState>, settings: Settings) -> Result<(), String> {
+pub fn settings_save(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    settings: Settings,
+) -> Result<(), String> {
     state.lock_store()?.save_settings(&settings)?;
     if settings.start_on_boot {
-        let _ = app.autostart().enable();
+        let _ = app.autolaunch().enable();
     } else {
-        let _ = app.autostart().disable();
+        let _ = app.autolaunch().disable();
     }
     emit_all(&app, events::SETTINGS_CHANGED, settings);
     Ok(())
 }
 
 #[tauri::command]
-pub fn stats_heatmap(state: State<'_, AppState>, days: Option<u32>) -> Result<Vec<DayActivity>, String> {
-    state.lock_store()?.heatmap(days.unwrap_or(182).clamp(28, 365))
+pub fn stats_heatmap(
+    state: State<'_, AppState>,
+    days: Option<u32>,
+) -> Result<Vec<DayActivity>, String> {
+    state
+        .lock_store()?
+        .heatmap(days.unwrap_or(182).clamp(28, 365))
 }
 
 #[tauri::command]
@@ -409,12 +465,9 @@ pub struct ExportPayload {
 }
 
 #[tauri::command]
-pub fn export_items(
-    state: State<'_, AppState>,
-    payload: ExportPayload,
-) -> Result<String, String> {
-    let format = crate::services::export::ExportFormat::from(&payload.format)
-        .ok_or("不支持的导出格式")?;
+pub fn export_items(state: State<'_, AppState>, payload: ExportPayload) -> Result<String, String> {
+    let format =
+        crate::services::export::ExportFormat::from(&payload.format).ok_or("不支持的导出格式")?;
     let mut items = Vec::new();
     {
         let store = state.lock_store()?;
@@ -424,16 +477,17 @@ pub fn export_items(
                 "note" => items.push(crate::services::export::ExportItem::Note(store.note(id)?)),
                 "todo" => items.push(crate::services::export::ExportItem::Todo(store.todo(id)?)),
                 "clip" => {
-                    let entry = store
-                        .clipboard_entry(id)?
-                        .ok_or("剪贴板条目不存在")?;
+                    let entry = store.clipboard_entry(id)?.ok_or("剪贴板条目不存在")?;
                     items.push(crate::services::export::ExportItem::Clip(entry));
                 }
                 _ => return Err("导出类型无效".into()),
             }
         }
     }
-    let name = format!("Inkling-导出-{}", crate::data::local_date_key(chrono::Utc::now()));
+    let name = format!(
+        "Inkling-导出-{}",
+        crate::data::local_date_key(chrono::Utc::now())
+    );
     crate::services::export::export_items(
         &items,
         format,

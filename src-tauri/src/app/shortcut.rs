@@ -1,6 +1,6 @@
 //! 全局快捷键：默认 Ctrl/Cmd+Shift+Space 呼出面板；支持设置页改键。
 
-use tauri::AppHandle;
+use tauri::{AppHandle, Manager};
 use tauri_plugin_global_shortcut::{GlobalShortcutExt, Shortcut, ShortcutState};
 
 use crate::app::state::AppState;
@@ -25,10 +25,12 @@ pub fn rebind(app: &AppHandle, combo: &str) -> Result<String, String> {
         .register(shortcut)
         .map_err(|e| format!("注册快捷键失败（可能与其他应用冲突）: {e}"))?;
     let described = shortcut.into_string();
-    state.lock_store()?.save_settings(&crate::domain::models::Settings {
-        shortcut: described.clone(),
-        ..state.lock_store()?.get_settings()?
-    })?;
+    state
+        .lock_store()?
+        .save_settings(&crate::domain::models::Settings {
+            shortcut: described.clone(),
+            ..state.lock_store()?.get_settings()?
+        })?;
     Ok(described)
 }
 
@@ -39,16 +41,18 @@ pub fn register_startup(app: &AppHandle) -> Result<(), String> {
         .lock_store()?
         .get_settings()
         .map(|s| s.shortcut)
-        .unwrap_or_else(|| "Ctrl+Shift+Space".into());
-    let shortcut: Shortcut = combo.parse().unwrap_or_else(|_| {
-        "CmdOrCtrl+Shift+Space".parse().expect("内置快捷键必须有效")
-    });
+        .unwrap_or_else(|_| "Ctrl+Shift+Space".into());
+    let shortcut: Shortcut = combo
+        .parse()
+        .unwrap_or_else(|_| "CmdOrCtrl+Shift+Space".parse().expect("内置快捷键必须有效"));
     let handle = app.clone();
     app.global_shortcut()
         .on_shortcut(shortcut, move |app, _, event| {
             if event.state == ShortcutState::Pressed {
                 let panel = app.get_webview_window("panel");
-                let visible = panel.map(|w| w.is_visible().unwrap_or(false)).unwrap_or(false);
+                let visible = panel
+                    .map(|w| w.is_visible().unwrap_or(false))
+                    .unwrap_or(false);
                 if visible {
                     let _ = windows::panel_hide(app);
                 } else {

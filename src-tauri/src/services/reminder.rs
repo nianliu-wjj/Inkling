@@ -10,7 +10,7 @@ use crate::app::state::AppState;
 use crate::app::windows;
 use crate::domain::todo as logic;
 use crate::events;
-use tauri::{AppHandle, Emitter};
+use tauri::{AppHandle, Emitter, Manager};
 
 const TICK: StdDuration = StdDuration::from_secs(30);
 
@@ -34,7 +34,9 @@ fn tick(app: &AppHandle) -> Result<(), String> {
         store.list_open_remindable_todos()?
     };
     for todo in todos {
-        let Some(due) = logic::parse_time(&todo.due_at) else { continue };
+        let Some(due) = logic::parse_time(&todo.due_at) else {
+            continue;
+        };
         // 跳过未来 1 天以后的事项，降低无效计算。
         if due > now + Duration::days(1) && todo.remind_at.is_none() {
             continue;
