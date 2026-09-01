@@ -891,3 +891,13 @@ mark { background: rgba(255,215,110,.35); color: inherit; border-radius: 2px; pa
 .prio-opt.active {
   background: rgba(var(--wsa), 0.16);
 }
+
+/* v1.2 增补：抖动确认态强制显示 ✕。
+   原型把 .shaking 挂在卡片上（.archive-item.shaking .tag-chip .tag-del），
+   组件化后 .shaking 挂在 chip 自身，需要对应的一条规则，
+   否则鼠标一旦移出 chip，✕ 就随 :hover 消失而无法完成第二次点击。 */
+.tag-chip.shaking .tag-del {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
