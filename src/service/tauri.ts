@@ -1,4 +1,5 @@
 import { invoke } from '@tauri-apps/api/core'
+import { openPath, openUrl } from '@tauri-apps/plugin-opener'
 import type {
   ActivityDay,
   ClipboardEntry,
@@ -69,4 +70,13 @@ export const api = {
   exportItems: (refs: string[], format: string, outputDir?: string | null) =>
     invoke<string>('export_items', { payload: { refs, format, outputDir: outputDir ?? null } }),
   dataDir: () => invoke<string>('data_dir'),
+
+  /** 系统集成：走 tauri-plugin-opener，避免在 WebView 内直接导航。 */
+  system: {
+    /** 用默认浏览器打开链接（剪贴板 link 类型条目使用）。 */
+    openUrl: (url: string) => openUrl(url),
+    /** 用系统文件管理器打开目录（设置页「打开数据目录」使用）。 */
+    openPath: (path: string) => openPath(path),
+    dataDir: () => invoke<string>('data_dir'),
+  },
 }
