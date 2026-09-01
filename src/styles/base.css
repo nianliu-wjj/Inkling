@@ -70,7 +70,8 @@ textarea,
 #panel,
 #pinnedWindow,
 #reminderCard,
-#mainWindow {
+#mainWindow,
+#hotzone {
   position: static;
   left: auto;
   top: auto;
@@ -79,6 +80,13 @@ textarea,
   transform: none;
   width: 100%;
   margin: 0;
+}
+
+/* 感应区：窗口自身即为感应范围（Rust 侧按 240×80 定位在屏幕顶部中央），
+   元素铺满窗口即可，不需要也不应该有任何可见样式。 */
+#hotzone {
+  height: 100vh;
+  outline: none;
 }
 
 /* 面板：高度随内容自适应，由 JS 上报给窗口（见 PanelApp.reportHeight）。 */
