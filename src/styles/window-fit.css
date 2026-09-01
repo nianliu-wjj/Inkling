@@ -1,0 +1,68 @@
+/* ═══════════════════════════════════════════════════════════════════════
+ * 原型 → 真实窗口的适配层
+ *
+ * 必须在 components.css **之后**加载：原型把面板 / 归档窗 / 置顶窗 / 提醒卡
+ * 都当作「模拟桌面」里的浮层，用 position: fixed + translate + 固定尺寸定位；
+ * 在真实 Tauri 中它们各自**就是一个窗口**，屏幕位置由 Rust 侧决定，
+ * 元素必须铺满窗口。本文件专门覆盖这些原型专有的定位与尺寸约束。
+ * ═══════════════════════════════���═══════════════════════════════════════ */
+
+/* 通用：取消浮层定位，铺满各自窗口。 */
+#panel,
+#pinnedWindow,
+#reminderCard,
+#mainWindow,
+#hotzone {
+  position: static;
+  left: auto;
+  top: auto;
+  right: auto;
+  bottom: auto;
+  transform: none;
+  width: 100%;
+  margin: 0;
+}
+
+/* 归档主窗口：原型的 .app-window 有 max-height: 74vh、#mainWindow 有
+   height: min(78vh, 660px)——这些是为「桌面中的浮动窗口」设计的，
+   在真实窗口里会让内容只占上面一截、下方留白。此处一并解除。 */
+#mainWindow.app-window {
+  height: 100vh;
+  max-height: none;
+  display: flex;
+  flex-direction: column;
+}
+
+/* 左右结构占满标题栏以下的全部空间。 */
+#mainWindow .archive-layout {
+  flex: 1;
+  min-height: 0;
+}
+
+/* 面板：高度随内容自适应，由 JS 上报给窗口（见 PanelApp.reportHeight）。
+   注意不要设 height，否则 ResizeObserver 量到的永远是窗口高度而非内容高度。 */
+#panel {
+  min-height: 100px;
+}
+
+/* 感应区：窗口自身即为感应范围（Rust 侧按 240×80 定位在屏幕顶部中央）。 */
+#hotzone {
+  height: 100vh;
+}
+
+/* 置顶浮窗与提醒卡片铺满各自窗口。 */
+#pinnedWindow,
+#reminderCard {
+  height: 100vh;
+  max-height: none;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ═══ 侧边栏折叠态：底部按钮需要贴底 ═══
+ * 展开态靠 .mini-heat 的 margin-top: auto 把 .side-foot 顶到底部；
+ * 折叠态下 .mini-heat 被隐藏，auto 外边距随之消失，按钮会浮在导航项下方。
+ * 这里给 .side-foot 自身补上 margin-top: auto 兜底。 */
+.archive-side.collapsed .side-foot {
+  margin-top: auto;
+}
