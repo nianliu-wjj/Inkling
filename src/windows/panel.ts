@@ -1,5 +1,5 @@
 import { createApp } from 'vue'
 import Panel from './Panel.vue'
-import '@/styles/windows.css'
+import '@/styles'
 
 createApp(Panel).mount('#app')

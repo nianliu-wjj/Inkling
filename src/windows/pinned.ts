@@ -1,5 +1,5 @@
 import { createApp } from 'vue'
 import Pinned from './Pinned.vue'
-import '@/styles/windows.css'
+import '@/styles'
 
 createApp(Pinned).mount('#app')

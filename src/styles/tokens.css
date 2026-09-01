@@ -1,0 +1,79 @@
+/* ═══════════════════════════════════════════════════════════════════════
+ * Inkling 设计令牌层
+ * 来源：doc/styles.css:1-72（唯一样式源，禁止在此处新增设计语言）
+ * 修改原则：如需调整视觉，先改原型再同步回本文件，保持两者一致。
+ * 加载顺序：tokens → base → components → themes（见 src/styles/index.ts）
+ * ═══════════════════════════════════════════════════════════════════════ */
+
+/* ═══ Inkling 原型样式（毛玻璃暗色系） ═══ */
+* { margin: 0; padding: 0; box-sizing: border-box; user-select: none; }
+:root {
+  color-scheme: var(--scheme);
+  --radius: 14px;
+  /* ── 主题令牌（默认 = 深色；其他主题在文件末尾覆盖） ── */
+  --scheme: dark;
+  --wsa: 255,255,255;
+  --body-bg: radial-gradient(1200px 800px at 30% 20%, #2b3a67, #151826 70%);
+  --glass-bg: rgba(30,34,50,.55);
+  --glass-border: rgba(255,255,255,.12);
+  --glass-shadow: 0 12px 40px rgba(0,0,0,.45), inset 0 1px 0 rgba(255,255,255,.08);
+  --menubar-bg: rgba(20,22,32,.75);
+  --menu-bg: rgba(28,30,44,.92);
+  --tip-bg: rgba(24,26,40,.97);
+  --confirm-bg: rgba(30,32,46,.96);
+  --toggle-bg: #23263a;
+  --option-bg: #1e2232;
+  --accent: #6c8cff;
+  --accent-rgb: 108,140,255;
+  --hm-base: 108,140,255;
+  --text: rgba(255,255,255,.92);
+  --text-dim: rgba(255,255,255,.5);
+  --text-strong: rgba(255,255,255,.85);
+  --gold: #ffd76e;
+  --red-soft: #ff8a8a;
+  --red: #ff5f57;
+  --cyan: #7ee0ff;
+  --blue-soft: #a8bcff;
+  --green: #7ee0a8;
+  --pink: #ff9ecd;
+  --code-green: #c3e88d;
+  --c-note: 108,140,255;
+  --c-clip: 255,215,110;
+  --c-todo: 126,224,168;
+  --trend-note: #ff8a8a;
+  --trend-clip: #ffd76e;
+  --trend-todo: #7ee0a8;
+  --select-arrow: url("data:image/svg+xml,%3Csvg width='10' height='6' viewBox='0 0 10 6' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1l4 4 4-4' stroke='rgba(255,255,255,.5)' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E");
+  --bg-deep: #1a1d29;
+}
+body {
+  font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
+  background: var(--body-bg);
+  color: var(--text);
+  height: 100vh;
+  overflow: hidden;
+}
+.hidden { display: none !important; }
+.glass {
+  background: var(--glass-bg);
+  backdrop-filter: blur(24px) saturate(160%);
+  -webkit-backdrop-filter: blur(24px) saturate(160%);
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--glass-shadow);
+  border-radius: var(--radius);
+}
+kbd {
+  background: rgba(var(--wsa), .12); border: 1px solid rgba(var(--wsa), .18);
+  border-radius: 5px; padding: 1px 6px; font-size: 11px; font-family: inherit;
+}
+button { font-family: inherit; }
+.btn {
+  background: rgba(var(--wsa), .12); color: var(--text); border: 1px solid rgba(var(--wsa), .15);
+  border-radius: 8px; padding: 6px 14px; font-size: 13px; cursor: pointer; transition: all .15s;
+}
+.btn:hover { background: rgba(var(--wsa), .22); }
+.btn.primary { background: var(--accent); border-color: transparent; font-weight: 600; color: #fff; }
+.btn.primary:hover { filter: brightness(1.15); }
+.btn.tiny { padding: 3px 10px; font-size: 12px; border-radius: 6px; }
+.btn.ghost { background: transparent; border-color: rgba(var(--wsa), .2); }
+

@@ -1,0 +1,59 @@
+/* ═══════════════════════════════════════════════════════════════════════
+ * Inkling 全局基础层
+ * 职责：修正 tokens.css 中全局规则对交互的副作用、无边框窗口拖拽区、
+ *       主窗口毛玻璃开关的降级样式。
+ * 注意：滚动条与 select 主题跟随规则仍保留在 components.css 中
+ *       （原样跟随原型 doc/styles.css，避免拆分产生漂移）。
+ * ═══════════════════════════════════════════════════════════════════════ */
+
+/* tokens.css 的 `* { user-select: none }` 会让输入区无法选中文本，
+   此处对所有可编辑区域恢复，保证笔记编辑器与输入框可正常选词。 */
+input,
+textarea,
+[contenteditable='true'],
+.ProseMirror,
+.cm-editor {
+  user-select: text;
+  -webkit-user-select: text;
+}
+
+/* 无边框窗口：标题栏整体可拖拽，但其中的按钮需排除，否则点不动。 */
+[data-tauri-drag-region] {
+  app-region: drag;
+  -webkit-app-region: drag;
+}
+[data-tauri-drag-region] button,
+[data-tauri-drag-region] input,
+[data-tauri-drag-region] .no-drag {
+  app-region: no-drag;
+  -webkit-app-region: no-drag;
+}
+
+/* 主窗口「毛玻璃」开关关闭态：把玻璃令牌降级为不透明实色。
+   .glass 与全部组件无需改动即可退化为实心卡片，30 套主题同样生效。
+   开关实现见 src/windows/Main/SettingsView.vue 与 ipc 命令 set_main_acrylic。 */
+:root[data-acrylic='off'] {
+  --glass-bg: var(--bg-deep);
+  --glass-shadow: 0 12px 40px rgba(0, 0, 0, 0.35);
+}
+:root[data-acrylic='off'] .glass {
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+/* 应用根节点铺满窗口；透明窗口下由 .glass 自身绘制背景。 */
+#app {
+  height: 100vh;
+  overflow: hidden;
+}
+
+/* 尊重系统「减少动态效果」设置：关闭装饰性动画，保留必要的状态反馈。 */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

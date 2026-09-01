@@ -1,6 +1,6 @@
 import { invoke } from '@tauri-apps/api/core'
 import { createApp, h } from 'vue'
-import '@/styles/windows.css'
+import '@/styles'
 
 createApp({
   setup() {
