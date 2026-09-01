@@ -4,6 +4,7 @@ import NoteCard from '@/components/card/NoteCard.vue'
 import TagManagerModal from '@/components/tag/TagManagerModal.vue'
 import { useConfirmDelete } from '@/composables/useConfirmDelete'
 import { useNotes } from '@/composables/useData'
+import { useExport } from '@/composables/useExport'
 import { useToast } from '@/composables/useToast'
 import { logger } from '@/service/logger'
 import { api } from '@/service/tauri'
@@ -18,6 +19,7 @@ import type { Note } from '@/typings/domain'
 const { notes } = useNotes()
 const { toast } = useToast()
 const confirm = useConfirmDelete('notes-view')
+const { exporting, exportOne, exportMany } = useExport()
 
 const keyword = ref('')
 /** 正在管理标签的笔记。 */
@@ -64,23 +66,20 @@ async function saveTags(tags: string[]): Promise<void> {
   const note = tagTarget.value
   if (!note) return
   try {
-    await api.notes.save({ id: note.id, content: note.content, tags, draft: false })
+    await api.notes.save({
+      id: note.id,
+      content: note.content,
+      tags,
+      editorMode: note.editor_mode,
+      mindmapData: note.mindmap_data,
+      draft: false,
+    })
     toast('标签已保存')
   } catch (error) {
     logger.error('notes-view', '保存标签失败', error)
     toast('保存失败')
   } finally {
     tagTarget.value = null
-  }
-}
-
-async function exportNote(note: Note): Promise<void> {
-  try {
-    const path = await api.exportItems([`note:${note.id}`], 'markdown', null)
-    toast(`已导出到 ${path}`)
-  } catch (error) {
-    logger.error('notes-view', '导出失败', error)
-    toast('导出失败')
   }
 }
 </script>
@@ -98,7 +97,6 @@ async function exportNote(note: Note): Promise<void> {
         @pin="togglePin(note)"
         @edit="tagTarget = note"
         @open-tags="tagTarget = note"
-        @export="exportNote(note)"
         @ask-delete="confirm.ask(note.id)"
         @confirm-delete="remove(note)"
         @cancel-delete="confirm.cancel()"

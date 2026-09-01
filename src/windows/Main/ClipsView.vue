@@ -4,6 +4,7 @@ import ClipCard from '@/components/card/ClipCard.vue'
 import ClipEditorModal from '@/components/clip/ClipEditorModal.vue'
 import { useConfirmDelete } from '@/composables/useConfirmDelete'
 import { useClips } from '@/composables/useData'
+import { useExport } from '@/composables/useExport'
 import { useToast } from '@/composables/useToast'
 import { logger } from '@/service/logger'
 import { api } from '@/service/tauri'
@@ -18,6 +19,7 @@ import type { ClipboardEntry } from '@/typings/domain'
 const { clips } = useClips()
 const { toast } = useToast()
 const confirm = useConfirmDelete('clips-view')
+const { exporting, exportOne, exportMany } = useExport()
 
 const keyword = ref('')
 const editing = ref<ClipboardEntry | null>(null)
@@ -74,6 +76,14 @@ async function saveEdit(content: string): Promise<void> {
   }
 }
 
+/** 批量导出当前筛选结果（而非全部），与用户所见一致。 */
+function exportVisible(): void {
+  void exportMany(
+    'clip',
+    visible.value.map((entry) => entry.id),
+  )
+}
+
 async function remove(entry: ClipboardEntry): Promise<void> {
   if (!confirm.confirm()) return
   try {
@@ -88,7 +98,18 @@ async function remove(entry: ClipboardEntry): Promise<void> {
 
 <template>
   <div class="archive-page">
-    <input v-model="keyword" class="search-input" placeholder="🔍 搜索粘贴板历史…" />
+    <div class="archive-toolbar">
+      <input v-model="keyword" class="search-input" placeholder="🔍 搜索粘贴板历史…" />
+      <button
+        type="button"
+        class="btn tiny"
+        :disabled="exporting || !visible.length"
+        :title="`导出当前 ${visible.length} 条记录`"
+        @click="exportVisible"
+      >
+        ⤓ 批量导出
+      </button>
+    </div>
 
     <ul>
       <ClipCard
@@ -101,6 +122,7 @@ async function remove(entry: ClipboardEntry): Promise<void> {
         @pin="togglePin(entry)"
         @edit="editing = entry"
         @open-link="openLink(entry)"
+        @export="exportOne('clip', entry.id)"
         @ask-delete="confirm.ask(entry.id)"
         @confirm-delete="remove(entry)"
         @cancel-delete="confirm.cancel()"

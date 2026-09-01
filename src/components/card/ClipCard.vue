@@ -31,6 +31,7 @@ const emit = defineEmits<{
   (e: 'edit'): void
   (e: 'pin'): void
   (e: 'open-link'): void
+  (e: 'export'): void
   (e: 'ask-delete'): void
   (e: 'confirm-delete'): void
   (e: 'cancel-delete'): void
@@ -72,6 +73,7 @@ const isLink = computed(() => props.entry.content_type === 'link')
         @click="emit('pin')"
         >★</IconBtn
       >
+      <IconBtn v-if="props.archive" title="导出" @click="emit('export')">⤓</IconBtn>
     </div>
   </li>
 </template>
