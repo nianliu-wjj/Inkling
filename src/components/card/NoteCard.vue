@@ -37,7 +37,12 @@ const emit = defineEmits<{
 /** 归档时刻优先，草稿回落到创建时刻。 */
 const stamp = computed(() => formatStamp(props.note.archived_at ?? props.note.created_at))
 
-const html = computed(() => renderMarkdown(props.note.content))
+const mindmapLabel = computed(() => (props.note.editor_mode === 'mindmap' ? '🧠 思维导图笔记' : ''))
+const html = computed(() =>
+  props.note.editor_mode === 'mindmap'
+    ? `<p class="note-mindmap-summary">${mindmapLabel.value}</p>`
+    : renderMarkdown(props.note.content),
+)
 </script>
 
 <template>

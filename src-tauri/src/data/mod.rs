@@ -89,6 +89,8 @@ impl Store {
                    file_path TEXT,
                    is_draft INTEGER NOT NULL DEFAULT 0,
                    pinned INTEGER NOT NULL DEFAULT 0,
+                   editor_mode TEXT NOT NULL DEFAULT 'text',
+                   mindmap_data TEXT,
                    created_at TEXT NOT NULL,
                    updated_at TEXT NOT NULL
                  );
@@ -147,6 +149,13 @@ impl Store {
                 .pragma_update(None, "user_version", 1)
                 .map_err(db_err)?;
         }
+        if version < 2 {
+            self.with_v2()
+                .map_err(|e| format!("数据库迁移到 v2 失败: {e}"))?;
+            self.db
+                .pragma_update(None, "user_version", 2)
+                .map_err(db_err)?;
+        }
         Ok(())
     }
 
@@ -190,6 +199,19 @@ impl Store {
         self.db
             .execute(
                 "UPDATE clipboard_entries SET created_at = copied_at WHERE created_at IS NULL",
+                [],
+            )
+            .map_err(db_err)?;
+        Ok(())
+    }
+
+    /// v2 增量：笔记编辑模式与思维导图数据。
+    fn with_v2(&self) -> Result<(), String> {
+        self.add_column_if_missing("notes", "editor_mode", "TEXT NOT NULL DEFAULT 'text'")?;
+        self.add_column_if_missing("notes", "mindmap_data", "TEXT")?;
+        self.db
+            .execute(
+                "UPDATE notes SET editor_mode='text' WHERE editor_mode IS NULL OR editor_mode=''",
                 [],
             )
             .map_err(db_err)?;
@@ -357,7 +379,7 @@ impl Store {
         let row = self
             .db
             .query_row(
-                "SELECT id, content, file_path, is_draft, pinned, archived_at, created_at, updated_at \
+                "SELECT id, content, file_path, is_draft, pinned, archived_at, editor_mode, mindmap_data, created_at, updated_at \
                  FROM notes WHERE id=?",
                 [id],
                 |r| {
@@ -369,14 +391,26 @@ impl Store {
                         r.get::<_, i64>(4)?,
                         r.get::<_, Option<String>>(5)?,
                         r.get::<_, String>(6)?,
-                        r.get::<_, String>(7)?,
+                        r.get::<_, Option<String>>(7)?,
+                        r.get::<_, String>(8)?,
+                        r.get::<_, String>(9)?,
                     ))
                 },
             )
             .optional()
             .map_err(db_err)?;
-        let Some((id, content, file_path, draft, pinned, archived_at, created_at, updated_at)) =
-            row
+        let Some((
+            id,
+            content,
+            file_path,
+            draft,
+            pinned,
+            archived_at,
+            editor_mode,
+            mindmap_data,
+            created_at,
+            updated_at,
+        )) = row
         else {
             return Err("笔记不存在".into());
         };
@@ -393,6 +427,8 @@ impl Store {
             is_draft: draft != 0,
             pinned: pinned != 0,
             archived_at,
+            editor_mode,
+            mindmap_data,
             created_at,
             updated_at,
         })

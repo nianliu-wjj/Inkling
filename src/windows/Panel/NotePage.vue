@@ -21,6 +21,8 @@ const emit = defineEmits<{ (e: 'modal', open: boolean): void }>()
 const { toast } = useToast()
 
 const content = ref('')
+const editorMode = ref<'text' | 'mindmap'>('text')
+const mindmapData = ref<string | null>(null)
 const tags = ref<string[]>([])
 /** 草稿 id：首次暂存后由后端返回，后续复用以免产生多条草稿。 */
 const draftId = ref<string | undefined>(undefined)
@@ -43,6 +45,8 @@ async function loadDraft(): Promise<void> {
     if (!draft) return
     draftId.value = draft.id
     content.value = draft.content
+    editorMode.value = draft.editor_mode
+    mindmapData.value = draft.mindmap_data
     tags.value = [...draft.tags]
     saveState.value = 'saved'
     logger.info('panel-note', `恢复草稿 id=${draft.id}`)
@@ -54,13 +58,15 @@ void loadDraft()
 
 /** 暂存草稿（不广播 notes-changed，后端对草稿不发事件）。 */
 async function persistDraft(): Promise<void> {
-  if (!content.value.trim() && !tags.value.length) return
+  if (!content.value.trim() && !tags.value.length && !mindmapData.value) return
   saveState.value = 'saving'
   try {
     const note = await api.notes.save({
       id: draftId.value,
       content: content.value,
       tags: [...tags.value],
+      editorMode: editorMode.value,
+      mindmapData: mindmapData.value,
       draft: true,
     })
     draftId.value = note.id
@@ -73,7 +79,7 @@ async function persistDraft(): Promise<void> {
 }
 
 // 输入停止 500ms 后自动暂存（需求 2.2「混合存储策略」）。
-watch([content, tags], () => {
+watch([content, tags, editorMode, mindmapData], () => {
   saveState.value = 'idle'
   if (debounceTimer !== null) clearTimeout(debounceTimer)
   debounceTimer = setTimeout(() => {
@@ -84,8 +90,12 @@ watch([content, tags], () => {
 
 /** 归档：把草稿提升为正式笔记。 */
 async function archive(): Promise<void> {
-  if (!content.value.trim()) {
+  if (editorMode.value === 'text' && !content.value.trim()) {
     toast('还没有写下任何内容')
+    return
+  }
+  if (editorMode.value === 'mindmap' && !mindmapData.value) {
+    toast('请先创建思维导图内容')
     return
   }
 
@@ -95,10 +105,14 @@ async function archive(): Promise<void> {
       id: draftId.value,
       content: content.value,
       tags: [...tags.value],
+      editorMode: editorMode.value,
+      mindmapData: mindmapData.value,
       draft: false,
     })
     // 归档后清空面板，进入下一次捕获。
     content.value = ''
+    editorMode.value = 'text'
+    mindmapData.value = null
     tags.value = []
     draftId.value = undefined
     saveState.value = 'idle'
@@ -129,7 +143,12 @@ defineExpose({ archive })
 
 <template>
   <section class="panel-page">
-    <NoteEditor v-model="content" @submit="archive" />
+    <NoteEditor
+      v-model="content"
+      v-model:editor-mode="editorMode"
+      v-model:mindmap-data="mindmapData"
+      @submit="archive"
+    />
 
     <div class="editor-footer">
       <span class="save-state" :class="{ saving: saveState === 'saving' }">{{ saveLabel }}</span>

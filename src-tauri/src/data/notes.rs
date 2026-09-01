@@ -10,6 +10,8 @@ const MAX_NOTE_BYTES: usize = 1_048_576;
 pub struct NoteInput {
     pub id: Option<String>,
     pub content: String,
+    pub editor_mode: String,
+    pub mindmap_data: Option<String>,
     pub tags: Vec<String>,
     pub draft: bool,
 }
@@ -63,6 +65,18 @@ impl Store {
     /// 数据库与文件写入遵循“先文件后库”，失败时保留旧状态可恢复。
     pub fn save_note(&self, input: &NoteInput) -> Result<Note, String> {
         let tags = crate::domain::clipboard::validate_note_tags(&input.tags)?;
+        let editor_mode = match input.editor_mode.as_str() {
+            "mindmap" => "mindmap",
+            _ => "text",
+        };
+        let mindmap_data = if editor_mode == "mindmap" {
+            input
+                .mindmap_data
+                .as_deref()
+                .filter(|data| !data.trim().is_empty())
+        } else {
+            None
+        };
         let id = input
             .id
             .clone()
@@ -105,11 +119,11 @@ impl Store {
 
         self.db
             .execute(
-                "INSERT INTO notes(id, content, plain_text, file_path, is_draft, archived_at, created_at, updated_at) \
-                 VALUES(?,?,?,?,?,?,?,?) \
+                "INSERT INTO notes(id, content, plain_text, file_path, is_draft, archived_at, editor_mode, mindmap_data, created_at, updated_at) \
+                 VALUES(?,?,?,?,?,?,?,?,?,?) \
                  ON CONFLICT(id) DO UPDATE SET content=excluded.content, plain_text=excluded.plain_text, \
                    file_path=excluded.file_path, is_draft=excluded.is_draft, archived_at=excluded.archived_at, \
-                   updated_at=excluded.updated_at",
+                   editor_mode=excluded.editor_mode, mindmap_data=excluded.mindmap_data, updated_at=excluded.updated_at",
                 rusqlite::params![
                     id,
                     content,
@@ -117,6 +131,8 @@ impl Store {
                     file_path,
                     input.draft as i64,
                     archived_at,
+                    editor_mode,
+                    mindmap_data,
                     created_at,
                     timestamp
                 ],

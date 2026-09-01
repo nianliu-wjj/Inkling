@@ -448,3 +448,10 @@ tokio 定时任务（每分钟检查 `remind_at <= now`，按带时区时间比�
 18. 主题系统（亮暗 + 毛玻璃材质切换）
 19. WebDAV 同步 Provider
 20. 插件扩展点（command 注册表）
+
+
+## 7. 笔记编辑模式扩展
+
+笔记采用「正文与编辑模式分离」的持久化设计：`notes.editor_mode` 保存 `text` 或 `mindmap`，`notes.mindmap_data` 保存思维导图 JSON，普通 Markdown 仍存储在 `content`/外置 Markdown 文件中。数据库通过版本化迁移为旧笔记补齐 `editor_mode=text` 与空的 `mindmap_data`，保证升级兼容。
+
+前端 `NoteEditor` 负责模式切换，文本模式使用 ProseMirror，思维导图模式使用 `simple-mind-map`。`MindMapEditor` 监听思维导图数据变更并通过 `v-model` 回传，`Panel/NotePage` 在草稿自动保存和归档时将模式、正文、标签与思维导图数据一起提交到 `note_save`。

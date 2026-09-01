@@ -6,13 +6,14 @@ import { history, redo, undo } from 'prosemirror-history'
 import { keymap } from 'prosemirror-keymap'
 import { EditorState } from 'prosemirror-state'
 import { EditorView } from 'prosemirror-view'
-import { onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { logger } from '@/service/logger'
 import { codeBlockNodeView } from './codeblock'
 import { buildInputRules } from './inputrules'
 import { parseMarkdown, serializeMarkdown } from './markdown'
 import { placeholderPlugin } from './placeholder'
 import { marks, noteSchema } from './schema'
+import MindMapEditor from './MindMapEditor.vue'
 
 /**
  * 笔记编辑器：ProseMirror 所见即所得 + 代码块内嵌 CodeMirror。
@@ -24,15 +25,21 @@ const props = withDefaults(
   defineProps<{
     modelValue: string
     placeholder?: string
+    editorMode?: 'text' | 'mindmap'
+    mindmapData?: string | null
   }>(),
   { placeholder: '此刻在想什么？直接写下来… 支持 **Markdown** 即时渲染，右下角管理标签' },
 )
 
 const emit = defineEmits<{
   (e: 'update:modelValue', value: string): void
+  (e: 'update:editorMode', value: 'text' | 'mindmap'): void
+  (e: 'update:mindmapData', value: string): void
   /** 用户按下归档快捷键（⌘/⌃+Enter）。 */
   (e: 'submit'): void
 }>()
+
+const editorMode = computed(() => props.editorMode ?? 'text')
 
 const host = ref<HTMLElement | null>(null)
 let view: EditorView | null = null
@@ -106,7 +113,7 @@ onMounted(() => {
 watch(
   () => props.modelValue,
   (next) => {
-    if (syncing || !view) return
+    if (editorMode.value !== 'text' || syncing || !view) return
     if (serializeMarkdown(view.state.doc) === next) return
     logger.debug('note-editor', '外部内容变更，重建文档')
     view.updateState(createState(next))
@@ -119,6 +126,11 @@ onBeforeUnmount(() => {
   logger.info('note-editor', '编辑器已销毁')
 })
 
+function selectMode(next: 'text' | 'mindmap'): void {
+  if (next === editorMode.value) return
+  emit('update:editorMode', next)
+}
+
 /** 供父组件调用：聚焦编辑器。 */
 function focus(): void {
   view?.focus()
@@ -128,12 +140,71 @@ defineExpose({ focus })
 </script>
 
 <template>
-  <!-- ProseMirror 会把 .editor 类挂到它自己创建的可编辑节点上 -->
-  <div ref="host" class="editor-host" />
+  <div class="note-editor-shell">
+    <div class="note-editor-modebar" role="tablist" aria-label="笔记编辑模式">
+      <button
+        type="button"
+        class="note-editor-mode"
+        :class="{ active: editorMode === 'text' }"
+        role="tab"
+        :aria-selected="editorMode === 'text'"
+        @click="selectMode('text')"
+      >
+        文本
+      </button>
+      <button
+        type="button"
+        class="note-editor-mode"
+        :class="{ active: editorMode === 'mindmap' }"
+        role="tab"
+        :aria-selected="editorMode === 'mindmap'"
+        @click="selectMode('mindmap')"
+      >
+        思维导图
+      </button>
+    </div>
+
+    <div v-show="editorMode === 'text'" ref="host" class="editor-host" />
+    <MindMapEditor
+      v-if="editorMode === 'mindmap'"
+      :model-value="mindmapData ?? null"
+      :placeholder="placeholder"
+      @update:model-value="emit('update:mindmapData', $event)"
+    />
+  </div>
 </template>
 
 <style scoped>
 .editor-host {
   display: contents;
+}
+
+.note-editor-shell {
+  display: flex;
+  min-height: 0;
+  flex: 1;
+  flex-direction: column;
+}
+
+.note-editor-modebar {
+  display: flex;
+  gap: 4px;
+  padding: 4px;
+  border-bottom: 1px solid rgba(var(--wsa), 0.1);
+}
+
+.note-editor-mode {
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-dim);
+  cursor: pointer;
+  font-size: 11px;
+  padding: 5px 10px;
+}
+
+.note-editor-mode.active {
+  background: rgba(var(--accent-rgb), 0.14);
+  color: var(--text);
 }
 </style>

@@ -17,6 +17,8 @@ export type PanelPosition = 'top' | 'bottom' | 'left' | 'right'
 export interface Note {
   id: string
   content: string
+  editor_mode: 'text' | 'mindmap'
+  mindmap_data: string | null
   tags: string[]
   is_draft: boolean
   pinned: boolean
@@ -57,6 +59,8 @@ export interface NoteInput {
   id?: string
   content: string
   tags: string[]
+  editorMode?: 'text' | 'mindmap'
+  mindmapData?: string | null
   draft: boolean
 }
 

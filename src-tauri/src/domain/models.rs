@@ -10,6 +10,12 @@ use serde::{Deserialize, Serialize};
 pub struct Note {
     pub id: String,
     pub content: String,
+    /// text / mindmap。思维导图数据单独保存，避免污染 Markdown 正文。
+    #[serde(default)]
+    pub editor_mode: String,
+    /// simple-mind-map 的 JSON 数据。
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub mindmap_data: Option<String>,
     pub tags: Vec<String>,
     pub is_draft: bool,
     pub pinned: bool,
@@ -60,6 +66,21 @@ pub struct Todo {
     pub updated_at: String,
 }
 
+/// 面板唤出位置：四个方向均以屏幕中线为基准。
+pub fn default_panel_position() -> String {
+    #[cfg(target_os = "windows")]
+    {
+        return "bottom".into();
+    }
+
+    #[cfg(target_os = "macos")]
+    {
+        return "top".into();
+    }
+
+    "top".into()
+}
+
 /// 偏好设置。
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Settings {
@@ -74,6 +95,9 @@ pub struct Settings {
     /// 归档主窗口是否启用毛玻璃（Windows Acrylic / macOS Vibrancy）。
     /// 关闭时窗口退化为不透明实色，见 styles/base.css 的 [data-acrylic="off"]。
     pub main_acrylic: bool,
+    /// top / bottom / left / right；缺少该设置时使用当前平台默认值。
+    #[serde(default = "default_panel_position")]
+    pub panel_position: String,
 }
 
 impl Default for Settings {
@@ -86,6 +110,7 @@ impl Default for Settings {
             remark_style: "mixed".into(),
             theme: "dark".into(),
             main_acrylic: true,
+            panel_position: default_panel_position(),
         }
     }
 }

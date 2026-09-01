@@ -91,6 +91,10 @@ pub struct NotePayload {
     pub id: Option<String>,
     pub content: String,
     pub tags: Vec<String>,
+    #[serde(default)]
+    pub editor_mode: String,
+    #[serde(default)]
+    pub mindmap_data: Option<String>,
     pub draft: bool,
 }
 
@@ -114,6 +118,8 @@ pub fn note_save(
         id: input.id,
         content: input.content,
         tags: input.tags,
+        editor_mode: input.editor_mode,
+        mindmap_data: input.mindmap_data,
         draft: input.draft,
     })?;
     if !note.is_draft {
@@ -436,6 +442,8 @@ pub fn settings_save(
         let _ = app.autolaunch().disable();
     }
     emit_all(&app, events::SETTINGS_CHANGED, settings);
+    // 面板已打开时立即应用新的唤出方向。
+    let _ = windows::reposition_panel(&app);
     Ok(())
 }
 

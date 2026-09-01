@@ -2617,3 +2617,38 @@ mark {
 .pm-codeblock .cm-focused .cm-selectionBackground {
   background: rgba(var(--accent-rgb), 0.25);
 }
+
+/* 思维导图笔记卡片摘要与编辑器画布 */
+.note-mindmap-summary {
+  color: var(--text);
+  font-weight: 600;
+}
+
+.mindmap-editor {
+  flex: 1;
+  min-height: 260px;
+  overflow: hidden;
+  position: relative;
+  border-radius: 8px;
+  background: rgba(var(--wsa), 0.035);
+}
+
+.mindmap-editor .smm-mind-map {
+  background: transparent !important;
+}
+
+/* 归档页头部工具条：搜索框 + 批量导出按钮同一行。
+   原型未设计导出入口，本次按确认的方案落在此处与卡片悬浮功能区。 */
+.archive-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.archive-toolbar .search-input {
+  flex: 1;
+  margin-bottom: 8px;
+}
+.archive-toolbar .btn {
+  flex-shrink: 0;
+  margin-bottom: 8px;
+}
