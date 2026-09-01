@@ -6,14 +6,22 @@ import { history, redo, undo } from 'prosemirror-history'
 import { keymap } from 'prosemirror-keymap'
 import { EditorState } from 'prosemirror-state'
 import { EditorView } from 'prosemirror-view'
-import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, defineAsyncComponent, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { logger } from '@/service/logger'
 import { codeBlockNodeView } from './codeblock'
 import { buildInputRules } from './inputrules'
 import { parseMarkdown, serializeMarkdown } from './markdown'
 import { placeholderPlugin } from './placeholder'
 import { marks, noteSchema } from './schema'
-import MindMapEditor from './MindMapEditor.vue'
+
+/**
+ * 思维导图编辑器按需加载。
+ *
+ * simple-mind-map 体积可观，静态导入会把它压进面板的启动模块图——
+ * 面板对冷启动速度敏感（需求「1 秒原则」），而思维导图只在用户主动切换到
+ * 该模式时才需要。改为异步组件后，未使用时完全不加载。
+ */
+const MindMapEditor = defineAsyncComponent(() => import('./MindMapEditor.vue'))
 
 /**
  * 笔记编辑器：ProseMirror 所见即所得 + 代码块内嵌 CodeMirror。
