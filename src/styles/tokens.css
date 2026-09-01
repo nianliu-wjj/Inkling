@@ -6,29 +6,34 @@
  * ═══════════════════════════════════════════════════════════════════════ */
 
 /* ═══ Inkling 原型样式（毛玻璃暗色系） ═══ */
-* { margin: 0; padding: 0; box-sizing: border-box; user-select: none; }
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  user-select: none;
+}
 :root {
   color-scheme: var(--scheme);
   --radius: 14px;
   /* ── 主题令牌（默认 = 深色；其他主题在文件末尾覆盖） ── */
   --scheme: dark;
-  --wsa: 255,255,255;
+  --wsa: 255, 255, 255;
   --body-bg: radial-gradient(1200px 800px at 30% 20%, #2b3a67, #151826 70%);
-  --glass-bg: rgba(30,34,50,.55);
-  --glass-border: rgba(255,255,255,.12);
-  --glass-shadow: 0 12px 40px rgba(0,0,0,.45), inset 0 1px 0 rgba(255,255,255,.08);
-  --menubar-bg: rgba(20,22,32,.75);
-  --menu-bg: rgba(28,30,44,.92);
-  --tip-bg: rgba(24,26,40,.97);
-  --confirm-bg: rgba(30,32,46,.96);
+  --glass-bg: rgba(30, 34, 50, 0.55);
+  --glass-border: rgba(255, 255, 255, 0.12);
+  --glass-shadow: 0 12px 40px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  --menubar-bg: rgba(20, 22, 32, 0.75);
+  --menu-bg: rgba(28, 30, 44, 0.92);
+  --tip-bg: rgba(24, 26, 40, 0.97);
+  --confirm-bg: rgba(30, 32, 46, 0.96);
   --toggle-bg: #23263a;
   --option-bg: #1e2232;
   --accent: #6c8cff;
-  --accent-rgb: 108,140,255;
-  --hm-base: 108,140,255;
-  --text: rgba(255,255,255,.92);
-  --text-dim: rgba(255,255,255,.5);
-  --text-strong: rgba(255,255,255,.85);
+  --accent-rgb: 108, 140, 255;
+  --hm-base: 108, 140, 255;
+  --text: rgba(255, 255, 255, 0.92);
+  --text-dim: rgba(255, 255, 255, 0.5);
+  --text-strong: rgba(255, 255, 255, 0.85);
   --gold: #ffd76e;
   --red-soft: #ff8a8a;
   --red: #ff5f57;
@@ -37,9 +42,9 @@
   --green: #7ee0a8;
   --pink: #ff9ecd;
   --code-green: #c3e88d;
-  --c-note: 108,140,255;
-  --c-clip: 255,215,110;
-  --c-todo: 126,224,168;
+  --c-note: 108, 140, 255;
+  --c-clip: 255, 215, 110;
+  --c-todo: 126, 224, 168;
   --trend-note: #ff8a8a;
   --trend-clip: #ffd76e;
   --trend-todo: #7ee0a8;
@@ -47,13 +52,15 @@
   --bg-deep: #1a1d29;
 }
 body {
-  font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
+  font-family: -apple-system, 'PingFang SC', 'Microsoft YaHei', sans-serif;
   background: var(--body-bg);
   color: var(--text);
   height: 100vh;
   overflow: hidden;
 }
-.hidden { display: none !important; }
+.hidden {
+  display: none !important;
+}
 .glass {
   background: var(--glass-bg);
   backdrop-filter: blur(24px) saturate(160%);
@@ -63,17 +70,44 @@ body {
   border-radius: var(--radius);
 }
 kbd {
-  background: rgba(var(--wsa), .12); border: 1px solid rgba(var(--wsa), .18);
-  border-radius: 5px; padding: 1px 6px; font-size: 11px; font-family: inherit;
+  background: rgba(var(--wsa), 0.12);
+  border: 1px solid rgba(var(--wsa), 0.18);
+  border-radius: 5px;
+  padding: 1px 6px;
+  font-size: 11px;
+  font-family: inherit;
 }
-button { font-family: inherit; }
+button {
+  font-family: inherit;
+}
 .btn {
-  background: rgba(var(--wsa), .12); color: var(--text); border: 1px solid rgba(var(--wsa), .15);
-  border-radius: 8px; padding: 6px 14px; font-size: 13px; cursor: pointer; transition: all .15s;
+  background: rgba(var(--wsa), 0.12);
+  color: var(--text);
+  border: 1px solid rgba(var(--wsa), 0.15);
+  border-radius: 8px;
+  padding: 6px 14px;
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.15s;
 }
-.btn:hover { background: rgba(var(--wsa), .22); }
-.btn.primary { background: var(--accent); border-color: transparent; font-weight: 600; color: #fff; }
-.btn.primary:hover { filter: brightness(1.15); }
-.btn.tiny { padding: 3px 10px; font-size: 12px; border-radius: 6px; }
-.btn.ghost { background: transparent; border-color: rgba(var(--wsa), .2); }
-
+.btn:hover {
+  background: rgba(var(--wsa), 0.22);
+}
+.btn.primary {
+  background: var(--accent);
+  border-color: transparent;
+  font-weight: 600;
+  color: #fff;
+}
+.btn.primary:hover {
+  filter: brightness(1.15);
+}
+.btn.tiny {
+  padding: 3px 10px;
+  font-size: 12px;
+  border-radius: 6px;
+}
+.btn.ghost {
+  background: transparent;
+  border-color: rgba(var(--wsa), 0.2);
+}
