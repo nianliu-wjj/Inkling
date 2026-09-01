@@ -74,10 +74,24 @@
   flex-direction: column;
 }
 
-/* ═══ 侧边栏折叠态：底部按钮需要贴底 ═══
+/* ═══ 侧边栏：底部按钮必须始终贴底且不被压缩 ═══
  * 展开态靠 .mini-heat 的 margin-top: auto 把 .side-foot 顶到底部；
  * 折叠态下 .mini-heat 被隐藏，auto 外边距随之消失，按钮会浮在导航项下方。
- * 这里给 .side-foot 自身补上 margin-top: auto 兜底。 */
-.archive-side.collapsed .side-foot {
+ * 此外 .archive-side 是 column flex 容器，内容一旦超高，flex 默认会压缩
+ * 子项——.side-foot 可能被压成 0 高度而「凭空消失」。
+ * 因此同时固定三件事：容器满高、底部区不可压缩、折叠态补 auto 外边距。 */
+.archive-side {
+  height: 100%;
+  overflow: hidden;
+}
+.archive-side .side-nav,
+.archive-side .side-foot {
+  flex-shrink: 0;
+}
+.archive-side .side-foot {
   margin-top: auto;
+}
+/* 折叠态隐藏迷你热力图，交由 .side-foot 自身的 auto 外边距顶到底部。 */
+.archive-side.collapsed .mini-heat {
+  display: none;
 }

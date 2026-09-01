@@ -64,13 +64,14 @@ pub fn create_core_windows(app: &AppHandle, silent: bool) -> tauri::Result<()> {
     let _ = hotzone.set_ignore_cursor_events(false);
 
     // panel：预创建常驻隐藏，呼出只做 show + focus。
-    let position = app
+    // 一次性读出建窗需要的偏好设置，避免为每项各锁一次 store。
+    let (position, main_acrylic) = app
         .state::<AppState>()
         .lock_store()
         .ok()
         .and_then(|store| store.get_settings().ok())
-        .map(|settings| settings.panel_position)
-        .unwrap_or_else(|| "top".into());
+        .map(|settings| (settings.panel_position, settings.main_acrylic))
+        .unwrap_or_else(|| ("top".into(), true));
     let (px, py) = panel_position(&monitor, PANEL_WIDTH, PANEL_MAX_HEIGHT, &position);
     let panel = WebviewWindowBuilder::new(app, "panel", WebviewUrl::App("panel.html".into()))
         .title("Inkling Panel")
@@ -91,7 +92,9 @@ pub fn create_core_windows(app: &AppHandle, silent: bool) -> tauri::Result<()> {
     if let Some(main) = app.get_webview_window("main") {
         // 主窗口是唯一允许出现在任务栏中的窗口。
         let _ = main.set_skip_taskbar(false);
-        crate::platform::apply_main_backdrop(&main);
+        // 按偏好设置应用毛玻璃：窗口以 transparent 创建，若不显式应用效果层，
+        // 主窗口会是「透明但无背景」，直接透出桌面内容。
+        crate::platform::apply_main_backdrop(&main, main_acrylic);
         if !silent {
             let _ = main.show();
             let _ = main.set_focus();
@@ -139,40 +142,15 @@ fn panel_position(monitor: &tauri::Monitor, width: f64, height: f64, position: &
 /// 呼出面板：定位到光标所在屏顶部居中，show + focus，并屏蔽感应区防止误触。
 /// 对指定窗口应用或撤销毛玻璃效果。
 ///
-/// Windows 走 Acrylic，macOS 走 Vibrancy（HudWindow），Linux 无对应实现直接跳过。
+/// 实现统一收敛在 `crate::platform::apply_backdrop`，此处只做转发，
+/// 避免窗口层与平台层各维护一套效果逻辑。
+///
 /// 注意：效果能否可见取决于窗口创建时是否设置了 `transparent(true)`——
-/// 该属性是创建期属性，运行时不可更改；而这里的 apply/clear 是运行时可调的，
+/// 该属性是创建期属性，运行时不可更改；而 apply/clear 是运行时可调的，
 /// 这正是「毛玻璃开关」无需销毁重建窗口即可即时生效的原因。
 pub fn apply_window_effect(window: &tauri::WebviewWindow, enabled: bool) -> Result<(), String> {
-    #[cfg(target_os = "windows")]
-    {
-        use window_vibrancy::{apply_acrylic, clear_acrylic};
-        let result = if enabled {
-            apply_acrylic(window, Some((18, 18, 24, 125)))
-        } else {
-            clear_acrylic(window)
-        };
-        // 不支持的系统版本只记录，不阻断——前端仍会切换 data-acrylic 降级配色。
-        if let Err(error) = result {
-            eprintln!("[windows] 应用毛玻璃失败（将降级为实色）：{error}");
-        }
-        return Ok(());
-    }
-
-    #[cfg(target_os = "macos")]
-    {
-        use window_vibrancy::{apply_vibrancy, NSVisualEffectMaterial};
-        if enabled {
-            let _ = apply_vibrancy(window, NSVisualEffectMaterial::HudWindow, None, None);
-        }
-        return Ok(());
-    }
-
-    #[cfg(not(any(target_os = "windows", target_os = "macos")))]
-    {
-        let _ = (window, enabled);
-        Ok(())
-    }
+    crate::platform::apply_backdrop(window, enabled);
+    Ok(())
 }
 
 /// 切换归档主窗口的毛玻璃（偏好设置项）。

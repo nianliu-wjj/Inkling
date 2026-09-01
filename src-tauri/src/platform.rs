@@ -2,65 +2,63 @@
 
 use tauri::WebviewWindow;
 
-/// 为呼出面板应用毛玻璃（Windows: Mica/Acrylic；macOS: 深色 HudWindow）。
-pub fn apply_panel_effects(window: &WebviewWindow) {
+/// 为窗口应用（或撤销）背景效果。
+///
+/// Windows：优先 Mica（Win11），失败则回退 Acrylic（Win10+），再失败则保持透明。
+/// 这里**不做系统版本探测**——`apply_mica` 在不支持的系统上会返回 Err，
+/// 直接以返回值为准比版本号判断更可靠（此前的版本探测读取一个从未设置的
+/// 环境变量并硬编码回退为 Win10，导致 Win11 上毛玻璃始终不生效）。
+///
+/// macOS：使用深色 HudWindow 材质。
+/// 其他平台：无对应实现，保持透明，由 CSS 的 `[data-acrylic="off"]` 降级配色兜底。
+pub fn apply_backdrop(window: &WebviewWindow, enabled: bool) {
     #[cfg(target_os = "windows")]
     {
-        use window_vibrancy::{apply_acrylic, apply_mica};
-        let result = if crate::platform::windows_supports_mica() {
-            apply_mica(window, None)
-        } else {
-            apply_acrylic(window, Some((18, 18, 28, 200)))
-        };
-        if result.is_err() {
-            // 效果失败不影响功能，仅回退为透明背景。
-            let _ = result;
+        use window_vibrancy::{apply_acrylic, apply_mica, clear_acrylic, clear_mica};
+
+        if !enabled {
+            // 两种效果都尝试清除：此前可能应用的是其中任意一种。
+            let _ = clear_mica(window);
+            let _ = clear_acrylic(window);
+            return;
+        }
+
+        if apply_mica(window, None).is_ok() {
+            return;
+        }
+        // Mica 不可用（Win10 或系统策略禁用）时回退 Acrylic。
+        if let Err(error) = apply_acrylic(window, Some((18, 18, 28, 200))) {
+            eprintln!("[platform] 毛玻璃不可用，窗口将保持透明：{error}");
         }
     }
+
     #[cfg(target_os = "macos")]
     {
         use window_vibrancy::{apply_vibrancy, NSVisualEffectMaterial, NSVisualEffectState};
-        let _ = apply_vibrancy(
-            window,
-            NSVisualEffectMaterial::HudWindow,
-            Some(NSVisualEffectState::Active),
-            None,
-        );
-    }
-    #[cfg(not(any(target_os = "windows", target_os = "macos")))]
-    {
-        let _ = window;
-    }
-}
-
-/// 主窗口背景（Windows 11 使用 Mica 弱化背景层次）。
-pub fn apply_main_backdrop(window: &WebviewWindow) {
-    #[cfg(target_os = "windows")]
-    {
-        if crate::platform::windows_supports_mica() {
-            let _ = window_vibrancy::apply_mica(window, None);
+        if enabled {
+            let _ = apply_vibrancy(
+                window,
+                NSVisualEffectMaterial::HudWindow,
+                Some(NSVisualEffectState::Active),
+                None,
+            );
         }
     }
-    #[cfg(not(target_os = "windows"))]
+
+    #[cfg(not(any(target_os = "windows", target_os = "macos")))]
     {
-        let _ = window;
+        let _ = (window, enabled);
     }
 }
 
-#[cfg(target_os = "windows")]
-pub fn windows_supports_mica() -> bool {
-    // Windows 11 build 22000+ 支持 Mica；使用操作系统版本号粗略判定。
-    windows_build() >= 22000
+/// 为呼出面板应用毛玻璃。面板始终启用效果，不受主窗口开关影响。
+pub fn apply_panel_effects(window: &WebviewWindow) {
+    apply_backdrop(window, true);
 }
 
-#[cfg(target_os = "windows")]
-fn windows_build() -> u32 {
-    // 避免引入额外 crate：通过环境变量不可靠，使用 PowerShell 会引入启动开销；
-    // 解析 RUST_WIN_BUILD 环境变量失败时按 Win10 处理（Acrylic 回退）。
-    std::env::var("INKLING_WIN_BUILD")
-        .ok()
-        .and_then(|v| v.parse().ok())
-        .unwrap_or(19045)
+/// 主窗口背景。是否启用由偏好设置 `main_acrylic` 决定。
+pub fn apply_main_backdrop(window: &WebviewWindow, enabled: bool) {
+    apply_backdrop(window, enabled);
 }
 
 /// 当前是否为静默启动（开机自启）。
