@@ -70,6 +70,7 @@ fn main() {
             ipc::show_main,
             ipc::hide_main,
             ipc::quit_app,
+            ipc::set_main_acrylic,
             ipc::pin_create,
             ipc::pin_close,
             ipc::pin_set_editing,

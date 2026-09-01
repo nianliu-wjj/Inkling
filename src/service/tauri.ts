@@ -21,6 +21,8 @@ export const api = {
     showMain: (view: string) => invoke<void>('show_main', { view }),
     hideMain: () => invoke<void>('hide_main'),
     quit: () => invoke<void>('quit_app'),
+    /** 切换归档主窗口毛玻璃（运行时可调，无需重建窗口）。 */
+    setMainAcrylic: (enabled: boolean) => invoke<void>('set_main_acrylic', { enabled }),
     pinCreate: (kind: 'note' | 'todo' | 'clip', id: string) => invoke<void>('pin_create', { kind, id }),
     pinClose: (label: string) => invoke<void>('pin_close', { label }),
     pinSetEditing: (label: string, expanded: boolean) => invoke<void>('pin_set_editing', { label, expanded }),

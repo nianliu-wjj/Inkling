@@ -71,6 +71,9 @@ pub struct Settings {
     /// mixed / icon / text
     pub remark_style: String,
     pub theme: String,
+    /// 归档主窗口是否启用毛玻璃（Windows Acrylic / macOS Vibrancy）。
+    /// 关闭时窗口退化为不透明实色，见 styles/base.css 的 [data-acrylic="off"]。
+    pub main_acrylic: bool,
 }
 
 impl Default for Settings {
@@ -82,6 +85,7 @@ impl Default for Settings {
             shortcut: "Ctrl+Shift+Space".into(),
             remark_style: "mixed".into(),
             theme: "dark".into(),
+            main_acrylic: true,
         }
     }
 }

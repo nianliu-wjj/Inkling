@@ -22,6 +22,7 @@ const DEFAULT_SETTINGS: Settings = {
   shortcut: 'Ctrl+Shift+Space',
   remark_style: 'mixed',
   theme: 'dark',
+  main_acrylic: true,
 }
 
 const notes = ref<Note[]>([])

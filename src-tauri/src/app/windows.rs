@@ -108,6 +108,50 @@ fn top_center_offset(monitor: &tauri::Monitor, width: f64, offset: f64) -> (f64,
 }
 
 /// 呼出面板：定位到光标所在屏顶部居中，show + focus，并屏蔽感应区防止误触。
+/// 对指定窗口应用或撤销毛玻璃效果。
+///
+/// Windows 走 Acrylic，macOS 走 Vibrancy（HudWindow），Linux 无对应实现直接跳过。
+/// 注意：效果能否可见取决于窗口创建时是否设置了 `transparent(true)`——
+/// 该属性是创建期属性，运行时不可更改；而这里的 apply/clear 是运行时可调的，
+/// 这正是「毛玻璃开关」无需销毁重建窗口即可即时生效的原因。
+pub fn apply_window_effect(window: &tauri::WebviewWindow, enabled: bool) -> Result<(), String> {
+    #[cfg(target_os = "windows")]
+    {
+        use window_vibrancy::{apply_acrylic, clear_acrylic};
+        let result = if enabled {
+            apply_acrylic(window, Some((18, 18, 24, 125)))
+        } else {
+            clear_acrylic(window)
+        };
+        // 不支持的系统版本只记录，不阻断——前端仍会切换 data-acrylic 降级配色。
+        if let Err(error) = result {
+            eprintln!("[windows] 应用毛玻璃失败（将降级为实色）：{error}");
+        }
+        return Ok(());
+    }
+
+    #[cfg(target_os = "macos")]
+    {
+        use window_vibrancy::{apply_vibrancy, NSVisualEffectMaterial};
+        if enabled {
+            let _ = apply_vibrancy(window, NSVisualEffectMaterial::HudWindow, None, None);
+        }
+        return Ok(());
+    }
+
+    #[cfg(not(any(target_os = "windows", target_os = "macos")))]
+    {
+        let _ = (window, enabled);
+        Ok(())
+    }
+}
+
+/// 切换归档主窗口的毛玻璃（偏好设置项）。
+pub fn set_main_acrylic(app: &AppHandle, enabled: bool) -> Result<(), String> {
+    let window = app.get_webview_window("main").ok_or("主窗口不存在")?;
+    apply_window_effect(&window, enabled)
+}
+
 pub fn panel_show(app: &AppHandle) -> Result<(), String> {
     let panel = app.get_webview_window("panel").ok_or("面板窗口未初始化")?;
     let monitor = cursor_monitor(app).ok_or("未找到可用显示器")?;

@@ -34,6 +34,11 @@ impl Store {
                 .cloned()
                 .unwrap_or(defaults.remark_style),
             theme: values.get("theme").cloned().unwrap_or(defaults.theme),
+            // 缺省视为开启，与 Settings::default 一致。
+            main_acrylic: values
+                .get("main_acrylic")
+                .map(|x| x == "true")
+                .unwrap_or(defaults.main_acrylic),
         })
     }
 
@@ -48,6 +53,7 @@ impl Store {
             ("shortcut", settings.shortcut.clone()),
             ("remark_style", settings.remark_style.clone()),
             ("theme", settings.theme.clone()),
+            ("main_acrylic", settings.main_acrylic.to_string()),
         ] {
             self.db
                 .execute(

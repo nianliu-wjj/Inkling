@@ -43,6 +43,15 @@ pub fn hide_main(app: AppHandle) -> Result<(), String> {
     windows::hide_main(&app)
 }
 
+/// 切换归档主窗口的毛玻璃效果（偏好设置项）。
+///
+/// 运行时可调，无需销毁重建窗口——窗口在 tauri.conf.json 中已声明
+/// transparent: true（创建期属性），此处只负责 apply/clear 效果层。
+#[tauri::command]
+pub fn set_main_acrylic(app: AppHandle, enabled: bool) -> Result<(), String> {
+    crate::app::windows::set_main_acrylic(&app, enabled)
+}
+
 #[tauri::command]
 pub fn quit_app(app: AppHandle) -> Result<(), String> {
     windows::quit_app(&app);

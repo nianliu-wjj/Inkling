@@ -87,6 +87,8 @@ export interface Settings {
   shortcut: string
   remark_style: RemarkStyle
   theme: string
+  /** 归档主窗口是否启用毛玻璃；关闭时退化为不透明实色。 */
+  main_acrylic: boolean
 }
 
 export interface ActivityDay {
