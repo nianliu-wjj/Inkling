@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, nextTick, onMounted, ref } from 'vue'
 import ModalShell from '@/components/base/ModalShell.vue'
 import TagChip from '@/components/tag/TagChip.vue'
 import { useShakeConfirm } from '@/composables/useShakeConfirm'
@@ -19,7 +19,8 @@ import { fromDateAndTimeInputs, toDateAndTimeInputs, todayKey } from '@/utils/da
  *   编辑既有事项不设下限；历史日期补录允许并提示；
  * - 子任务完成时间不得晚于父待办（提交前拦截）。
  */
-type Mode = 'create' | 'edit' | 'remind' | 'child'
+type Mode = 'create' | 'edit' | 'child'
+type Focus = 'content' | 'due' | 'remind'
 
 const props = withDefaults(
   defineProps<{
@@ -30,8 +31,9 @@ const props = withDefaults(
     parent?: Todo | null
     /** 归档页在历史日期新增时预填该日期（YYYY-MM-DD）。 */
     presetDate?: string
+    focus?: Focus
   }>(),
-  { todo: null, parent: null, presetDate: '' },
+  { todo: null, parent: null, presetDate: '', focus: 'content' },
 )
 
 const emit = defineEmits<{
@@ -54,6 +56,9 @@ const initialDue = props.todo ? toDateAndTimeInputs(props.todo.due_at) : default
 const initialRemind = toDateAndTimeInputs(props.todo?.remind_at ?? null)
 
 const content = ref(props.todo?.content ?? '')
+const contentInput = ref<HTMLInputElement | null>(null)
+const dueTimeInput = ref<HTMLInputElement | null>(null)
+const remindTimeInput = ref<HTMLInputElement | null>(null)
 const tags = ref<string[]>([...(props.todo?.tags ?? [])])
 const tagInput = ref('')
 const remark = ref(props.todo?.remark ?? '')
@@ -63,8 +68,9 @@ const remindDate = ref(initialRemind.date)
 const remindTime = ref(initialRemind.time)
 const priority = ref<Priority>((props.todo?.priority as Priority) ?? 'medium')
 
-/** 提醒模式：除提醒时间外全部只读。 */
-const remindOnly = computed(() => props.mode === 'remind')
+/** 已完成事项只允许编辑备注，约束由前后端共同执行。 */
+const completedOnly = computed(() => props.todo?.status === 'done')
+const fieldsDisabled = computed(() => completedOnly.value)
 /** 新建（含子任务）时锁定日期下限为今天。 */
 const isNew = computed(() => props.mode === 'create' || props.mode === 'child')
 const minDate = computed(() => (isNew.value && !props.presetDate ? todayKey() : ''))
@@ -75,18 +81,24 @@ const title = computed(() => {
       return '✏️ 新增待办'
     case 'child':
       return '✏️ 新增子任务'
-    case 'remind':
-      return '⏰ 设置提醒'
     default:
       return '✏️ 编辑待办'
   }
 })
 
 const hint = computed(() => {
-  if (remindOnly.value) return '提醒模式下仅可修改提醒时间，其余字段已锁定'
+  if (completedOnly.value) return '已完成待办仅允许修改备注'
   if (props.presetDate && props.presetDate < todayKey()) return '历史日期补录：将归入所选日期'
   if (props.mode === 'child') return '子任务的完成时间不能晚于父待办'
   return '完成时间为必填；提醒时间留空时使用默认提醒计划'
+})
+
+onMounted(() => {
+  void nextTick(() => {
+    if (props.focus === 'due') dueTimeInput.value?.focus()
+    else if (props.focus === 'remind') remindTimeInput.value?.focus()
+    else contentInput.value?.focus()
+  })
 })
 
 function addTag(): void {
@@ -167,7 +179,13 @@ function save(): void {
 
 <template>
   <ModalShell overlay-id="todoEditorOverlay" modal-id="todoEditorModal" :title="title" @close="emit('close')">
-    <input v-model="content" class="search-input" placeholder="待办内容…" :disabled="remindOnly" />
+    <input
+      ref="contentInput"
+      v-model="content"
+      class="search-input"
+      placeholder="待办内容…"
+      :disabled="fieldsDisabled"
+    />
 
     <div class="te-tags-row">
       <span class="te-label">标签</span>
@@ -177,7 +195,7 @@ function save(): void {
           :key="tag"
           :label="tag"
           :shaking="shake.isArmed(tag)"
-          :deletable="!remindOnly"
+          :deletable="!fieldsDisabled"
           @remove="removeTag(tag)"
         />
         <span v-if="!tags.length" class="te-tags-empty">暂无标签</span>
@@ -188,7 +206,7 @@ function save(): void {
       class="search-input te-tag-input"
       placeholder="输入标签回车添加（最多 3 个 · 每个 10 字）"
       maxlength="10"
-      :disabled="remindOnly"
+      :disabled="fieldsDisabled"
       @keydown.enter.prevent="addTag"
     />
 
@@ -200,7 +218,6 @@ function save(): void {
         maxlength="200"
         rows="2"
         placeholder="补充说明…（选填，最多 200 字）"
-        :disabled="remindOnly"
       />
       <span class="te-remark-count">{{ remark.length }}/200</span>
     </div>
@@ -208,29 +225,29 @@ function save(): void {
     <div class="todo-editor-grid">
       <label class="te-field">
         完成日期
-        <input v-model="dueDate" type="date" :min="minDate" :disabled="remindOnly" />
+        <input v-model="dueDate" type="date" :min="minDate" :disabled="fieldsDisabled" />
       </label>
       <label class="te-field">
         完成时间
-        <input v-model="dueTime" type="time" :disabled="remindOnly" />
+        <input ref="dueTimeInput" v-model="dueTime" type="time" :disabled="fieldsDisabled" />
       </label>
     </div>
 
     <div class="todo-editor-grid">
       <label class="te-field">
         提醒日期（选填）
-        <input v-model="remindDate" type="date" />
+        <input v-model="remindDate" type="date" :disabled="fieldsDisabled" />
       </label>
       <label class="te-field">
         提醒时间（选填）
-        <input v-model="remindTime" type="time" />
+        <input ref="remindTimeInput" v-model="remindTime" type="time" :disabled="fieldsDisabled" />
       </label>
     </div>
 
     <div class="todo-editor-grid">
       <label class="te-field">
         优先级
-        <select v-model="priority" :disabled="remindOnly">
+        <select v-model="priority" :disabled="fieldsDisabled">
           <option value="high">🔴 高</option>
           <option value="medium">🟡 中</option>
           <option value="low">🟢 低</option>

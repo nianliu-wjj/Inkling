@@ -91,8 +91,26 @@ impl Store {
             .clone()
             .unwrap_or_else(|| uuid::Uuid::new_v4().to_string());
         let old = self.todo(&id).ok();
-        if old.as_ref().is_some_and(|x| x.status == "done") {
-            return Err("已完成待办不可编辑".into());
+        if let Some(existing) = old.as_ref().filter(|todo| todo.status == "done") {
+            let same_configuration = existing.content == input.content.trim()
+                && existing.due_at == input.due_at
+                && existing.remind_at.as_deref().unwrap_or("")
+                    == input.remind_at.as_deref().unwrap_or("")
+                && existing.repeat_rule.as_deref().unwrap_or("")
+                    == input.repeat_rule.as_deref().unwrap_or("")
+                && existing.priority == input.priority
+                && existing.parent_id == input.parent_id
+                && existing.tags == input.tags;
+            if !same_configuration {
+                return Err("已完成待办仅允许修改备注".into());
+            }
+            self.db
+                .execute(
+                    "UPDATE todos SET remark=?, updated_at=? WHERE id=?",
+                    rusqlite::params![input.remark, now(), id],
+                )
+                .map_err(db_err)?;
+            return self.todo(&id);
         }
         let is_new = old.is_none();
         if is_new && !input.allow_past {
@@ -227,14 +245,30 @@ impl Store {
     /// 向上联动：完成最后一个未完成子任务时，父待办自动完成。
     pub fn complete_todo(&self, id: &str, completed: bool) -> Result<Vec<Todo>, String> {
         let todo = self.todo(id)?;
-        if !completed && todo.status == "done" {
-            return Err("已完成待办不可取消完成".into());
-        }
         if completed && todo.status == "done" {
             return Err("已完成待办不可重复完成".into());
         }
+        if !completed && todo.status == "open" {
+            return Err("待办尚未完成".into());
+        }
         let timestamp = now();
         let tx = self.tx()?;
+        if !completed {
+            tx.execute(
+                "UPDATE todos SET status='open', completed_at=NULL, remind_off=0, updated_at=? WHERE id=?",
+                rusqlite::params![timestamp, id],
+            )
+            .map_err(db_err)?;
+            if let Some(parent_id) = &todo.parent_id {
+                tx.execute(
+                    "UPDATE todos SET status='open', completed_at=NULL, remind_off=0, updated_at=? WHERE id=? AND status='done'",
+                    rusqlite::params![timestamp, parent_id],
+                )
+                .map_err(db_err)?;
+            }
+            tx.commit().map_err(db_err)?;
+            return self.list_todos();
+        }
         tx.execute(
             "UPDATE todos SET status='done', completed_at=?, remind_off=1, updated_at=? WHERE id=?",
             rusqlite::params![timestamp, timestamp, id],

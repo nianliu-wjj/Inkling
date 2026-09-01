@@ -6,7 +6,7 @@ import { useTheme } from '@/composables/useTheme'
 import { themes } from '@/constants/themes'
 import { logger } from '@/service/logger'
 import { api } from '@/service/tauri'
-import type { CollapsePolicy, RemarkStyle, Settings } from '@/typings/domain'
+import type { CollapsePolicy, PanelPosition, RemarkStyle, Settings } from '@/typings/domain'
 
 /**
  * 归档 · 偏好设置页。
@@ -168,6 +168,19 @@ async function openDataDir(): Promise<void> {
           <option value="mixed">混合模式（超 100 字用图标）</option>
           <option value="icon">图标徽章 + 悬浮</option>
           <option value="text">置灰文本行</option>
+        </select>
+      </label>
+
+      <label class="setting-row">
+        <span>面板唤出位置</span>
+        <select
+          :value="settings.panel_position"
+          @change="patch({ panel_position: ($event.target as HTMLSelectElement).value as PanelPosition })"
+        >
+          <option value="top">顶部居中</option>
+          <option value="bottom">底部居中</option>
+          <option value="left">左侧居中</option>
+          <option value="right">右侧居中</option>
         </select>
       </label>
 

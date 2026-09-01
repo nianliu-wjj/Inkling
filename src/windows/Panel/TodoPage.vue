@@ -29,9 +29,10 @@ const priorityFilter = ref<'all' | Priority>('all')
 
 /** 编辑弹窗状态。 */
 const editor = ref<{
-  mode: 'create' | 'edit' | 'remind' | 'child'
+  mode: 'create' | 'edit' | 'child'
   todo: Todo | null
   parent: Todo | null
+  focus: 'content' | 'due' | 'remind'
 } | null>(null)
 
 /**
@@ -86,11 +87,12 @@ const filtered = computed(() => {
 })
 
 function openEditor(
-  mode: 'create' | 'edit' | 'remind' | 'child',
+  mode: 'create' | 'edit' | 'child',
   todo: Todo | null = null,
   parent: Todo | null = null,
+  focus: 'content' | 'due' | 'remind' = 'content',
 ): void {
-  editor.value = { mode, todo, parent }
+  editor.value = { mode, todo, parent, focus }
   emit('modal', true)
 }
 
@@ -178,8 +180,8 @@ async function removeTodo(todo: Todo): Promise<void> {
       :remark-style="settings.remark_style"
       @toggle-done="toggleDone"
       @edit="openEditor('edit', $event)"
-      @edit-due="openEditor('edit', $event)"
-      @edit-remind="openEditor('remind', $event)"
+      @edit-due="openEditor('edit', $event, null, 'due')"
+      @edit-remind="openEditor('edit', $event, null, 'remind')"
       @add-sub="openEditor('child', null, $event)"
       @open-tags="openEditor('edit', $event)"
       @priority="changePriority"

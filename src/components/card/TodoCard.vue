@@ -20,7 +20,7 @@ import { isOverdue } from '@/utils/todo'
  * - 底部一行：左侧标签 + 完成时间徽章（常显），右侧操作区 ⏰/＋子任务/✏️（悬浮显示）；
  * - 子任务与父级同构，仅不显示「＋子任务」。
  *
- * **已完成事项一律不可修改**（含取消勾选），交互一律拦截并提示。
+ * **已完成事项仅允许修改备注；恢复未完成必须二次确认。
  */
 const props = withDefaults(
   defineProps<{
@@ -115,7 +115,7 @@ function onPriority(anchor: HTMLElement): void {
           >▸</span
         >
 
-        <span class="checkbox" :title="done ? '已完成事项不可取消完成' : '标记完成'" @click.stop="emit('toggle-done')">
+        <span class="checkbox" :title="done ? '恢复为未完成（需确认）' : '标记完成'" @click.stop="emit('toggle-done')">
           <template v-if="done">✓</template>
         </span>
 

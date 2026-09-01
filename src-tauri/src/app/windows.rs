@@ -64,7 +64,14 @@ pub fn create_core_windows(app: &AppHandle, silent: bool) -> tauri::Result<()> {
     let _ = hotzone.set_ignore_cursor_events(false);
 
     // panel：预创建常驻隐藏，呼出只做 show + focus。
-    let (px, py) = top_center(&monitor, PANEL_WIDTH, 6.0);
+    let position = app
+        .state::<AppState>()
+        .lock_store()
+        .ok()
+        .and_then(|store| store.get_settings().ok())
+        .map(|settings| settings.panel_position)
+        .unwrap_or_else(|| "top".into());
+    let (px, py) = panel_position(&monitor, PANEL_WIDTH, PANEL_MAX_HEIGHT, &position);
     let panel = WebviewWindowBuilder::new(app, "panel", WebviewUrl::App("panel.html".into()))
         .title("Inkling Panel")
         .inner_size(PANEL_WIDTH, PANEL_MAX_HEIGHT)
@@ -105,6 +112,28 @@ fn top_center(monitor: &tauri::Monitor, width: f64, top_offset: f64) -> (f64, f6
 /// 屏幕顶部居中 + 竖直方向偏移。
 fn top_center_offset(monitor: &tauri::Monitor, width: f64, offset: f64) -> (f64, f64) {
     top_center(monitor, width, offset)
+}
+
+/// 计算面板从显示器四边中点唤出的逻辑坐标。
+fn panel_position(monitor: &tauri::Monitor, width: f64, height: f64, position: &str) -> (f64, f64) {
+    let scale = monitor.scale_factor();
+    let work = monitor.work_area();
+    let left = work.position.x as f64 / scale;
+    let top = work.position.y as f64 / scale;
+    let work_width = work.size.width as f64 / scale;
+    let work_height = work.size.height as f64 / scale;
+    match position {
+        "bottom" => (
+            left + (work_width - width) / 2.0,
+            top + work_height - height - 6.0,
+        ),
+        "left" => (left + 6.0, top + (work_height - height) / 2.0),
+        "right" => (
+            left + work_width - width - 6.0,
+            top + (work_height - height) / 2.0,
+        ),
+        _ => (left + (work_width - width) / 2.0, top + 6.0),
+    }
 }
 
 /// 呼出面板：定位到光标所在屏顶部居中，show + focus，并屏蔽感应区防止误触。
@@ -152,11 +181,24 @@ pub fn set_main_acrylic(app: &AppHandle, enabled: bool) -> Result<(), String> {
     apply_window_effect(&window, enabled)
 }
 
-pub fn panel_show(app: &AppHandle) -> Result<(), String> {
+/// 根据当前偏好将已创建的面板移动到对应屏幕边缘。
+pub fn reposition_panel(app: &AppHandle) -> Result<(), String> {
     let panel = app.get_webview_window("panel").ok_or("面板窗口未初始化")?;
     let monitor = cursor_monitor(app).ok_or("未找到可用显示器")?;
-    let (x, y) = top_center(&monitor, PANEL_WIDTH, 6.0);
-    let _ = panel.set_position(LogicalPosition::new(x, y));
+    let settings = app.state::<AppState>().lock_store()?.get_settings()?;
+    let size = panel
+        .inner_size()
+        .map(|value| value.to_logical::<f64>(monitor.scale_factor()))
+        .unwrap_or(LogicalSize::new(PANEL_WIDTH, PANEL_MAX_HEIGHT));
+    let (x, y) = panel_position(&monitor, PANEL_WIDTH, size.height, &settings.panel_position);
+    panel
+        .set_position(LogicalPosition::new(x, y))
+        .map_err(|e| e.to_string())
+}
+
+pub fn panel_show(app: &AppHandle) -> Result<(), String> {
+    let panel = app.get_webview_window("panel").ok_or("面板窗口未初始化")?;
+    reposition_panel(app)?;
     let _ = panel.show();
     let _ = panel.unminimize();
     let _ = panel.set_focus();
@@ -184,6 +226,14 @@ pub fn panel_resize(app: &AppHandle, height: f64) -> Result<(), String> {
     let panel = app.get_webview_window("panel").ok_or("面板窗口未初始化")?;
     let clamped = height.clamp(PANEL_MIN_HEIGHT, PANEL_MAX_HEIGHT);
     let _ = panel.set_size(LogicalSize::new(PANEL_WIDTH, clamped));
+    let monitor = cursor_monitor(app).ok_or("未找到可用显示器")?;
+    let position = app
+        .state::<AppState>()
+        .lock_store()?
+        .get_settings()?
+        .panel_position;
+    let (x, y) = panel_position(&monitor, PANEL_WIDTH, clamped, &position);
+    let _ = panel.set_position(LogicalPosition::new(x, y));
     Ok(())
 }
 

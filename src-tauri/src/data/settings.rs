@@ -39,6 +39,10 @@ impl Store {
                 .get("main_acrylic")
                 .map(|x| x == "true")
                 .unwrap_or(defaults.main_acrylic),
+            panel_position: values
+                .get("panel_position")
+                .cloned()
+                .unwrap_or(defaults.panel_position),
         })
     }
 
@@ -54,6 +58,7 @@ impl Store {
             ("remark_style", settings.remark_style.clone()),
             ("theme", settings.theme.clone()),
             ("main_acrylic", settings.main_acrylic.to_string()),
+            ("panel_position", settings.panel_position.clone()),
         ] {
             self.db
                 .execute(

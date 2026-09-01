@@ -27,6 +27,7 @@ const content = ref('')
 
 /** 顺延选项：分钟数，或 tomorrow 表示明天上午 9:00。 */
 const SNOOZE_OPTIONS = [
+  { value: 'done', label: '已完成' },
   { value: '10', label: '10 分钟后' },
   { value: '30', label: '30 分钟后' },
   { value: '60', label: '1 小时后' },
@@ -58,6 +59,16 @@ async function dismiss(): Promise<void> {
 async function snooze(event: Event): Promise<void> {
   const value = (event.target as HTMLSelectElement).value
   if (!value) return
+
+  if (value === 'done') {
+    try {
+      await api.todos.complete(todoId.value, true)
+    } catch (error) {
+      logger.error('reminder', '完成待办失败', error)
+    }
+    await api.windows.reminderClose(todoId.value).catch(() => undefined)
+    return
+  }
 
   // 明天上午 9:00 换算成距现在的分钟数，统一走 snooze 接口。
   let minutes: number

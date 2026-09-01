@@ -63,13 +63,22 @@ function clearCollapseTimer(): void {
 }
 
 /** 滑出动画结束后再真正隐藏窗口，避免窗口先消失、动画看不见。 */
+function motionAxis(): 'x' | 'y' {
+  return settings.value.panel_position === 'left' || settings.value.panel_position === 'right' ? 'x' : 'y'
+}
+
+function motionDistance(distance: number): number {
+  const position = settings.value.panel_position
+  return position === 'bottom' || position === 'right' ? distance : -distance
+}
+
 async function hide(): Promise<void> {
   clearCollapseTimer()
   logger.info('panel', '收起面板')
 
   if (panel.value) {
     await gsap.to(panel.value, {
-      y: -12,
+      [motionAxis()]: motionDistance(12),
       opacity: 0,
       duration: 0.15,
       ease: 'power2.in',
@@ -85,7 +94,12 @@ async function hide(): Promise<void> {
 /** 滑入：物理弹性（back.out）呼应需求「Spring/Ease-out」。 */
 function playEnter(): void {
   if (!panel.value) return
-  gsap.fromTo(panel.value, { y: -16, opacity: 0 }, { y: 0, opacity: 1, duration: 0.2, ease: 'back.out(1.6)' })
+  const axis = motionAxis()
+  gsap.fromTo(
+    panel.value,
+    { [axis]: motionDistance(16), opacity: 0 },
+    { [axis]: 0, opacity: 1, duration: 0.2, ease: 'back.out(1.6)' },
+  )
 }
 
 /**

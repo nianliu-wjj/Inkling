@@ -27,9 +27,10 @@ const currentDate = ref(todayKey())
 const keyword = ref('')
 
 const editor = ref<{
-  mode: 'create' | 'edit' | 'remind' | 'child'
+  mode: 'create' | 'edit' | 'child'
   todo: Todo | null
   parent: Todo | null
+  focus: 'content' | 'due' | 'remind'
 } | null>(null)
 
 const isToday = computed(() => currentDate.value === todayKey())
@@ -81,11 +82,12 @@ const bySearch = computed(() => {
 const visible = computed(() => (searching.value ? bySearch.value : byDate.value))
 
 function openEditor(
-  mode: 'create' | 'edit' | 'remind' | 'child',
+  mode: 'create' | 'edit' | 'child',
   todo: Todo | null = null,
   parent: Todo | null = null,
+  focus: 'content' | 'due' | 'remind' = 'content',
 ): void {
-  editor.value = { mode, todo, parent }
+  editor.value = { mode, todo, parent, focus }
 }
 
 function guardDone(todo: Todo, action: string): boolean {
@@ -109,7 +111,16 @@ async function saveTodo(input: TodoInput): Promise<void> {
 }
 
 async function toggleDone(todo: Todo): Promise<void> {
-  if (guardDone(todo, '取消完成')) return
+  if (todo.status === 'done') {
+    if (!window.confirm('确定将已完成事项恢复为未完成吗？')) return
+    try {
+      await api.todos.complete(todo.id, false)
+    } catch (error) {
+      logger.error('todos-view', '恢复待办失败', error)
+      toast(String(error))
+    }
+    return
+  }
   try {
     await api.todos.complete(todo.id, true)
   } catch (error) {
@@ -170,8 +181,8 @@ async function removeTodo(todo: Todo): Promise<void> {
       :show-date-chip="searching"
       @toggle-done="toggleDone"
       @edit="openEditor('edit', $event)"
-      @edit-due="openEditor('edit', $event)"
-      @edit-remind="openEditor('remind', $event)"
+      @edit-due="openEditor('edit', $event, null, 'due')"
+      @edit-remind="openEditor('edit', $event, null, 'remind')"
       @add-sub="openEditor('child', null, $event)"
       @open-tags="openEditor('edit', $event)"
       @priority="changePriority"
@@ -187,6 +198,7 @@ async function removeTodo(todo: Todo): Promise<void> {
       :mode="editor.mode"
       :todo="editor.todo"
       :parent="editor.parent"
+      :focus="editor.focus"
       :preset-date="editor.mode === 'create' && !isToday ? currentDate : ''"
       @save="saveTodo"
       @close="editor = null"
