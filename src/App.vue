@@ -796,13 +796,13 @@ async function saveTodo() {
   const input = {
     id: editingTodoRef.value?.id,
     content: todoForm.content,
-    due_at: new Date(todoForm.due_at).toISOString(),
-    remind_at: todoForm.remind_at ? new Date(todoForm.remind_at).toISOString() : null,
+    dueAt: new Date(todoForm.due_at).toISOString(),
+    remindAt: todoForm.remind_at ? new Date(todoForm.remind_at).toISOString() : null,
     priority: todoForm.priority,
     remark: todoForm.remark,
     tags,
-    parent_id: todoForm.parent_id,
-    repeat_rule: todoForm.repeat_rule || null,
+    parentId: todoForm.parent_id,
+    repeatRule: todoForm.repeat_rule || null,
   }
   await run(async () => {
     const todo = await api.todos.save(input)

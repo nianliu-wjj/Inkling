@@ -48,17 +48,25 @@ export interface NoteInput {
   draft: boolean
 }
 
+/**
+ * 待办保存载荷。
+ *
+ * 注意：字段必须是 camelCase —— 后端 `ipc.rs::TodoPayload` 带
+ * `#[serde(rename_all = "camelCase")]`，用 snake_case 会在反序列化阶段直接失败。
+ * 这与下方 `Todo` 等**响应**类型不同：响应模型定义在 `domain/models.rs`，
+ * 未加 rename_all，因此保持 snake_case。
+ */
 export interface TodoInput {
   id?: string
   content: string
-  due_at: string
-  remind_at?: string | null
-  repeat_rule?: string | null
+  dueAt: string
+  remindAt?: string | null
+  repeatRule?: string | null
   priority: Priority
   remark: string
   tags: string[]
-  parent_id?: string | null
-  allow_past?: boolean
+  parentId?: string | null
+  allowPast?: boolean
 }
 
 export interface Settings {

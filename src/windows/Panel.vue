@@ -325,13 +325,13 @@ async function saveTodo() {
   try {
     const todo = await api.todos.save({
       content: todoContent.value.trim(),
-      due_at: new Date(todoDueAt.value).toISOString(),
+      dueAt: new Date(todoDueAt.value).toISOString(),
       priority: todoEditorPriority.value,
       remark: '',
       tags: [],
-      parent_id: null,
-      remind_at: null,
-      repeat_rule: null,
+      parentId: null,
+      remindAt: null,
+      repeatRule: null,
     })
     todos.value.push(todo)
     showTodoEditor.value = false
