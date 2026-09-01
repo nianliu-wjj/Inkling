@@ -13,8 +13,10 @@ import { formatStamp } from '@/utils/datetime'
  * - 左上角：复制时间 / 最后修改时间；
  * - 右上角：✕ 删除（悬浮显示，二次确认走卡片上方浮层）；
  * - 右下角：操作组（粘贴 / 打开链接(仅 link) / 编辑(仅文本类) / 收藏置顶），悬浮显示；
+ *   「粘贴」是直接粘贴到光标处（面板收起、焦点归还后模拟 Ctrl/Cmd+V），
+ *   而不是仅写回剪贴板；
  * - 内容最多两行，超出省略号截断（面板与归档一致）；
- * - 双击 = 粘贴并置顶；置顶条目金色高亮并优先排序（排序由调用方负责）。
+ * - 双击 = 粘贴到光标处并置顶；置顶条目金色高亮并优先排序（排序由调用方负责）。
  */
 const props = withDefaults(
   defineProps<{
@@ -64,7 +66,7 @@ const isLink = computed(() => props.entry.content_type === 'link')
     <div class="clip-text">{{ props.entry.preview || props.entry.content }}</div>
 
     <div class="clip-ops">
-      <IconBtn title="粘贴到剪贴板" @click="emit('paste')">📋</IconBtn>
+      <IconBtn title="粘贴（直接粘贴到光标处）" @click="emit('paste')">📋</IconBtn>
       <IconBtn v-if="isLink" variant="clip-open" title="在默认浏览器中打开" @click="emit('open-link')">🔗</IconBtn>
       <IconBtn v-if="editable" title="编辑内容" @click="emit('edit')">✏️</IconBtn>
       <IconBtn

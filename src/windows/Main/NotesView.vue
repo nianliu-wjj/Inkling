@@ -4,7 +4,6 @@ import NoteCard from '@/components/card/NoteCard.vue'
 import TagManagerModal from '@/components/tag/TagManagerModal.vue'
 import { useConfirmDelete } from '@/composables/useConfirmDelete'
 import { useNotes } from '@/composables/useData'
-import { useExport } from '@/composables/useExport'
 import { useToast } from '@/composables/useToast'
 import { logger } from '@/service/logger'
 import { api } from '@/service/tauri'
@@ -19,7 +18,6 @@ import type { Note } from '@/typings/domain'
 const { notes } = useNotes()
 const { toast } = useToast()
 const confirm = useConfirmDelete('notes-view')
-const { exporting, exportOne, exportMany } = useExport()
 
 const keyword = ref('')
 /** 正在管理标签的笔记。 */

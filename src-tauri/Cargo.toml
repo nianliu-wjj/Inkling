@@ -27,6 +27,7 @@ image = { version = "0.25", default-features = false, features = ["png"] }
 pulldown-cmark = "0.13"
 ab_glyph = "0.2"
 genpdfi = "0.2.7"
+enigo = "0.6.1"
 
 [features]
 default = ["custom-protocol"]

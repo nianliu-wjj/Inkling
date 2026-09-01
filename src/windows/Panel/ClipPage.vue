@@ -38,11 +38,18 @@ const visible = computed(() => {
     })
 })
 
+/**
+ * 粘贴到光标处并置顶（需求 2.2「双击操作」）。
+ *
+ * 后端会写入剪贴板 → 收起面板把焦点交还给用户原本所在的应用 →
+ * 模拟 Ctrl/Cmd+V，因此内容落在光标处而不是只进剪贴板。
+ * 置顶先于粘贴执行，避免面板收起后组件已卸载导致后续调用丢失。
+ */
 async function paste(entry: ClipboardEntry): Promise<void> {
-  logger.info('panel-clip', `粘贴并置顶 id=${entry.id}`)
+  logger.info('panel-clip', `粘贴到光标处并置顶 id=${entry.id}`)
   try {
-    await api.clipboard.write(entry.id)
-    toast('已粘贴到剪贴板')
+    if (!entry.pinned) await api.clipboard.pin(entry.id, true)
+    await api.clipboard.paste(entry.id)
   } catch (error) {
     logger.error('panel-clip', '粘贴失败', error)
     toast('粘贴失败')

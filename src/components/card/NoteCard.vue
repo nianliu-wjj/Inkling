@@ -27,7 +27,6 @@ const props = withDefaults(
 const emit = defineEmits<{
   (e: 'edit'): void
   (e: 'pin'): void
-  (e: 'export'): void
   (e: 'open-tags'): void
   (e: 'ask-delete'): void
   (e: 'confirm-delete'): void
@@ -71,7 +70,6 @@ const html = computed(() =>
           @click="emit('pin')"
           >📌</IconBtn
         >
-        <IconBtn title="导出" @click="emit('export')">⤓</IconBtn>
       </div>
     </div>
   </div>

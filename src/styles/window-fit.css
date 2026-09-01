@@ -7,12 +7,13 @@
  * 元素必须铺满窗口。本文件专门覆盖这些原型专有的定位与尺寸约束。
  * ═══════════════════════════════���═══════════════════════════════════════ */
 
-/* 通用：取消浮层定位，铺满各自窗口。 */
+/* 通用：取消浮层定位，铺满各自窗口。
+   注意 #hotzone 不在此列——它需要保留 position: relative 作为
+   感应指示器的定位锚点，单独在下方处理。 */
 #panel,
 #pinnedWindow,
 #reminderCard,
-#mainWindow,
-#hotzone {
+#mainWindow {
   position: static;
   left: auto;
   top: auto;
@@ -45,9 +46,23 @@
   min-height: 100px;
 }
 
-/* 感应区：窗口自身即为感应范围（Rust 侧按 240×80 定位在屏幕顶部中央）。 */
+/* 感应区：窗口自身即为感应范围（Rust 侧按 240×80 定位在屏幕顶部中央）。
+ *
+ * 关键：Windows 下 transparent 窗口中**完全透明的像素命中测试不可靠**，
+ * WebView2 可能让鼠标事件直接穿透到下层窗口，导致 mouseenter 永不触发。
+ * 给一个 alpha 极低但非零的背景即可让整块区域稳定接收事件，
+ * 视觉上仍然不可见（原型的感应区本就是隐形的）。 */
 #hotzone {
+  position: relative;
+  left: auto;
+  top: auto;
+  transform: none;
+  width: 100%;
   height: 100vh;
+  margin: 0;
+  outline: none;
+  background: rgba(0, 0, 0, 0.004);
+  pointer-events: auto;
 }
 
 /* 置顶浮窗与提醒卡片铺满各自窗口。 */

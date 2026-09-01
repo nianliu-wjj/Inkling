@@ -19,7 +19,9 @@ pub fn build_tray(app: &AppHandle) -> tauri::Result<()> {
         .cloned()
         .ok_or_else(|| tauri::Error::AssetNotFound("default icon".into()))?;
 
-    let builder = TrayIconBuilder::with_id("main-tray")
+    // macOS 分支需要重新赋值，非 macOS 下 mut 不被使用，显式放行告警。
+    #[allow(unused_mut)]
+    let mut builder = TrayIconBuilder::with_id("main-tray")
         .icon(icon)
         .tooltip("✒️ Inkling · 念头捕手")
         .menu(&menu)

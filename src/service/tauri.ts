@@ -41,7 +41,13 @@ export const api = {
   clipboard: {
     list: () => invoke<ClipboardEntry[]>('clipboard_list'),
     capture: () => invoke<ClipboardEntry | null>('clipboard_capture'),
+    /** 仅写回系统剪贴板，不触发粘贴动作。 */
     write: (id: string) => invoke<void>('clipboard_write', { id }),
+    /**
+     * 粘贴到光标处：写入剪贴板 → 收起面板交还焦点 → 模拟 Ctrl/Cmd+V。
+     * 面板会在此过程中隐藏，焦点回到用户原本所在的应用。
+     */
+    paste: (id: string) => invoke<void>('clipboard_paste', { id }),
     update: (id: string, content: string) => invoke<ClipboardEntry>('clipboard_update', { id, content }),
     pin: (id: string, pinned: boolean) => invoke<void>('clipboard_pin', { id, pinned }),
     remove: (id: string) => invoke<void>('clipboard_delete', { id }),

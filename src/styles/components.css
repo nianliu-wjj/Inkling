@@ -83,7 +83,7 @@
     transform 0.2s ease;
 }
 
-.hotzone.sensing .hotzone-indicator {
+#hotzone.sensing .hotzone-indicator {
   opacity: 1;
   transform: translateX(-50%) translateY(0) scale(1);
   animation: hotzoneIndicatorIn 0.24s ease-out both;

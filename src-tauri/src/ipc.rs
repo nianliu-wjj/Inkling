@@ -227,6 +227,63 @@ pub fn clipboard_write(
     Ok(())
 }
 
+/// 粘贴到光标处。
+///
+/// 与 `clipboard_write`（仅写回剪贴板）不同，本命令完成一次完整的「粘贴」动作：
+/// 1. 把条目写入系统剪贴板；
+/// 2. 收起呼出面板——面板是获得焦点的窗口，只有隐藏它，
+///    用户原来正在编辑的应用才会重新成为前台窗口；
+/// 3. 等待焦点切换落定后模拟 Ctrl/Cmd+V，把内容送到光标所在位置。
+///
+/// 第 3 步必须在焦点归还之后执行，否则按键会被面板自身吃掉，因此中间有一小段延时。
+#[tauri::command]
+pub fn clipboard_paste(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    id: String,
+) -> Result<(), String> {
+    // 先写入剪贴板（复用既有逻辑，图片/文本分支一致）。
+    clipboard_write(app.clone(), state, id)?;
+
+    // 收起面板，把前台焦点还给用户原本所在的应用。
+    crate::app::windows::panel_hide(&app)?;
+
+    // 焦点切换是异步的，立刻发按键会落在正在消失的面板上。
+    std::thread::spawn(move || {
+        std::thread::sleep(std::time::Duration::from_millis(120));
+        if let Err(error) = send_paste_keystroke() {
+            eprintln!("[clipboard] 模拟粘贴按键失败：{error}");
+        }
+        let _ = app;
+    });
+
+    Ok(())
+}
+
+/// 模拟一次「粘贴」按键：macOS 用 Cmd+V，其余平台用 Ctrl+V。
+fn send_paste_keystroke() -> Result<(), String> {
+    use enigo::{Direction, Enigo, Key, Keyboard, Settings};
+
+    let mut enigo =
+        Enigo::new(&Settings::default()).map_err(|e| format!("初始化输入模拟失败: {e}"))?;
+
+    #[cfg(target_os = "macos")]
+    let modifier = Key::Meta;
+    #[cfg(not(target_os = "macos"))]
+    let modifier = Key::Control;
+
+    enigo
+        .key(modifier, Direction::Press)
+        .map_err(|e| format!("按下修饰键失败: {e}"))?;
+    let result = enigo.key(Key::Unicode('v'), Direction::Click);
+    // 无论主键是否成功，都必须松开修饰键，否则会把用户键盘卡在按下状态。
+    let release = enigo.key(modifier, Direction::Release);
+
+    result.map_err(|e| format!("发送粘贴按键失败: {e}"))?;
+    release.map_err(|e| format!("释放修饰键失败: {e}"))?;
+    Ok(())
+}
+
 #[tauri::command]
 pub fn clipboard_update(
     app: AppHandle,

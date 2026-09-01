@@ -34,10 +34,10 @@ const visible = computed(() => {
     })
 })
 
+/** 粘贴到光标处：焦点会交还给用户原本所在的应用（见 api.clipboard.paste）。 */
 async function paste(entry: ClipboardEntry): Promise<void> {
   try {
-    await api.clipboard.write(entry.id)
-    toast('已粘贴到剪贴板')
+    await api.clipboard.paste(entry.id)
   } catch (error) {
     logger.error('clips-view', '粘贴失败', error)
     toast('粘贴失败')

@@ -84,6 +84,7 @@ fn main() {
             ipc::clipboard_list,
             ipc::clipboard_capture,
             ipc::clipboard_write,
+            ipc::clipboard_paste,
             ipc::clipboard_update,
             ipc::clipboard_pin,
             ipc::clipboard_delete,
