@@ -34,9 +34,7 @@ const emit = defineEmits<{
 /** 展开后不再折叠，直到组件重新挂载。 */
 const expanded = ref(false)
 
-const visibleTags = computed(() =>
-  expanded.value ? props.tags : props.tags.slice(0, props.max),
-)
+const visibleTags = computed(() => (expanded.value ? props.tags : props.tags.slice(0, props.max)))
 
 const hiddenCount = computed(() => Math.max(0, props.tags.length - props.max))
 </script>

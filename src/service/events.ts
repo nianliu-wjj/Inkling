@@ -30,10 +30,7 @@ export type AppEvent = (typeof AppEvents)[keyof typeof AppEvents]
  * 在组件 setup 作用域内调用时会自动在卸载时取消订阅，
  * 无需调用方手动持有 UnlistenFn。
  */
-export function onAppEvent<T = unknown>(
-  name: AppEvent,
-  handler: (payload: T) => void,
-): Promise<UnlistenFn> {
+export function onAppEvent<T = unknown>(name: AppEvent, handler: (payload: T) => void): Promise<UnlistenFn> {
   logger.debug('events', `订阅事件 ${name}`)
   const pending = listen<T>(name, (event) => {
     logger.debug('events', `收到事件 ${name}`, event.payload)

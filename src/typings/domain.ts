@@ -2,6 +2,17 @@ export type View = 'notes' | 'clips' | 'todos' | 'stats' | 'settings'
 export type CaptureMode = 'note' | 'clipboard' | 'todo'
 export type Priority = 'high' | 'medium' | 'low'
 
+/**
+ * 备注展示样式。
+ *
+ * 取值以后端为准（domain/models.rs::Settings 注释「mixed / icon / text」），
+ * 而非原型 HTML 里的 auto/line —— 前者是持久化契约。
+ */
+export type RemarkStyle = 'mixed' | 'icon' | 'text'
+
+/** 面板失焦收起策略（domain/models.rs::Settings 注释「immediate / 3s / never」）。 */
+export type CollapsePolicy = 'immediate' | '3s' | 'never'
+
 export interface Note {
   id: string
   content: string
@@ -70,11 +81,11 @@ export interface TodoInput {
 }
 
 export interface Settings {
-  collapse_policy: string
+  collapse_policy: CollapsePolicy
   clipboard_retention_days: number
   start_on_boot: boolean
   shortcut: string
-  remark_style: string
+  remark_style: RemarkStyle
   theme: string
 }
 

@@ -104,12 +104,7 @@ function save(): void {
 </script>
 
 <template>
-  <ModalShell
-    overlay-id="tagManagerOverlay"
-    modal-id="tagManagerModal"
-    title="🏷️ 管理标签"
-    @close="emit('close')"
-  >
+  <ModalShell overlay-id="tagManagerOverlay" modal-id="tagManagerModal" title="🏷️ 管理标签" @close="emit('close')">
     <div class="tag-mgr-sub">{{ props.subtitle }}</div>
 
     <div class="tag-add-row">
@@ -124,12 +119,7 @@ function save(): void {
     </div>
 
     <ul class="tag-mgr-list">
-      <li
-        v-for="(tag, index) in draft"
-        :key="tag"
-        class="tag-mgr-item"
-        :class="{ shaking: shake.isArmed(tag) }"
-      >
+      <li v-for="(tag, index) in draft" :key="tag" class="tag-mgr-item" :class="{ shaking: shake.isArmed(tag) }">
         <!-- contenteditable 实现就地编辑；回车提交走 blur。 -->
         <span
           class="tag-mgr-name"

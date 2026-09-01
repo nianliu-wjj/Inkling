@@ -38,12 +38,7 @@ onBeforeUnmount(() => document.removeEventListener('keydown', onKeydown, true))
         <span class="clip-editor-title">{{ title }}</span>
         <button type="button" class="icon-btn" title="关闭（Esc）" @click="emit('close')">
           <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
-            <path
-              d="M1 1l10 10M11 1L1 11"
-              stroke="currentColor"
-              stroke-width="1.5"
-              stroke-linecap="round"
-            />
+            <path d="M1 1l10 10M11 1L1 11" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
           </svg>
         </button>
       </div>

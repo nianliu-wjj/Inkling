@@ -705,7 +705,7 @@ mark { background: rgba(255,215,110,.35); color: inherit; border-radius: 2px; pa
 .todo-item.has-children > .todo-head .tree-toggle:not(.leaf) {
   background: rgba(var(--wsa), .06);
 }
-.tree-toggle.leaf { pointer-events: none; opacity: 0; }   // 叶子占位对齐
+.tree-toggle.leaf { pointer-events: none; opacity: 0; }   /* 叶子占位对齐 */
 .todo-item.collapsed .tree-toggle:not(.leaf) { transform: rotate(0deg); }
 
 /* 子任务树容器：整体缩进，竖线由 li 自身绘制 */
@@ -715,19 +715,19 @@ mark { background: rgba(255,215,110,.35); color: inherit; border-radius: 2px; pa
 }
 /* 树连接线：每个子项画竖线（贯穿）+ 横线（连接 checkbox） */
 .todo-children .todo-item { position: relative; }
-.todo-children .todo-item::before {           // 竖线：从上贯穿到下
+.todo-children .todo-item::before {           /* 竖线：从上贯穿到下 */
   content: ''; position: absolute; left: -14px; top: 0; bottom: 0;
   width: 1px; background: rgba(var(--wsa), .14);
 }
-.todo-children .todo-item::after {            // 横线：连接到本行
+.todo-children .todo-item::after {            /* 横线：连接到本行 */
   content: ''; position: absolute; left: -14px; top: 50%;
   width: 11px; height: 1px; background: rgba(var(--wsa), .14);
 }
-.todo-children .todo-item:last-child::before { // 末尾子项：竖线止于横线（└ 拐角）
+.todo-children .todo-item:last-child::before { /* 末尾子项：竖线止于横线（└ 拐角） */
   bottom: 50%;
 }
 .todo-children .todo-item:last-child::after {
-  border-bottom-left-radius: 6px;              // 拐角圆角
+  border-bottom-left-radius: 6px;              /* 拐角圆角 */
 }
 
 /* 层级深度渐变：一级子任务更淡 */

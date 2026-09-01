@@ -29,12 +29,8 @@ function emit(level: Level, scope: string, message: string, args: unknown[]): vo
 }
 
 export const logger = {
-  debug: (scope: string, message: string, ...args: unknown[]): void =>
-    emit('debug', scope, message, args),
-  info: (scope: string, message: string, ...args: unknown[]): void =>
-    emit('info', scope, message, args),
-  warn: (scope: string, message: string, ...args: unknown[]): void =>
-    emit('warn', scope, message, args),
-  error: (scope: string, message: string, ...args: unknown[]): void =>
-    emit('error', scope, message, args),
+  debug: (scope: string, message: string, ...args: unknown[]): void => emit('debug', scope, message, args),
+  info: (scope: string, message: string, ...args: unknown[]): void => emit('info', scope, message, args),
+  warn: (scope: string, message: string, ...args: unknown[]): void => emit('warn', scope, message, args),
+  error: (scope: string, message: string, ...args: unknown[]): void => emit('error', scope, message, args),
 }

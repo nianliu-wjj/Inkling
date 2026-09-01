@@ -22,12 +22,7 @@ const emit = defineEmits<{ (e: 'click'): void; (e: 'remove'): void }>()
 </script>
 
 <template>
-  <span
-    class="tag-chip"
-    :class="{ shaking: props.shaking }"
-    :title="props.label"
-    @click="emit('click')"
-  >
+  <span class="tag-chip" :class="{ shaking: props.shaking }" :title="props.label" @click="emit('click')">
     <span class="tag-name">{{ props.label }}</span>
     <!-- 阻止冒泡，避免点 ✕ 时同时触发 chip 的编辑行为。 -->
     <i v-if="props.deletable" class="tag-del" title="删除标签" @click.stop="emit('remove')">✕</i>
