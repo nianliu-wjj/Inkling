@@ -75,7 +75,17 @@
     0 8px 24px rgba(0, 0, 0, 0.18),
     inset 0 1px 0 rgba(255, 255, 255, 0.08);
   backdrop-filter: blur(16px) saturate(140%);
-  transform: translateX(-50%);
+  opacity: 0;
+  transform: translateX(-50%) translateY(-5px) scale(0.94);
+  pointer-events: none;
+  transition:
+    opacity 0.2s ease,
+    transform 0.2s ease;
+}
+
+.hotzone.sensing .hotzone-indicator {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0) scale(1);
   animation: hotzoneIndicatorIn 0.24s ease-out both;
 }
 
