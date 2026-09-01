@@ -12,6 +12,7 @@ export type RemarkStyle = 'mixed' | 'icon' | 'text'
 
 /** 面板失焦收起策略（domain/models.rs::Settings 注释「immediate / 3s / never」）。 */
 export type CollapsePolicy = 'immediate' | '3s' | 'never'
+export type PanelPosition = 'top' | 'bottom' | 'left' | 'right'
 
 export interface Note {
   id: string
@@ -89,6 +90,8 @@ export interface Settings {
   theme: string
   /** 归档主窗口是否启用毛玻璃；关闭时退化为不透明实色。 */
   main_acrylic: boolean
+  /** 面板从屏幕哪一侧的中间位置唤出。 */
+  panel_position: PanelPosition
 }
 
 export interface ActivityDay {

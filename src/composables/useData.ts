@@ -23,6 +23,7 @@ const DEFAULT_SETTINGS: Settings = {
   remark_style: 'mixed',
   theme: 'dark',
   main_acrylic: true,
+  panel_position: 'top',
 }
 
 const notes = ref<Note[]>([])
