@@ -901,3 +901,78 @@ mark { background: rgba(255,215,110,.35); color: inherit; border-radius: 2px; pa
   align-items: center;
   justify-content: center;
 }
+
+/* ═══════════════════════════════════════════════════════════════════════
+ * 笔记编辑器（ProseMirror + 内嵌 CodeMirror）
+ *
+ * 原型的编辑器是 contenteditable，样式已在 .editor 中定义并沿用。
+ * 以下仅补齐 ProseMirror / CodeMirror 特有结构所需的规则。
+ * ═══════════════════════════════════════════════════════════════════════ */
+
+/* 占位提示：原型的 .editor:empty::before 在 ProseMirror 下不生效
+   （空文档也会渲染 <p><br></p>），改由 placeholder 插件挂 .is-empty 类驱动。 */
+.editor .is-empty::before {
+  content: attr(data-placeholder);
+  color: var(--text-dim);
+  float: left;
+  height: 0;
+  pointer-events: none;
+}
+
+.editor blockquote {
+  border-left: 2px solid rgba(var(--wsa), 0.25);
+  padding-left: 10px;
+  color: var(--text-dim);
+  margin: 4px 0;
+}
+.editor ul,
+.editor ol {
+  padding-left: 22px;
+  margin: 4px 0;
+}
+.editor hr {
+  border: none;
+  border-top: 1px solid rgba(var(--wsa), 0.15);
+  margin: 10px 0;
+}
+.editor s {
+  color: var(--text-dim);
+}
+
+/* 代码块容器：CodeMirror 自带的背景与主题被关掉，颜色统一走令牌，
+   保证 30 套主题切换时代码块跟随。 */
+.pm-codeblock {
+  background: rgba(var(--wsa), 0.07);
+  border: 1px solid rgba(var(--wsa), 0.12);
+  border-radius: 8px;
+  margin: 6px 0;
+  overflow: hidden;
+}
+.pm-codeblock .cm-editor {
+  background: transparent;
+  font-size: 13px;
+}
+.pm-codeblock .cm-editor.cm-focused {
+  outline: none;
+}
+.pm-codeblock .cm-content {
+  font-family: 'SF Mono', Menlo, Consolas, monospace;
+  color: var(--code-green);
+  padding: 8px 10px;
+}
+.pm-codeblock .cm-gutters {
+  background: transparent;
+  border-right: 1px solid rgba(var(--wsa), 0.1);
+  color: var(--text-dim);
+}
+.pm-codeblock .cm-activeLine,
+.pm-codeblock .cm-activeLineGutter {
+  background: rgba(var(--wsa), 0.05);
+}
+.pm-codeblock .cm-cursor {
+  border-left-color: var(--text);
+}
+.pm-codeblock .cm-selectionBackground,
+.pm-codeblock .cm-focused .cm-selectionBackground {
+  background: rgba(var(--accent-rgb), 0.25);
+}
