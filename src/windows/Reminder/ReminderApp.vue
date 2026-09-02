@@ -94,8 +94,9 @@ onMounted(load)
 </script>
 
 <template>
-  <div id="reminderCard" class="glass" data-tauri-drag-region>
-    <div class="reminder-header">
+  <div id="reminderCard" class="glass">
+    <!-- 仅标题行可拖拽：drag 区域会被子元素继承，放在根元素上会让整窗按钮全部点不动 -->
+    <div class="reminder-header" data-tauri-drag-region>
       <button type="button" class="icon-btn reminder-close no-drag" title="关闭（稍后不再提醒）" @click="dismiss">
         <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
           <path d="M1 1l10 10M11 1L1 11" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />

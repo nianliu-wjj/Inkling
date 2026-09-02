@@ -1,19 +1,24 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import NoteCard from '@/components/card/NoteCard.vue'
+import NoteEditModal from '@/components/note/NoteEditModal.vue'
 import TagManagerModal from '@/components/tag/TagManagerModal.vue'
 import { useConfirmDelete } from '@/composables/useConfirmDelete'
 import { useNotes } from '@/composables/useData'
 import { useToast } from '@/composables/useToast'
 import { logger } from '@/service/logger'
 import { api } from '@/service/tauri'
-import type { Note } from '@/typings/domain'
+import type { Note, NoteInput } from '@/typings/domain'
 
 /**
  * 归档 · 笔记页。
  *
  * 需求 v1.2 变更 #13：笔记搜索覆盖**正文与标签**。
  * 置顶笔记优先排序。
+ *
+ * 两条编辑入口互不混用（需求 2.2）：
+ * - 卡片底部右侧「✏️ 编辑」→ 编辑笔记正文 / 思维导图；
+ * - 卡片左侧标签区 → 标签管理弹窗。
  */
 const { notes } = useNotes()
 const { toast } = useToast()
@@ -22,6 +27,8 @@ const confirm = useConfirmDelete('notes-view')
 const keyword = ref('')
 /** 正在管理标签的笔记。 */
 const tagTarget = ref<Note | null>(null)
+/** 正在编辑正文/思维导图的笔记。 */
+const editTarget = ref<Note | null>(null)
 
 const visible = computed(() => {
   const key = keyword.value.trim().toLowerCase()
@@ -80,6 +87,19 @@ async function saveTags(tags: string[]): Promise<void> {
     tagTarget.value = null
   }
 }
+
+/** 保存笔记正文 / 思维导图（标签由 NoteEditModal 原样带回，不在此处改动）。 */
+async function saveNote(input: NoteInput): Promise<void> {
+  try {
+    await api.notes.save(input)
+    toast('已保存')
+  } catch (error) {
+    logger.error('notes-view', '保存笔记失败', error)
+    toast('保存失败')
+  } finally {
+    editTarget.value = null
+  }
+}
 </script>
 
 <template>
@@ -93,7 +113,7 @@ async function saveTags(tags: string[]): Promise<void> {
         :note="note"
         :confirming="confirm.isPending(note.id)"
         @pin="togglePin(note)"
-        @edit="tagTarget = note"
+        @edit="editTarget = note"
         @open-tags="tagTarget = note"
         @ask-delete="confirm.ask(note.id)"
         @confirm-delete="remove(note)"
@@ -104,6 +124,10 @@ async function saveTags(tags: string[]): Promise<void> {
       </div>
     </div>
 
+    <!-- ✏️ 编辑：笔记正文 / 思维导图 -->
+    <NoteEditModal v-if="editTarget" :note="editTarget" @save="saveNote" @close="editTarget = null" />
+
+    <!-- 标签区：仅管理标签 -->
     <TagManagerModal
       v-if="tagTarget"
       :tags="tagTarget.tags"

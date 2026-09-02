@@ -85,8 +85,9 @@ onMounted(load)
 </script>
 
 <template>
-  <div id="pinnedWindow" class="glass" data-tauri-drag-region>
-    <div class="pinned-header">
+  <div id="pinnedWindow" class="glass">
+    <!-- 仅标题行可拖拽：drag 区域会被子元素继承，放在根元素上会让整窗按钮全部点不动 -->
+    <div class="pinned-header" data-tauri-drag-region>
       <span>📌 置顶</span>
       <span class="pinned-close no-drag" title="关闭" @click="close">✕</span>
     </div>
