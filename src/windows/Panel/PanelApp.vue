@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import gsap from 'gsap'
-import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import ToastHost from '@/components/base/ToastHost.vue'
 import { useSettings } from '@/composables/useData'
 import { applyCachedTheme, useTheme } from '@/composables/useTheme'
@@ -41,6 +41,10 @@ const pointerInside = ref(false)
 let collapseTimer: ReturnType<typeof setTimeout> | null = null
 /** 高度自适应的观察器。 */
 let resizeObserver: ResizeObserver | null = null
+
+/** 面板高度范围，与 Rust 侧 windows.rs 的 PANEL_MIN/MAX_HEIGHT 保持一致。 */
+const PANEL_MIN_HEIGHT = 120
+const PANEL_MAX_HEIGHT = 600
 
 const MODES: readonly { key: CaptureMode; dot: string; label: string; hotkey: string }[] = [
   { key: 'note', dot: '🔴', label: '笔记', hotkey: '⌃1' },
@@ -131,6 +135,9 @@ function onModalToggle(open: boolean): void {
   modalDepth.value = Math.max(0, modalDepth.value + (open ? 1 : -1))
   logger.debug('panel', `弹窗层数 = ${modalDepth.value}`)
 
+  // 弹窗开合都会改变所需窗口高度，立即重新上报。
+  void nextTick(reportHeight)
+
   if (open) {
     // 弹窗打开：取消已在计时的收起。
     clearCollapseTimer()
@@ -158,10 +165,22 @@ function onKeydown(event: KeyboardEvent): void {
   }
 }
 
-/** 高度自适应：内容变化后把实际高度报给窗口，钳制在 120~600px。 */
+/**
+ * 高度自适应：把内容实际高度报给窗口，钳制在 120~600px。
+ *
+ * 弹窗例外：`.glass` 的 backdrop-filter 让 #panel 成为 fixed 定位子元素的
+ * **包含块**，因此编辑弹窗被限制在面板窗口内，而弹窗高度不计入
+ * #panel.offsetHeight。若仍按内容高度上报，面板只有 ~200px，
+ * 弹窗会被整片截断（只剩标题与首行）。故弹窗打开期间直接用最大高度。
+ */
 function reportHeight(): void {
   if (!panel.value) return
-  const height = Math.min(600, Math.max(120, Math.ceil(panel.value.offsetHeight) + 12))
+
+  const height =
+    modalDepth.value > 0
+      ? PANEL_MAX_HEIGHT
+      : Math.min(PANEL_MAX_HEIGHT, Math.max(PANEL_MIN_HEIGHT, Math.ceil(panel.value.offsetHeight) + 12))
+
   void api.windows.panelResize(height).catch((error) => {
     logger.error('panel', '调整面板高度失败', error)
   })
