@@ -2637,18 +2637,3 @@ mark {
   background: transparent !important;
 }
 
-/* 归档页头部工具条：搜索框 + 批量导出按钮同一行。
-   原型未设计导出入口，本次按确认的方案落在此处与卡片悬浮功能区。 */
-.archive-toolbar {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-.archive-toolbar .search-input {
-  flex: 1;
-  margin-bottom: 8px;
-}
-.archive-toolbar .btn {
-  flex-shrink: 0;
-  margin-bottom: 8px;
-}

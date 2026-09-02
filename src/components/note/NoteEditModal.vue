@@ -53,6 +53,7 @@ function save(): void {
       v-model="content"
       v-model:editor-mode="editorMode"
       v-model:mindmap-data="mindmapData"
+      :show-mode-bar="false"
       placeholder="编辑笔记内容…支持 Markdown 即时渲染"
       @submit="save"
     />

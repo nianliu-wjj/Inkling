@@ -35,8 +35,11 @@ const props = withDefaults(
     placeholder?: string
     editorMode?: 'text' | 'mindmap'
     mindmapData?: string | null
+    /** 是否显示「文本 / 思维导图」模式切换条。
+     *  归档页的笔记编辑弹窗只改正文，不提供切换（模式由笔记自身决定）。 */
+    showModeBar?: boolean
   }>(),
-  { placeholder: '此刻在想什么？直接写下来… 支持 **Markdown** 即时渲染，右下角管理标签' },
+  { placeholder: '此刻在想什么？直接写下来… 支持 **Markdown** 即时渲染，右下角管理标签', showModeBar: true },
 )
 
 const emit = defineEmits<{
@@ -149,7 +152,7 @@ defineExpose({ focus })
 
 <template>
   <div class="note-editor-shell">
-    <div class="note-editor-modebar" role="tablist" aria-label="笔记编辑模式">
+    <div v-if="props.showModeBar" class="note-editor-modebar" role="tablist" aria-label="笔记编辑模式">
       <button
         type="button"
         class="note-editor-mode"
