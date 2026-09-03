@@ -34,8 +34,14 @@ const mode = ref<CaptureMode>('note')
 const panel = ref<HTMLElement | null>(null)
 /** 打开的弹窗层数：>0 时禁止失焦收起。 */
 const modalDepth = ref(0)
-/** 鼠标是否在面板内，用于弹窗关闭后判断是否重新计时。 */
+/**
+ * 鼠标是否在面板窗口内，用于弹窗关闭后判断是否重新计时。
+ * 编辑弹窗 Teleport 到 body 后不再是 #panel 的后代，因此按整个文档而非 #panel 判断，
+ * 否则弹窗一盖住 #panel 就会触发 mouseleave，弹窗关闭后面板会被误判为「鼠标已离开」而收起。
+ */
 const pointerInside = ref(false)
+/** 当前被高度观察器跟踪的弹窗元素，弹窗开合时重新同步。 */
+const observedModals = new Set<HTMLElement>()
 
 /** 失焦收起的延迟定时器。 */
 let collapseTimer: ReturnType<typeof setTimeout> | null = null
@@ -45,6 +51,8 @@ let resizeObserver: ResizeObserver | null = null
 /** 面板高度范围，与 Rust 侧 windows.rs 的 PANEL_MIN/MAX_HEIGHT 保持一致。 */
 const PANEL_MIN_HEIGHT = 120
 const PANEL_MAX_HEIGHT = 600
+/** 内容高度之外预留给窗口的余量（面板阴影与边框）。 */
+const PANEL_HEIGHT_PADDING = 12
 
 const MODES: readonly { key: CaptureMode; dot: string; label: string; hotkey: string }[] = [
   { key: 'note', dot: '🔴', label: '笔记', hotkey: '⌃1' },
@@ -131,12 +139,36 @@ function scheduleCollapse(): void {
   }, 3000)
 }
 
+/**
+ * 让高度观察器跟踪当前所有弹窗：弹窗在面板窗口里是整页编辑器，其内容增减
+ * （添加标签、拖高备注等）同样需要驱动窗口高度变化。
+ */
+function syncModalObservers(): void {
+  if (!resizeObserver) return
+  const current = Array.from(document.querySelectorAll<HTMLElement>('.modal-shell'))
+  for (const element of observedModals) {
+    if (!current.includes(element)) {
+      resizeObserver.unobserve(element)
+      observedModals.delete(element)
+    }
+  }
+  for (const element of current) {
+    if (!observedModals.has(element)) {
+      resizeObserver.observe(element)
+      observedModals.add(element)
+    }
+  }
+}
+
 function onModalToggle(open: boolean): void {
   modalDepth.value = Math.max(0, modalDepth.value + (open ? 1 : -1))
   logger.debug('panel', `弹窗层数 = ${modalDepth.value}`)
 
-  // 弹窗开合都会改变所需窗口高度，立即重新上报。
-  void nextTick(reportHeight)
+  // 弹窗开合都会改变所需窗口高度：等 DOM 更新后重新跟踪弹窗并立即上报。
+  void nextTick(() => {
+    syncModalObservers()
+    reportHeight()
+  })
 
   if (open) {
     // 弹窗打开：取消已在计时的收起。
@@ -168,22 +200,31 @@ function onKeydown(event: KeyboardEvent): void {
 /**
  * 高度自适应：把内容实际高度报给窗口，钳制在 120~600px。
  *
- * 弹窗例外：`.glass` 的 backdrop-filter 让 #panel 成为 fixed 定位子元素的
- * **包含块**，因此编辑弹窗被限制在面板窗口内，而弹窗高度不计入
- * #panel.offsetHeight。若仍按内容高度上报，面板只有 ~200px，
- * 弹窗会被整片截断（只剩标题与首行）。故弹窗打开期间直接用最大高度。
+ * 弹窗打开期间，弹窗在面板窗口中以整页编辑器的形式铺满窗口并盖住 #panel
+ * （见 window-fit.css），此时窗口高度应跟随弹窗而非 #panel；
+ * 多层弹窗取最高者。弹窗自身的 max-height 已按 PANEL_MAX_HEIGHT 收口，
+ * 超出部分在弹窗内部滚动，因此这里量到的 offsetHeight 不会形成反馈回路。
  */
 function reportHeight(): void {
   if (!panel.value) return
 
-  const height =
-    modalDepth.value > 0
-      ? PANEL_MAX_HEIGHT
-      : Math.min(PANEL_MAX_HEIGHT, Math.max(PANEL_MIN_HEIGHT, Math.ceil(panel.value.offsetHeight) + 12))
+  const modals = Array.from(document.querySelectorAll<HTMLElement>('.modal-shell'))
+  const contentHeight = modals.length
+    ? Math.max(...modals.map((element) => element.offsetHeight))
+    : panel.value.offsetHeight
+  const height = Math.min(PANEL_MAX_HEIGHT, Math.max(PANEL_MIN_HEIGHT, Math.ceil(contentHeight) + PANEL_HEIGHT_PADDING))
 
   void api.windows.panelResize(height).catch((error) => {
     logger.error('panel', '调整面板高度失败', error)
   })
+}
+
+function onPointerEnter(): void {
+  pointerInside.value = true
+}
+
+function onPointerLeave(): void {
+  pointerInside.value = false
 }
 
 onMounted(() => {
@@ -191,6 +232,8 @@ onMounted(() => {
   window.addEventListener('blur', scheduleCollapse)
   // 重新获得焦点时取消待执行的收起。
   window.addEventListener('focus', clearCollapseTimer)
+  document.documentElement.addEventListener('mouseenter', onPointerEnter)
+  document.documentElement.addEventListener('mouseleave', onPointerLeave)
 
   if (panel.value) {
     resizeObserver = new ResizeObserver(reportHeight)
@@ -212,7 +255,10 @@ onBeforeUnmount(() => {
   window.removeEventListener('keydown', onKeydown)
   window.removeEventListener('blur', scheduleCollapse)
   window.removeEventListener('focus', clearCollapseTimer)
+  document.documentElement.removeEventListener('mouseenter', onPointerEnter)
+  document.documentElement.removeEventListener('mouseleave', onPointerLeave)
   resizeObserver?.disconnect()
+  observedModals.clear()
   clearCollapseTimer()
 })
 
@@ -220,13 +266,13 @@ const activeLabel = computed(() => MODES.find((m) => m.key === mode.value)?.labe
 </script>
 
 <template>
+  <!-- modal-open：弹窗作为整页编辑器盖在面板之上时，把面板本体隐去，避免透过毛玻璃叠影。 -->
   <div
     id="panel"
     ref="panel"
     class="glass"
+    :class="{ 'modal-open': modalDepth > 0 }"
     :aria-label="`Inkling 呼出面板 · ${activeLabel}`"
-    @mouseenter="pointerInside = true"
-    @mouseleave="pointerInside = false"
   >
     <!-- 三态圆点导航 -->
     <div class="panel-nav">

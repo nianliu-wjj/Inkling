@@ -222,36 +222,34 @@ function save(): void {
       <span class="te-remark-count">{{ remark.length }}/200</span>
     </div>
 
+    <!-- 完成时间与优先级同属「必填的排期信息」，并排一行；提醒作为选填单独成行。 -->
     <div class="todo-editor-grid">
-      <label class="te-field">
+      <label class="te-field te-field-date">
         完成日期
         <input v-model="dueDate" type="date" :min="minDate" :disabled="fieldsDisabled" />
       </label>
-      <label class="te-field">
+      <label class="te-field te-field-time">
         完成时间
         <input ref="dueTimeInput" v-model="dueTime" type="time" :disabled="fieldsDisabled" />
       </label>
-    </div>
-
-    <div class="todo-editor-grid">
-      <label class="te-field">
-        提醒日期（选填）
-        <input v-model="remindDate" type="date" :disabled="fieldsDisabled" />
-      </label>
-      <label class="te-field">
-        提醒时间（选填）
-        <input ref="remindTimeInput" v-model="remindTime" type="time" :disabled="fieldsDisabled" />
-      </label>
-    </div>
-
-    <div class="todo-editor-grid">
-      <label class="te-field">
+      <label class="te-field te-field-priority">
         优先级
         <select v-model="priority" :disabled="fieldsDisabled">
           <option value="high">🔴 高</option>
           <option value="medium">🟡 中</option>
           <option value="low">🟢 低</option>
         </select>
+      </label>
+    </div>
+
+    <div class="todo-editor-grid">
+      <label class="te-field te-field-date">
+        提醒日期（选填）
+        <input v-model="remindDate" type="date" :disabled="fieldsDisabled" />
+      </label>
+      <label class="te-field te-field-time">
+        提醒时间（选填）
+        <input ref="remindTimeInput" v-model="remindTime" type="time" :disabled="fieldsDisabled" />
       </label>
     </div>
 

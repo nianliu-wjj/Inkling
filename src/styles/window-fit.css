@@ -46,12 +46,52 @@
   min-height: 100px;
 }
 
+/* ═══ 面板内的编辑弹窗：整页编辑器 ═══
+ * 面板窗口只有 480px 宽、高度随内容伸缩（≤600px），在这么小的窗口里再叠一层
+ * 「遮罩 + 居中浮窗」既局促又容易被裁切。这里把 ModalShell 覆写为顶对齐、
+ * 铺满窗口的整页编辑器：打开即「面板变成编辑页」，关闭回到列表。
+ * 窗口高度由 PanelApp.reportHeight 按 .modal-shell 的实际高度上报，
+ * max-height = PANEL_MAX_HEIGHT(600) - 余量 12，超出部分在正文区内滚动，
+ * 标题栏与底部操作栏始终可见。 */
+:root[data-window='panel'] .modal-overlay {
+  position: fixed;
+  inset: 0;
+  align-items: flex-start;
+  justify-content: stretch;
+  background: transparent;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+:root[data-window='panel'] .modal-shell {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  max-height: 588px;
+  overflow: hidden;
+  padding: 10px 14px 12px;
+}
+:root[data-window='panel'] .modal-shell .modal-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  /* 给滚动条留出呼吸位，避免焦点描边被裁掉。 */
+  padding: 2px 2px 0;
+  margin: -2px -2px 0;
+}
+:root[data-window='panel'] .modal-shell .clip-editor-header,
+:root[data-window='panel'] .modal-shell .clip-editor-footer {
+  flex-shrink: 0;
+}
+/* 弹窗打开时面板本体隐去（保持布局以便关闭后立即恢复），只留整页编辑器。 */
+:root[data-window='panel'] #panel.modal-open {
+  visibility: hidden;
+}
+
 /* 感应区：窗口自身即为感应范围（Rust 侧按 240×80 定位在屏幕顶部中央）。
  *
- * 关键：Windows 下 transparent 窗口中**完全透明的像素命中测试不可靠**，
- * WebView2 可能让鼠标事件直接穿透到下层窗口，导致 mouseenter 永不触发。
- * 给一个 alpha 极低但非零的背景即可让整块区域稳定接收事件，
- * 视觉上仍然不可见（原型的感应区本就是隐形的）。 */
+ * 该窗口在 Rust 侧设为鼠标完全穿透（否则会挡住下层窗口的点击），
+ * 进入 / 离开由后端轮询光标坐标后以事件通知，这里不需要也不应接收任何鼠标事件，
+ * 元素只承担感应指示器的定位锚点与纯展示职责。 */
 #hotzone {
   position: relative;
   left: auto;
