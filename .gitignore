@@ -12,6 +12,7 @@ src-tauri/target/
 .DS_Store
 
 .cargo
+images/
 
 # 本地调试与实机验证产物
 .screenshots/
