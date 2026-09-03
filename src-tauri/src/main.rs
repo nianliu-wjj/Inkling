@@ -46,6 +46,7 @@ fn main() {
 
             services::clipboard_watcher::start(app.clone());
             services::reminder::start(app.clone());
+            services::hotzone_watcher::start(app.clone());
             // 启动时按保留策略清理一次过期剪贴板。
             let handle_for_cleanup = app.clone();
             std::thread::spawn(move || {

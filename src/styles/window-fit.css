@@ -101,8 +101,8 @@
   height: 100vh;
   margin: 0;
   outline: none;
-  background: rgba(0, 0, 0, 0.004);
-  pointer-events: auto;
+  background: transparent;
+  pointer-events: none;
 }
 
 /* 置顶浮窗与提醒卡片铺满各自窗口。 */

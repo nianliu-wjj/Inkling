@@ -45,7 +45,7 @@ pub fn create_core_windows(app: &AppHandle, silent: bool) -> tauri::Result<()> {
         .or_else(|| app.primary_monitor().ok().flatten())
         .ok_or_else(|| tauri::Error::WindowNotFound)?;
 
-    // hotzone：透明感应区，不可聚焦、不抢焦点。
+    // hotzone：透明感应区，不可聚焦、不抢焦点，且对鼠标完全穿透。
     let (hx, hy) = top_center(&monitor, HOTZONE_WIDTH, 0.0);
     let hotzone = WebviewWindowBuilder::new(app, "hotzone", WebviewUrl::App("hotzone.html".into()))
         .title("Inkling Hotzone")
@@ -61,7 +61,10 @@ pub fn create_core_windows(app: &AppHandle, silent: bool) -> tauri::Result<()> {
         .build()?;
     // Windows 上部分环境不会可靠继承 builder 的 skip_taskbar 配置，创建后再次显式设置。
     let _ = hotzone.set_skip_taskbar(true);
-    let _ = hotzone.set_ignore_cursor_events(false);
+    // 感应区置顶盖在屏幕顶部中央，若接收鼠标事件会挡住下层窗口（浏览器标签栏、
+    // 其他应用的标题栏按钮）导致无法点击。因此永久穿透，悬停探测改由
+    // services::hotzone_watcher 按全局光标坐标完成。
+    let _ = hotzone.set_ignore_cursor_events(true);
 
     // panel：预创建常驻隐藏，呼出只做 show + focus。
     // 一次性读出建窗需要的偏好设置，避免为每项各锁一次 store。
@@ -139,7 +142,6 @@ fn panel_position(monitor: &tauri::Monitor, width: f64, height: f64, position: &
     }
 }
 
-/// 呼出面板：定位到光标所在屏顶部居中，show + focus，并屏蔽感应区防止误触。
 /// 对指定窗口应用或撤销毛玻璃效果。
 ///
 /// 实现统一收敛在 `crate::platform::apply_backdrop`，此处只做转发，
@@ -174,26 +176,22 @@ pub fn reposition_panel(app: &AppHandle) -> Result<(), String> {
         .map_err(|e| e.to_string())
 }
 
+/// 呼出面板：定位到光标所在屏顶部居中，show + focus。
+/// 面板可见期间 hotzone_watcher 会自动停止感应，无需在此屏蔽感应区。
 pub fn panel_show(app: &AppHandle) -> Result<(), String> {
     let panel = app.get_webview_window("panel").ok_or("面板窗口未初始化")?;
     reposition_panel(app)?;
     let _ = panel.show();
     let _ = panel.unminimize();
     let _ = panel.set_focus();
-    if let Some(hotzone) = app.get_webview_window("hotzone") {
-        let _ = hotzone.set_ignore_cursor_events(true);
-    }
     let _ = app.emit(events::PANEL_SHOWN, ());
     Ok(())
 }
 
-/// 收起面板并恢复感应区。
+/// 收起面板。
 pub fn panel_hide(app: &AppHandle) -> Result<(), String> {
     if let Some(panel) = app.get_webview_window("panel") {
         let _ = panel.hide();
-    }
-    if let Some(hotzone) = app.get_webview_window("hotzone") {
-        let _ = hotzone.set_ignore_cursor_events(false);
     }
     let _ = app.emit(events::PANEL_HIDDEN, ());
     Ok(())

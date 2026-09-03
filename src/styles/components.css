@@ -55,7 +55,8 @@
   width: 100%;
   height: 100%;
   z-index: 8000;
-  pointer-events: auto;
+  /* 窗口层面已对鼠标穿透，这里同样不接收事件，仅作展示。 */
+  pointer-events: none;
 }
 
 .hotzone-indicator {
@@ -2333,6 +2334,22 @@ mark {
 .te-field select:focus {
   border-color: var(--accent);
 }
+/* 日期列最宽（含年月日与日历按钮），时间列与优先级列按内容收窄；
+   input 自带的 intrinsic 宽度会撑破 flex 列，统一压到 0 让 flex 比例生效。 */
+.te-field input,
+.te-field select {
+  width: 100%;
+  min-width: 0;
+}
+.te-field-date {
+  flex: 1.4;
+}
+.te-field-time {
+  flex: 1;
+}
+.te-field-priority {
+  flex: 0.9;
+}
 
 /* ═══ 优先级阶梯下拉菜单 ═══ */
 /* 当前优先级由 Pin 卡片本身充当（高亮描边）；
@@ -2636,4 +2653,3 @@ mark {
 .mindmap-editor .smm-mind-map {
   background: transparent !important;
 }
-

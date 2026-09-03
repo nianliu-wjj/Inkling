@@ -3,8 +3,13 @@
  *
  * 需求 2.1「鼠标触顶」：屏幕顶部中央（水平居中 ±120px、高 80px）的透明感应区，
  * 鼠标稳定悬停 3 秒后才呼出面板，悬停期间显示轻量感应动画，避免快速划过误触发。
+ *
+ * 该窗口对鼠标**完全穿透**（否则会挡住下层浏览器标签栏、其他应用的标题栏按钮），
+ * 因此这里收不到 DOM 的 mouseenter / mouseleave；进入 / 离开由后端
+ * `hotzone_watcher` 轮询全局光标坐标后以事件推送，本文件只负责动画与计时。
  */
 import { invoke } from '@tauri-apps/api/core'
+import { AppEvents, onAppEvent } from '@/service/events'
 import { logger } from '@/service/logger'
 import '@/styles'
 
@@ -15,7 +20,6 @@ document.documentElement.dataset.window = 'hotzone'
 
 const zone = document.createElement('div')
 zone.id = 'hotzone'
-zone.title = 'Inkling 感应区（悬停 3 秒展开面板）'
 
 const indicator = document.createElement('div')
 indicator.className = 'hotzone-indicator'
@@ -55,14 +59,19 @@ function updateSensing(timestamp: number): void {
   animationFrame = requestAnimationFrame(updateSensing)
 }
 
-zone.addEventListener('mouseenter', () => {
+function startSensing(): void {
   if (zone.classList.contains('sensing')) return
   hoverStartedAt = performance.now()
   zone.classList.add('sensing')
   animationFrame = requestAnimationFrame(updateSensing)
-})
+}
 
-zone.addEventListener('mouseleave', stopSensing)
+// 后端仅在状态翻转时推送：true = 光标进入感应区，false = 离开（或面板已展开）。
+void onAppEvent<boolean>(AppEvents.hotzoneHover, (inside) => {
+  logger.debug('hotzone', inside ? '光标进入感应区' : '光标离开感应区')
+  if (inside) startSensing()
+  else stopSensing()
+}).catch((error) => logger.error('hotzone', '订阅感应区悬停事件失败', error))
 
 const root = document.getElementById('app')
 if (root) root.appendChild(zone)

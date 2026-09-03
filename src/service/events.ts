@@ -20,6 +20,8 @@ export const AppEvents = {
   statsChanged: 'inkling://stats-changed',
   pinUpdated: 'inkling://pin-updated',
   reminderFired: 'inkling://reminder-fired',
+  /** 光标进入 / 离开顶部感应区，payload 为 boolean；由后端轮询探测，仅发给 hotzone 窗口。 */
+  hotzoneHover: 'inkling://hotzone-hover',
 } as const
 
 export type AppEvent = (typeof AppEvents)[keyof typeof AppEvents]
