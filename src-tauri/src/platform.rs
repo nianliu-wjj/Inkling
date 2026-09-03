@@ -51,9 +51,48 @@ pub fn apply_backdrop(window: &WebviewWindow, enabled: bool) {
     }
 }
 
-/// 为呼出面板应用毛玻璃。面板始终启用效果，不受主窗口开关影响。
+/// 把窗口四角改成圆角。
+///
+/// 无边框窗口（decorations(false)）在 Windows 上默认是直角，而 Mica / Acrylic 是由
+/// **DWM 在窗口矩形上**绘制的——CSS 的 border-radius / clip-path 只作用于 WebView 内容，
+/// 裁不掉底下那层系统背景，面板看起来就是个方块。改用 DWM 的圆角偏好，
+/// 让系统连同毛玻璃一起按圆角裁剪。
+///
+/// 仅 Windows 11 (build 22000+) 支持，旧系统上该属性被忽略，返回值一并忽略即可。
+pub fn apply_rounded_corners(window: &WebviewWindow) {
+    #[cfg(target_os = "windows")]
+    {
+        use windows_sys::Win32::Foundation::HWND;
+        use windows_sys::Win32::Graphics::Dwm::{
+            DwmSetWindowAttribute, DWMWA_WINDOW_CORNER_PREFERENCE, DWMWCP_ROUND,
+        };
+
+        let Ok(handle) = window.hwnd() else {
+            eprintln!("[platform] 取窗口句柄失败，跳过圆角设置");
+            return;
+        };
+        let preference = DWMWCP_ROUND;
+        // SAFETY: handle 来自 Tauri 的有效窗口；传入的指针与长度描述的是同一个 i32 值。
+        unsafe {
+            DwmSetWindowAttribute(
+                handle.0 as HWND,
+                DWMWA_WINDOW_CORNER_PREFERENCE as u32,
+                &preference as *const _ as *const core::ffi::c_void,
+                core::mem::size_of_val(&preference) as u32,
+            );
+        }
+    }
+
+    #[cfg(not(target_os = "windows"))]
+    {
+        let _ = window;
+    }
+}
+
+/// 为呼出面板应用毛玻璃与圆角。面板始终启用效果，不受主窗口开关影响。
 pub fn apply_panel_effects(window: &WebviewWindow) {
     apply_backdrop(window, true);
+    apply_rounded_corners(window);
 }
 
 /// 主窗口背景。是否启用由偏好设置 `main_acrylic` 决定。

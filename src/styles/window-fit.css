@@ -43,13 +43,19 @@
 /* 面板：高度随内容自适应，由 JS 上报给窗口（见 PanelApp.reportHeight）。
    注意不要设 height，否则 ResizeObserver 量到的永远是窗口高度而非内容高度。
 
-   圆角：.glass 已经给了 border-radius，但 backdrop-filter 的绘制结果在
-   WebView2 下不受 border-radius 约束，会把四个角补成直角，面板看起来是方框。
-   clip-path 作用在元素的最终绘制结果上，能连同毛玻璃一起裁成圆角。 */
+   圆角：分两层各管一半。
+   - 窗口级的 Mica / Acrylic 由 DWM 在窗口矩形上绘制，CSS 管不到，
+     交给 platform::apply_rounded_corners 设 DWM 圆角偏好；
+   - WebView 内容这一层，backdrop-filter 的绘制结果在 WebView2 下不受
+     border-radius 约束（四角会被补成直角），需要 clip-path 才能裁圆。
+
+   半径取 8px 而非全局 --radius(14px)：DWM 给顶层窗口的圆角是 8px，
+   两层半径不一致时，14px 与 8px 之间会露出一圈毛玻璃月牙。
+   面板本身就是一个窗口，跟随系统窗口圆角也更贴 Windows 11 的观感。 */
 #panel {
   min-height: 100px;
-  border-radius: var(--radius);
-  clip-path: inset(0 round var(--radius));
+  border-radius: 8px;
+  clip-path: inset(0 round 8px);
 }
 
 /* ═══ 独立编辑窗口：全屏压暗遮罩 + 居中对话框 ═══
@@ -79,11 +85,16 @@
   max-height: 86vh;
   padding: 16px 20px 18px;
 }
-/* 与面板同理：毛玻璃绘制会盖掉圆角，用 clip-path 裁齐。 */
-:root[data-window='editor'] .modal-shell,
+/* 与面板同理：毛玻璃绘制会盖掉圆角，用 clip-path 裁齐。
+   编辑窗口里的对话框是窗口内的浮层而非窗口本身，不受 DWM 圆角影响，
+   因此仍用全局 --radius；置顶浮窗与提醒卡是独立窗口，对齐系统的 8px。 */
+:root[data-window='editor'] .modal-shell {
+  clip-path: inset(0 round var(--radius));
+}
 #pinnedWindow,
 #reminderCard {
-  clip-path: inset(0 round var(--radius));
+  border-radius: 8px;
+  clip-path: inset(0 round 8px);
 }
 
 /* ═══ 面板内的编辑弹窗：整页编辑器 ═══

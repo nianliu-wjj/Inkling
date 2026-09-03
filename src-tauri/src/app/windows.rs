@@ -160,6 +160,7 @@ pub fn editor_open(app: &AppHandle, payload: String) -> Result<(), String> {
         .build()
         .map_err(|e| format!("创建编辑窗口失败: {e}"))?;
     let _ = editor.set_skip_taskbar(true);
+    // 遮罩铺满整屏，圆角只会在屏幕四角露出缺口，因此编辑窗口不设圆角。
     // 内容就绪前不接收鼠标，避免一个空的全屏透明窗口挡住底下所有点击。
     let _ = editor.set_ignore_cursor_events(true);
     // 与置顶浮窗（pin_create）一致：隐藏创建后立即 show，WebView2 才会开始初始化。
@@ -365,6 +366,7 @@ pub fn pin_create(app: &AppHandle, kind: &str, id: &str) -> Result<(), String> {
         .build()
         .map_err(|e| format!("创建置顶浮窗失败: {e}"))?;
     let _ = window.set_skip_taskbar(true);
+    crate::platform::apply_rounded_corners(&window);
     let _ = window.show();
     Ok(())
 }
@@ -427,6 +429,7 @@ pub fn reminder_show(app: &AppHandle, todo_id: &str) -> Result<(), String> {
         .build()
         .map_err(|e| format!("创建提醒窗口失败: {e}"))?;
     let _ = window.set_skip_taskbar(true);
+    crate::platform::apply_rounded_corners(&window);
     let _ = window.show();
     let _ = app.emit_to(label, events::REMINDER_FIRED, todo_id.to_string());
     Ok(())
