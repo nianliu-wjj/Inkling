@@ -1,12 +1,11 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import TodoTree from '@/components/card/TodoTree.vue'
-import TodoEditorModal from '@/components/todo/TodoEditorModal.vue'
 import { useSettings, useTodos } from '@/composables/useData'
 import { useToast } from '@/composables/useToast'
 import { logger } from '@/service/logger'
 import { api } from '@/service/tauri'
-import type { Priority, Todo, TodoInput } from '@/typings/domain'
+import type { Priority, Todo } from '@/typings/domain'
 import { dateKeyOf, todayKey } from '@/utils/datetime'
 import { isOverdue } from '@/utils/todo'
 
@@ -17,8 +16,13 @@ import { isOverdue } from '@/utils/todo'
  * 但**仅可查看当日待办，不提供日期切换**；逾期事项自动置顶。
  *
  * 展示口径：今天的事项 + 此前日期仍未完成的逾期事项；未来日期不提前进入。
+ *
+ * 新增 / 编辑走**独立编辑窗口**（editor）：面板只有 480px 宽、高度随内容伸缩，
+ * 弹窗留在面板内必然被窗口边界裁切，因此改由后端打开全屏遮罩 + 居中对话框的
+ * 独立窗口（见 app::windows::editor_open）；保存后由 todosChanged 事件驱动刷新。
  */
-const emit = defineEmits<{ (e: 'modal', open: boolean): void }>()
+/** 通知面板：编辑窗口已打开，面板此期间不得因失焦而收起。 */
+const emit = defineEmits<{ (e: 'externalEditor'): void }>()
 
 const { todos } = useTodos()
 const { settings } = useSettings()
@@ -26,14 +30,6 @@ const { toast } = useToast()
 
 const keyword = ref('')
 const priorityFilter = ref<'all' | Priority>('all')
-
-/** 编辑弹窗状态。 */
-const editor = ref<{
-  mode: 'create' | 'edit' | 'child'
-  todo: Todo | null
-  parent: Todo | null
-  focus: 'content' | 'due' | 'remind'
-} | null>(null)
 
 /**
  * 当日可见集合：
@@ -86,19 +82,32 @@ const filtered = computed(() => {
   return [...parents, ...matched]
 })
 
+/**
+ * 打开独立编辑窗口。
+ *
+ * 只传 ID 不传整个对象：编辑窗口会按 ID 从自己那份最新列表中取，
+ * 避免面板持有的旧快照覆盖掉别处刚改过的字段。
+ */
 function openEditor(
   mode: 'create' | 'edit' | 'child',
   todo: Todo | null = null,
   parent: Todo | null = null,
   focus: 'content' | 'due' | 'remind' = 'content',
 ): void {
-  editor.value = { mode, todo, parent, focus }
-  emit('modal', true)
-}
-
-function closeEditor(): void {
-  editor.value = null
-  emit('modal', false)
+  const payload = JSON.stringify({
+    kind: 'todo',
+    mode,
+    todoId: todo?.id ?? null,
+    parentId: parent?.id ?? null,
+    focus,
+  })
+  logger.info('panel-todo', `打开编辑窗口 mode=${mode}`, payload)
+  // 先上报再 invoke：编辑窗口一拿到焦点面板就会 blur，晚于 blur 上报会来不及阻止收起。
+  emit('externalEditor')
+  void api.windows.editorOpen(payload).catch((error) => {
+    logger.error('panel-todo', '打开编辑窗口失败', error)
+    toast(String(error))
+  })
 }
 
 /** 已完成事项一律拦截修改（需求 2.2）。 */
@@ -108,18 +117,6 @@ function guardDone(todo: Todo, action: string): boolean {
     return true
   }
   return false
-}
-
-async function saveTodo(input: TodoInput): Promise<void> {
-  try {
-    await api.todos.save(input)
-    toast('已保存')
-  } catch (error) {
-    logger.error('panel-todo', '保存待办失败', error)
-    toast(String(error))
-  } finally {
-    closeEditor()
-  }
 }
 
 async function toggleDone(todo: Todo): Promise<void> {
@@ -171,10 +168,6 @@ async function removeTodo(todo: Todo): Promise<void> {
       </button>
     </div>
 
-    <div class="todo-panel-hint">
-      搜索 / 优先级过滤当日待办 · 逾期事项自动置顶 · 点击优先级徽章可调整 · 点击 📅 新增待办
-    </div>
-
     <TodoTree
       :todos="filtered"
       :remark-style="settings.remark_style"
@@ -186,15 +179,6 @@ async function removeTodo(todo: Todo): Promise<void> {
       @open-tags="openEditor('edit', $event)"
       @priority="changePriority"
       @delete="removeTodo"
-    />
-
-    <TodoEditorModal
-      v-if="editor"
-      :mode="editor.mode"
-      :todo="editor.todo"
-      :parent="editor.parent"
-      @save="saveTodo"
-      @close="closeEditor"
     />
   </section>
 </template>

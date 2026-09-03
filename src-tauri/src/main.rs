@@ -14,7 +14,7 @@ mod ipc;
 mod platform;
 mod services;
 
-use tauri::Manager;
+use tauri::{Emitter, Manager};
 use tauri_plugin_autostart::ManagerExt;
 
 fn main() {
@@ -63,11 +63,22 @@ fn main() {
                     let _ = window.hide();
                 }
             }
+            // 编辑窗口销毁 → 广播，面板据此恢复失焦收起计时。
+            // 放在窗口事件而非 editor_close 命令里，才能覆盖 Alt+F4 等前端未参与的关闭路径。
+            if window.label() == "editor" {
+                if let tauri::WindowEvent::Destroyed = event {
+                    let _ = window.app_handle().emit(events::EDITOR_CLOSED, ());
+                }
+            }
         })
         .invoke_handler(tauri::generate_handler![
             ipc::panel_show,
             ipc::panel_hide,
             ipc::panel_resize,
+            ipc::editor_open,
+            ipc::editor_close,
+            ipc::editor_payload,
+            ipc::editor_ready,
             ipc::show_main,
             ipc::hide_main,
             ipc::quit_app,

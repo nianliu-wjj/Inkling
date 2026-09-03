@@ -2153,13 +2153,6 @@ mark {
   transform: scale(0.9);
 }
 
-/* 面板提示行 */
-.todo-panel-hint {
-  font-size: 11px;
-  color: var(--text-dim);
-  margin: -4px 0 8px 2px;
-}
-
 /* 归档页日期切换条：左侧日期导航 + 右侧搜索框与新增待办按钮 */
 .todo-date-bar {
   display: flex;

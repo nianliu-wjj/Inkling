@@ -22,6 +22,8 @@ export const AppEvents = {
   reminderFired: 'inkling://reminder-fired',
   /** 光标进入 / 离开顶部感应区，payload 为 boolean；由后端轮询探测，仅发给 hotzone 窗口。 */
   hotzoneHover: 'inkling://hotzone-hover',
+  /** 编辑窗口已关闭（广播）：面板据此恢复失焦收起计时。 */
+  editorClosed: 'inkling://editor-closed',
 } as const
 
 export type AppEvent = (typeof AppEvents)[keyof typeof AppEvents]

@@ -11,6 +11,7 @@ export default defineConfig({
         main: fileURLToPath(new URL('./index.html', import.meta.url)),
         hotzone: fileURLToPath(new URL('./hotzone.html', import.meta.url)),
         panel: fileURLToPath(new URL('./panel.html', import.meta.url)),
+        editor: fileURLToPath(new URL('./editor.html', import.meta.url)),
         pinned: fileURLToPath(new URL('./pinned.html', import.meta.url)),
         reminder: fileURLToPath(new URL('./reminder.html', import.meta.url)),
       },

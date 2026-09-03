@@ -18,6 +18,13 @@ export const api = {
     panelShow: () => invoke<void>('panel_show'),
     panelHide: () => invoke<void>('panel_hide'),
     panelResize: (height: number) => invoke<void>('panel_resize', { height }),
+    /** 打开独立编辑窗口（全屏遮罩 + 居中对话框），payload 为序列化后的打开参数。 */
+    editorOpen: (payload: string) => invoke<void>('editor_open', { payload }),
+    editorClose: () => invoke<void>('editor_close'),
+    /** 编辑窗口挂载后拉取本次打开参数。 */
+    editorPayload: () => invoke<string | null>('editor_payload'),
+    /** 编辑窗口内容渲染完成，请求显示（窗口以隐藏方式创建，避免空白遮罩闪一下）。 */
+    editorReady: () => invoke<void>('editor_ready'),
     showMain: (view: string) => invoke<void>('show_main', { view }),
     hideMain: () => invoke<void>('hide_main'),
     quit: () => invoke<void>('quit_app'),

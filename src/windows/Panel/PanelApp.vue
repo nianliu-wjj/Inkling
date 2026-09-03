@@ -32,8 +32,15 @@ const { applyTheme } = useTheme()
 
 const mode = ref<CaptureMode>('note')
 const panel = ref<HTMLElement | null>(null)
-/** 打开的弹窗层数：>0 时禁止失焦收起。 */
+/** 面板内弹窗的层数：>0 时禁止失焦收起。 */
 const modalDepth = ref(0)
+/**
+ * 独立编辑窗口（editor）是否打开。
+ *
+ * 待办新增 / 编辑用的是铺满屏幕的独立窗口，它一拿到焦点面板就会 blur；
+ * 面板必须在此期间保持展开，否则用户填写时面板已经收起，关闭后无处可回。
+ */
+const externalEditorOpen = ref(false)
 /**
  * 鼠标是否在面板窗口内，用于弹窗关闭后判断是否重新计时。
  * 编辑弹窗 Teleport 到 body 后不再是 #panel 的后代，因此按整个文档而非 #panel 判断，
@@ -47,6 +54,16 @@ const observedModals = new Set<HTMLElement>()
 let collapseTimer: ReturnType<typeof setTimeout> | null = null
 /** 高度自适应的观察器。 */
 let resizeObserver: ResizeObserver | null = null
+/**
+ * DOM 变化观察器。
+ *
+ * 各页数据是异步加载的，列表渲染出来时 ResizeObserver 未必回调（面板此刻可能还没显示，
+ * WebView 处于挂起状态），高度就会停在「数据到达前」的值，底部内容被窗口边界切掉。
+ * 结构变化必然经过 DOM，用它补一次上报。
+ */
+let mutationObserver: MutationObserver | null = null
+/** 上报的合帧句柄：一次 DOM 批量变更只发一次 IPC。 */
+let reportFrame: number | null = null
 
 /** 面板高度范围，与 Rust 侧 windows.rs 的 PANEL_MIN/MAX_HEIGHT 保持一致。 */
 const PANEL_MIN_HEIGHT = 120
@@ -123,6 +140,10 @@ function scheduleCollapse(): void {
     logger.debug('panel', '弹窗打开中，跳过失焦收起')
     return
   }
+  if (externalEditorOpen.value) {
+    logger.debug('panel', '独立编辑窗口打开中，跳过失焦收起')
+    return
+  }
 
   const policy = settings.value.collapse_policy
   if (policy === 'never') return
@@ -179,6 +200,13 @@ function onModalToggle(open: boolean): void {
   if (modalDepth.value === 0 && !pointerInside.value) scheduleCollapse()
 }
 
+/** 待办编辑窗口打开：取消已在计时的收起，并进入保护状态。 */
+function onExternalEditorOpen(): void {
+  externalEditorOpen.value = true
+  clearCollapseTimer()
+  logger.debug('panel', '独立编辑窗口已打开，暂停失焦收起')
+}
+
 function onKeydown(event: KeyboardEvent): void {
   // 弹窗自己处理 Esc，面板不抢。
   if (event.key === 'Escape' && modalDepth.value === 0) {
@@ -205,13 +233,23 @@ function onKeydown(event: KeyboardEvent): void {
  * 多层弹窗取最高者。弹窗自身的 max-height 已按 PANEL_MAX_HEIGHT 收口，
  * 超出部分在弹窗内部滚动，因此这里量到的 offsetHeight 不会形成反馈回路。
  */
+/** 合帧上报：把同一帧内的多次观察器回调合并成一次 IPC。 */
+function scheduleReport(): void {
+  if (reportFrame !== null) return
+  reportFrame = requestAnimationFrame(() => {
+    reportFrame = null
+    reportHeight()
+  })
+}
+
 function reportHeight(): void {
   if (!panel.value) return
 
   const modals = Array.from(document.querySelectorAll<HTMLElement>('.modal-shell'))
-  const contentHeight = modals.length
-    ? Math.max(...modals.map((element) => element.offsetHeight))
-    : panel.value.offsetHeight
+  // 只量元素自身，绝不能把 #app 拿进来：#app 是 height: 100vh 的容器，
+  // 它的 scrollHeight 恒 ≥ 窗口高度，据此上报会「窗口越高、量得越高」地无限膨胀。
+  const measure = (element: HTMLElement): number => Math.max(element.offsetHeight, element.scrollHeight)
+  const contentHeight = modals.length ? Math.max(...modals.map(measure)) : measure(panel.value)
   const height = Math.min(PANEL_MAX_HEIGHT, Math.max(PANEL_MIN_HEIGHT, Math.ceil(contentHeight) + PANEL_HEIGHT_PADDING))
 
   void api.windows.panelResize(height).catch((error) => {
@@ -236,8 +274,10 @@ onMounted(() => {
   document.documentElement.addEventListener('mouseleave', onPointerLeave)
 
   if (panel.value) {
-    resizeObserver = new ResizeObserver(reportHeight)
+    resizeObserver = new ResizeObserver(scheduleReport)
     resizeObserver.observe(panel.value)
+    mutationObserver = new MutationObserver(scheduleReport)
+    mutationObserver.observe(panel.value, { childList: true, subtree: true, characterData: true })
   }
 
   playEnter()
@@ -246,6 +286,13 @@ onMounted(() => {
   void onAppEvent(AppEvents.panelShown, () => {
     clearCollapseTimer()
     playEnter()
+  })
+
+  // 独立编辑窗口关闭 → 解除保护；若此时鼠标已不在面板上，按策略重新计时。
+  void onAppEvent(AppEvents.editorClosed, () => {
+    externalEditorOpen.value = false
+    logger.debug('panel', '独立编辑窗口已关闭，恢复失焦收起')
+    if (!pointerInside.value) scheduleCollapse()
   })
 
   logger.info('panel', '面板已挂载')
@@ -258,7 +305,9 @@ onBeforeUnmount(() => {
   document.documentElement.removeEventListener('mouseenter', onPointerEnter)
   document.documentElement.removeEventListener('mouseleave', onPointerLeave)
   resizeObserver?.disconnect()
+  mutationObserver?.disconnect()
   observedModals.clear()
+  if (reportFrame !== null) cancelAnimationFrame(reportFrame)
   clearCollapseTimer()
 })
 
@@ -291,7 +340,7 @@ const activeLabel = computed(() => MODES.find((m) => m.key === mode.value)?.labe
     <!-- 三态页面：用 v-show 保留各自状态（如笔记草稿、搜索关键词） -->
     <NotePage v-show="mode === 'note'" @modal="onModalToggle" />
     <ClipPage v-show="mode === 'clipboard'" @modal="onModalToggle" />
-    <TodoPage v-show="mode === 'todo'" @modal="onModalToggle" />
+    <TodoPage v-show="mode === 'todo'" @external-editor="onExternalEditorOpen" />
 
     <ToastHost />
   </div>

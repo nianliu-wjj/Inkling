@@ -33,6 +33,33 @@ pub fn panel_resize(app: AppHandle, height: f64) -> Result<(), String> {
     windows::panel_resize(&app, height)
 }
 
+/// 打开独立编辑窗口，`payload` 为前端序列化的打开参数 JSON。
+///
+/// 必须是 **async** 命令：同步命令跑在主线程上，而创建窗口的 `build()` 需要主线程的
+/// 事件循环去处理，同步执行会互相等待——窗口句柄虽然建出来了，但 WebView 不初始化、
+/// 后续 show 也不生效。async 命令跑在线程池里，`build()` 内部再 dispatch 回主线程。
+#[tauri::command]
+pub async fn editor_open(app: AppHandle, payload: String) -> Result<(), String> {
+    windows::editor_open(&app, payload)
+}
+
+#[tauri::command]
+pub fn editor_close(app: AppHandle) -> Result<(), String> {
+    windows::editor_close(&app)
+}
+
+/// 编辑窗口挂载后拉取本次打开参数。
+#[tauri::command]
+pub fn editor_payload(app: AppHandle) -> Result<Option<String>, String> {
+    Ok(windows::editor_payload(&app))
+}
+
+/// 编辑窗口渲染完成，请求显示（避免先弹出空白遮罩再填内容）。
+#[tauri::command]
+pub fn editor_ready(app: AppHandle) -> Result<(), String> {
+    windows::editor_ready(&app)
+}
+
 #[tauri::command]
 pub fn show_main(app: AppHandle, view: String) -> Result<(), String> {
     windows::show_main(&app, &view)

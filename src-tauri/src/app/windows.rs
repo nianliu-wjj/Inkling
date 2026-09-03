@@ -106,6 +106,97 @@ pub fn create_core_windows(app: &AppHandle, silent: bool) -> tauri::Result<()> {
     Ok(())
 }
 
+/// 打开编辑窗口：铺满光标所在显示器工作区的透明窗口，遮罩压暗 + 对话框居中。
+///
+/// **每次打开都重建窗口**，而不是复用一个常驻隐藏窗口：WebView2 在窗口 hide 后会被
+/// 挂起，Tauri 靠 eval 投递的事件（含 tauri://focus）此时全部丢失，复用窗口时第二次
+/// 打开只会显示一个空的全屏透明窗口——它还会吞掉整屏点击。新建窗口的 WebView 必然
+/// 执行一次挂载逻辑，前端在那里主动拉取参数，时序上确定。
+///
+/// 参数经 `AppState` 暂存而不是拼进 URL：`WebviewUrl::App` 收的是相对路径，
+/// 查询串里的 `?` 会被当作路径字符转义掉，前端读不到。
+///
+/// 窗口**创建即可见但先对鼠标穿透**，等前端拿到参数、渲染出对话框后再调用
+/// `editor_ready` 接管鼠标与焦点。不能用 visible(false) 创建后等前端就绪再 show：
+/// WebView2 对隐藏窗口不做初始化，前端永远不会挂载，等待就成了死锁。
+/// 先穿透也顺带消掉一个隐患——内容未就绪的全屏透明窗口不会吞掉整屏点击。
+///
+/// `payload` 是调用方序列化好的 JSON（模式 / 待办 ID / 父级 ID / 预填日期 / 初始焦点），
+/// Rust 侧不解析内容，只做透传，保持窗口层与业务字段解耦。
+///
+/// 只取 work_area 而非整块屏幕，是为了不遮住任务栏——遮罩本身已经形成
+/// 「模态对话框」的观感，没必要连任务栏一起盖掉。
+pub fn editor_open(app: &AppHandle, payload: String) -> Result<(), String> {
+    // 上一个编辑窗口还在（例如用户又点了另一条待办）时先销毁，保证只有一个模态。
+    if let Some(existing) = app.get_webview_window("editor") {
+        let _ = existing.close();
+    }
+
+    let monitor = cursor_monitor(app).ok_or("未找到可用显示器")?;
+    let scale = monitor.scale_factor();
+    let work = monitor.work_area();
+
+    // 必须先暂存再建窗：新窗口的前端一挂载就会来拉参数。
+    eprintln!("[editor] 打开编辑窗口，参数={payload}");
+    app.state::<AppState>().set_editor_payload(Some(payload));
+
+    let editor = WebviewWindowBuilder::new(app, "editor", WebviewUrl::App("editor.html".into()))
+        .title("Inkling Editor")
+        .inner_size(
+            work.size.width as f64 / scale,
+            work.size.height as f64 / scale,
+        )
+        .position(
+            work.position.x as f64 / scale,
+            work.position.y as f64 / scale,
+        )
+        .decorations(false)
+        .transparent(true)
+        .always_on_top(true)
+        .skip_taskbar(true)
+        .resizable(false)
+        .shadow(false)
+        .visible(false)
+        .build()
+        .map_err(|e| format!("创建编辑窗口失败: {e}"))?;
+    let _ = editor.set_skip_taskbar(true);
+    // 内容就绪前不接收鼠标，避免一个空的全屏透明窗口挡住底下所有点击。
+    let _ = editor.set_ignore_cursor_events(true);
+    // 与置顶浮窗（pin_create）一致：隐藏创建后立即 show，WebView2 才会开始初始化。
+    let _ = editor.show();
+    Ok(())
+}
+
+/// 编辑窗口挂载后拉取本次打开参数。
+pub fn editor_payload(app: &AppHandle) -> Option<String> {
+    let payload = app.state::<AppState>().editor_payload();
+    eprintln!("[editor] 前端拉取打开参数，命中={}", payload.is_some());
+    payload
+}
+
+/// 编辑窗口内容就绪：接管鼠标事件并聚焦（由前端在对话框首帧渲染后调用）。
+pub fn editor_ready(app: &AppHandle) -> Result<(), String> {
+    let editor = app.get_webview_window("editor").ok_or("编辑窗口不存在")?;
+    eprintln!("[editor] 内容就绪，接管鼠标与焦点");
+    let _ = editor.set_ignore_cursor_events(false);
+    let _ = editor.show();
+    let _ = editor.set_focus();
+    Ok(())
+}
+
+/// 关闭（销毁）编辑窗口。
+///
+/// EDITOR_CLOSED 的广播由窗口销毁事件统一负责（见 main.rs 的 on_window_event），
+/// 这样用户用 Alt+F4 等方式关闭时面板同样能恢复失焦收起计时。
+pub fn editor_close(app: &AppHandle) -> Result<(), String> {
+    eprintln!("[editor] 关闭编辑窗口");
+    if let Some(editor) = app.get_webview_window("editor") {
+        let _ = editor.close();
+    }
+    app.state::<AppState>().set_editor_payload(None);
+    Ok(())
+}
+
 /// 计算宽度 `width` 的窗口在某显示器顶部居中的逻辑坐标。
 fn top_center(monitor: &tauri::Monitor, width: f64, top_offset: f64) -> (f64, f64) {
     let scale = monitor.scale_factor();

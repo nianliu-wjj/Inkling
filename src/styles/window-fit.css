@@ -41,9 +41,49 @@
 }
 
 /* 面板：高度随内容自适应，由 JS 上报给窗口（见 PanelApp.reportHeight）。
-   注意不要设 height，否则 ResizeObserver 量到的永远是窗口高度而非内容高度。 */
+   注意不要设 height，否则 ResizeObserver 量到的永远是窗口高度而非内容高度。
+
+   圆角：.glass 已经给了 border-radius，但 backdrop-filter 的绘制结果在
+   WebView2 下不受 border-radius 约束，会把四个角补成直角，面板看起来是方框。
+   clip-path 作用在元素的最终绘制结果上，能连同毛玻璃一起裁成圆角。 */
 #panel {
   min-height: 100px;
+  border-radius: var(--radius);
+  clip-path: inset(0 round var(--radius));
+}
+
+/* ═══ 独立编辑窗口：全屏压暗遮罩 + 居中对话框 ═══
+ * 窗口铺满显示器工作区且以 transparent 创建，若不把 body 背景清成透明，
+ * 遮罩之外会是一整块实色，看起来像凭空盖了一张纸。
+ * 遮罩本身沿用原型的 #todoEditorOverlay（fixed + inset: 0 + 半透明底色），
+ * 在这个窗口里正好铺满整窗；对话框宽度不再受面板 480px 约束。 */
+:root[data-window='editor'],
+:root[data-window='editor'] body,
+:root[data-window='editor'] #app {
+  background: transparent !important;
+}
+/* 遮罩之外（未打开任何对话框时）不拦鼠标，交互只发生在遮罩与对话框上。 */
+:root[data-window='editor'] #app {
+  pointer-events: none;
+}
+:root[data-window='editor'] .modal-overlay {
+  pointer-events: auto;
+}
+/* 屏幕比面板宽得多，对话框可以给到更舒展的尺寸与留白。
+   选择器必须带上 #todoEditorModal 这类 ID：弹窗宽度原本挂在 ID 上（优先级 100），
+   只写 `:root[data-window] .modal-shell` 会被它压过去，width 不生效。 */
+:root[data-window='editor'] #todoEditorModal.modal-shell,
+:root[data-window='editor'] #clipEditorModal.modal-shell,
+:root[data-window='editor'] #tagManagerModal.modal-shell {
+  width: 520px;
+  max-height: 86vh;
+  padding: 16px 20px 18px;
+}
+/* 与面板同理：毛玻璃绘制会盖掉圆角，用 clip-path 裁齐。 */
+:root[data-window='editor'] .modal-shell,
+#pinnedWindow,
+#reminderCard {
+  clip-path: inset(0 round var(--radius));
 }
 
 /* ═══ 面板内的编辑弹窗：整页编辑器 ═══
