@@ -32,6 +32,10 @@
   max-height: none;
   display: flex;
   flex-direction: column;
+  /* 与面板同一套圆角方案：窗口级的 Mica 由 DWM 按 8px 裁（见 platform::apply_rounded_corners），
+     内容级这里跟着裁到同一半径，避免两层不一致露出直角边。 */
+  border-radius: 8px;
+  clip-path: inset(0 round 8px);
 }
 
 /* 左右结构占满标题栏以下的全部空间。 */

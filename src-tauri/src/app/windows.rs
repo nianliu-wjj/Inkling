@@ -98,6 +98,8 @@ pub fn create_core_windows(app: &AppHandle, silent: bool) -> tauri::Result<()> {
         // 按偏好设置应用毛玻璃：窗口以 transparent 创建，若不显式应用效果层，
         // 主窗口会是「透明但无背景」，直接透出桌面内容。
         crate::platform::apply_main_backdrop(&main, main_acrylic);
+        // 主窗口同样是无边框窗口，默认直角；圆角与毛玻璃开关无关，独立设置。
+        crate::platform::apply_rounded_corners(&main);
         if !silent {
             let _ = main.show();
             let _ = main.set_focus();
