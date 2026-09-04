@@ -13,6 +13,8 @@ export type RemarkStyle = 'mixed' | 'icon' | 'text'
 /** 面板失焦收起策略（domain/models.rs::Settings 注释「immediate / 3s / never」）。 */
 export type CollapsePolicy = 'immediate' | '3s' | 'never'
 export type PanelPosition = 'top' | 'bottom' | 'left' | 'right'
+/** 玻璃质感档位（constants/glass.ts 与 styles/glass.css 的 data-glass 值）。 */
+export type GlassLevel = 'minimal' | 'standard' | 'frosted'
 
 export interface Note {
   id: string
@@ -103,6 +105,8 @@ export interface Settings {
   main_acrylic: boolean
   /** 面板从屏幕哪一侧的中间位置唤出。 */
   panel_position: PanelPosition
+  /** 玻璃质感档位，与配色主题正交。 */
+  glass_level: GlassLevel
   smtp_host: string
   smtp_port: number
   smtp_tls: boolean

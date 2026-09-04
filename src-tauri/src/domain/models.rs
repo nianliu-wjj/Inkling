@@ -75,6 +75,11 @@ pub struct Todo {
     pub updated_at: String,
 }
 
+/// 玻璃质感默认档：标准档，等于 tokens.css 里 :root 的既有值，升级后观感不变。
+fn default_glass_level() -> String {
+    "standard".into()
+}
+
 /// SMTP 默认端口：465（隐式 TLS），与多数邮箱服务商的默认一致。
 fn default_smtp_port() -> i64 {
     465
@@ -116,6 +121,10 @@ pub struct Settings {
     /// top / bottom / left / right；缺少该设置时使用当前平台默认值。
     #[serde(default = "default_panel_position")]
     pub panel_position: String,
+    /// 玻璃质感档位：minimal / standard / frosted。
+    /// 与配色主题正交——同一套配色可轻可厚，见 styles/glass.css。
+    #[serde(default = "default_glass_level")]
+    pub glass_level: String,
     /// SMTP 服务器地址，如 smtp.qq.com；为空表示未配置邮件提醒。
     #[serde(default)]
     pub smtp_host: String,
@@ -146,6 +155,7 @@ impl Default for Settings {
             theme: "dark".into(),
             main_acrylic: true,
             panel_position: default_panel_position(),
+            glass_level: default_glass_level(),
             smtp_host: String::new(),
             smtp_port: default_smtp_port(),
             smtp_tls: true,

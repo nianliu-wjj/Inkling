@@ -2,22 +2,26 @@
 import { computed, ref, watch } from 'vue'
 import { useSettings } from '@/composables/useData'
 import { useToast } from '@/composables/useToast'
+import { useGlass } from '@/composables/useGlass'
 import { useTheme } from '@/composables/useTheme'
+import { glassLevels } from '@/constants/glass'
 import { themes } from '@/constants/themes'
 import { logger } from '@/service/logger'
 import { api } from '@/service/tauri'
-import type { CollapsePolicy, PanelPosition, RemarkStyle, Settings } from '@/typings/domain'
+import type { CollapsePolicy, GlassLevel, PanelPosition, RemarkStyle, Settings } from '@/typings/domain'
 
 /**
  * 归档 · 偏好设置页。
  *
  * 需求 2.7：失焦收起策略 / 粘贴板保留天数 / 开机静默自启 / 全局快捷键（可重录）
- * / 备注展示样式 / 主题（30 套）。另加毛玻璃开关（本次设计新增）。
+ * / 备注展示样式 / 主题（30 套）/ 玻璃质感（3 档，与配色正交）。
+ * 另加毛玻璃开关与邮件提醒配置。
  *
  * 所有修改即时保存，并由后端广播 settings-changed 同步到其他窗口。
  */
 const { settings, save } = useSettings()
 const { applyTheme } = useTheme()
+const { applyGlass } = useGlass()
 const { toast } = useToast()
 
 const themeMenuOpen = ref(false)
@@ -125,6 +129,16 @@ async function sendTestMail(): Promise<void> {
   } finally {
     mailTesting.value = false
   }
+}
+
+/**
+ * 切换玻璃质感。
+ *
+ * 与主题同构：先即时应用视觉再落盘，避免等一次 IPC 往返才看到变化。
+ */
+function pickGlass(level: GlassLevel): void {
+  applyGlass(level)
+  void patch({ glass_level: level })
 }
 
 /** 打开数据目录，便于用户查看落盘的笔记与图片。 */
@@ -244,6 +258,19 @@ async function openDataDir(): Promise<void> {
           </div>
         </div>
       </div>
+
+      <label class="setting-row">
+        <span>玻璃质感</span>
+        <select
+          :value="settings.glass_level"
+          :title="glassLevels.find((item) => item.key === settings.glass_level)?.hint ?? ''"
+          @change="pickGlass(($event.target as HTMLSelectElement).value as GlassLevel)"
+        >
+          <option v-for="option in glassLevels" :key="option.key" :value="option.key">
+            {{ option.label }} · {{ option.hint }}
+          </option>
+        </select>
+      </label>
 
       <div class="setting-row">
         <span>数据目录</span>

@@ -2,6 +2,7 @@
 import { computed, onMounted, ref, watch } from 'vue'
 import ToastHost from '@/components/base/ToastHost.vue'
 import { useClips, useNotes, useSettings, useTodos } from '@/composables/useData'
+import { applyCachedGlass, useGlass } from '@/composables/useGlass'
 import { applyCachedTheme, useTheme } from '@/composables/useTheme'
 import { AppEvents, onAppEvent } from '@/service/events'
 import { logger } from '@/service/logger'
@@ -25,12 +26,14 @@ import TodosView from './TodosView.vue'
 
 // 启动瞬间先用缓存主题上色，避免闪一下默认深色。
 applyCachedTheme()
+applyCachedGlass()
 
 const { notes } = useNotes()
 const { clips } = useClips()
 const { todos } = useTodos()
 const { settings } = useSettings()
 const { applyTheme } = useTheme()
+const { applyGlass } = useGlass()
 
 const view = ref<View | 'day'>('notes')
 const selectedDate = ref('')
@@ -45,6 +48,8 @@ const counts = computed(() => ({
 
 /** 主题跟随设置变化。 */
 watch(() => settings.value.theme, applyTheme, { immediate: true })
+// 玻璃质感与主题同源：后端设置变化时一并同步。
+watch(() => settings.value.glass_level, applyGlass, { immediate: true })
 
 /** 毛玻璃开关：同步根属性，供 base.css 的降级规则使用。 */
 watch(

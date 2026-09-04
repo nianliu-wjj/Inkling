@@ -3,6 +3,7 @@ import { computed, nextTick, onMounted, ref, watch } from 'vue'
 import ToastHost from '@/components/base/ToastHost.vue'
 import TodoEditorModal from '@/components/todo/TodoEditorModal.vue'
 import { useSettings, useTodos } from '@/composables/useData'
+import { applyCachedGlass, useGlass } from '@/composables/useGlass'
 import { applyCachedTheme, useTheme } from '@/composables/useTheme'
 import { logger } from '@/service/logger'
 import { api } from '@/service/tauri'
@@ -26,6 +27,7 @@ import type { Todo, TodoInput } from '@/typings/domain'
 
 // 启动瞬间先用缓存主题上色，避免默认深色闪一下再跳变。
 applyCachedTheme()
+applyCachedGlass()
 
 document.documentElement.dataset.window = 'editor'
 
@@ -42,6 +44,7 @@ type EditorPayload = {
 const { todos } = useTodos()
 const { settings } = useSettings()
 const { applyTheme } = useTheme()
+const { applyGlass } = useGlass()
 
 /** 本次打开参数，挂载后由后端拉取填入。 */
 const payload = ref<EditorPayload | null>(null)
@@ -52,6 +55,13 @@ const shown = ref(false)
 watch(
   () => settings.value.theme,
   (theme) => applyTheme(theme),
+  { immediate: true },
+)
+
+// 玻璃质感与主题同源：后端设置变化时一并同步。
+watch(
+  () => settings.value.glass_level,
+  (level) => applyGlass(level),
   { immediate: true },
 )
 

@@ -22,6 +22,11 @@
   --glass-bg: rgba(30, 34, 50, 0.55);
   --glass-border: rgba(255, 255, 255, 0.12);
   --glass-shadow: 0 12px 40px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  /* 玻璃质感：这里的值即「标准」档，由 styles/glass.css 的 [data-glass] 覆盖为其他档位。
+     抽成令牌是为了让质感与配色正交——同一套配色可轻可厚，不必再复制一套主题。 */
+  --glass-blur: 24px;
+  --glass-saturate: 160%;
+  --glass-border-width: 1px;
   --menubar-bg: rgba(20, 22, 32, 0.75);
   --menu-bg: rgba(28, 30, 44, 0.92);
   --tip-bg: rgba(24, 26, 40, 0.97);
@@ -63,9 +68,9 @@ body {
 }
 .glass {
   background: var(--glass-bg);
-  backdrop-filter: blur(24px) saturate(160%);
-  -webkit-backdrop-filter: blur(24px) saturate(160%);
-  border: 1px solid var(--glass-border);
+  backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+  border: var(--glass-border-width) solid var(--glass-border);
   box-shadow: var(--glass-shadow);
   border-radius: var(--radius);
 }

@@ -3,6 +3,7 @@ import gsap from 'gsap'
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import ToastHost from '@/components/base/ToastHost.vue'
 import { useSettings } from '@/composables/useData'
+import { applyCachedGlass, useGlass } from '@/composables/useGlass'
 import { applyCachedTheme, useTheme } from '@/composables/useTheme'
 import { AppEvents, onAppEvent } from '@/service/events'
 import { logger } from '@/service/logger'
@@ -26,9 +27,11 @@ import TodoPage from './TodoPage.vue'
 
 // 启动瞬间先用缓存主题上色，避免默认深色闪一下再跳变。
 applyCachedTheme()
+applyCachedGlass()
 
 const { settings } = useSettings()
 const { applyTheme } = useTheme()
+const { applyGlass } = useGlass()
 
 const mode = ref<CaptureMode>('note')
 const panel = ref<HTMLElement | null>(null)
@@ -81,6 +84,13 @@ const MODES: readonly { key: CaptureMode; dot: string; label: string; hotkey: st
 watch(
   () => settings.value.theme,
   (theme) => applyTheme(theme),
+  { immediate: true },
+)
+
+// 玻璃质感与主题同源：后端设置变化时一并同步。
+watch(
+  () => settings.value.glass_level,
+  (level) => applyGlass(level),
   { immediate: true },
 )
 

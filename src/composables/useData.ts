@@ -24,6 +24,7 @@ const DEFAULT_SETTINGS: Settings = {
   theme: 'dark',
   main_acrylic: true,
   panel_position: 'top',
+  glass_level: 'standard',
   smtp_host: '',
   smtp_port: 465,
   smtp_tls: true,

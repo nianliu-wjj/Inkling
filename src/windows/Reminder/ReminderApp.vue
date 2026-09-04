@@ -2,6 +2,7 @@
 import { getCurrentWindow } from '@tauri-apps/api/window'
 import { computed, onMounted, ref, watch } from 'vue'
 import { useSettings } from '@/composables/useData'
+import { applyCachedGlass, useGlass } from '@/composables/useGlass'
 import { applyCachedTheme, useTheme } from '@/composables/useTheme'
 import { logger } from '@/service/logger'
 import { api } from '@/service/tauri'
@@ -14,10 +15,14 @@ import { api } from '@/service/tauri'
  * - 下拉选择下次提醒时间（只改下一次 remind_at，不改计划完成时间）。
  */
 applyCachedTheme()
+applyCachedGlass()
 
 const { settings } = useSettings()
 const { applyTheme } = useTheme()
+const { applyGlass } = useGlass()
 watch(() => settings.value.theme, applyTheme, { immediate: true })
+// 玻璃质感与主题同源：后端设置变化时一并同步。
+watch(() => settings.value.glass_level, applyGlass, { immediate: true })
 
 const label = getCurrentWindow().label
 /** 窗口 label 形如 reminder-{todoId}。 */

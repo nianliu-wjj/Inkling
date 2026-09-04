@@ -1,0 +1,46 @@
+/* ═══════════════════════════════════════════════════════════════════════
+ * 玻璃质感档位
+ *
+ * 与配色主题正交：主题（themes.css）负责颜色，本文件只负责「玻璃有多厚」。
+ * 因此这里**只覆盖模糊、饱和、边框宽度与阴影几何**，
+ * 不碰 --glass-bg（那是各主题精心调过的底色）。
+ *
+ * 加载顺序必须在 themes.css **之后**：两者都写 :root 级选择器，
+ * 后加载的才能压过主题给出的默认阴影。
+ *
+ * standard 档不在此定义——它等于 tokens.css 里 :root 的默认值，
+ * 页面不设 data-glass 属性即为标准档（与主题的 dark 同一约定）。
+ * ═══════════════════════════════════════════════════════════════════════ */
+
+/* 极简：弱模糊 + 低饱和 + 半像素边框 + 单层浅阴影。
+ *
+ * 阴影这里直接给中性黑而非沿用主题色调：主题把阴影写成完整的 box-shadow
+ * 字符串（含 inset 高光），CSS 无法对它按系数缩放。改为让主题拆出颜色分量
+ * 需要重构全部 30 套主题的阴影定义，成本远超收益；而极简档的阴影本身极淡
+ * （alpha 0.10），色偏在这个透明度下几乎不可见。 */
+:root[data-glass='minimal'] {
+  --glass-blur: 12px;
+  --glass-saturate: 120%;
+  --glass-border-width: 0.5px;
+  --glass-shadow: 0 4px 14px rgba(0, 0, 0, 0.1);
+}
+
+/* 厚玻璃：强模糊 + 高饱和 + 更深的多层阴影。 */
+:root[data-glass='frosted'] {
+  --glass-blur: 40px;
+  --glass-saturate: 180%;
+  --glass-border-width: 1px;
+  --glass-shadow:
+    0 18px 56px rgba(0, 0, 0, 0.32), 0 4px 12px rgba(0, 0, 0, 0.18), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+}
+
+/* 系统「减少透明度」偏好：直接退化为不模糊，仅保留底色。
+   这不是装饰性动效，而是可读性与性能诉求，优先级高于档位选择。 */
+@media (prefers-reduced-transparency: reduce) {
+  :root,
+  :root[data-glass='minimal'],
+  :root[data-glass='frosted'] {
+    --glass-blur: 0px;
+    --glass-saturate: 100%;
+  }
+}

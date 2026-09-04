@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { getCurrentWindow } from '@tauri-apps/api/window'
 import { computed, onMounted, ref, watch } from 'vue'
+import { applyCachedGlass, useGlass } from '@/composables/useGlass'
 import { applyCachedTheme, useTheme } from '@/composables/useTheme'
 import { useSettings } from '@/composables/useData'
 import { logger } from '@/service/logger'
@@ -15,10 +16,14 @@ import { renderMarkdown } from '@/utils/format'
  * 支持透明度调节；双击展开进入编辑态（由 Rust 侧调整窗口尺寸）。
  */
 applyCachedTheme()
+applyCachedGlass()
 
 const { settings } = useSettings()
 const { applyTheme } = useTheme()
+const { applyGlass } = useGlass()
 watch(() => settings.value.theme, applyTheme, { immediate: true })
+// 玻璃质感与主题同源：后端设置变化时一并同步。
+watch(() => settings.value.glass_level, applyGlass, { immediate: true })
 
 const label = getCurrentWindow().label
 /** 从窗口 label 解析出 kind 与 id：pinned-note-xxxx。 */
