@@ -81,7 +81,13 @@ onBeforeUnmount(() => stopResize?.())
   <div class="win-controls no-drag" :class="`win-controls-${platform === 'macos' ? 'mac' : 'win'}`">
     <template v-if="platform === 'macos'">
       <!-- macOS 惯例的排列次序：关闭 / 最小化 / 最大化 -->
-      <button type="button" class="mac-dot mac-close" title="关闭（隐藏到托盘）" @click="close">
+      <button
+        type="button"
+        class="mac-dot mac-close"
+        title="关闭"
+        aria-label="关闭（隐藏到托盘，可从托盘图标唤回）"
+        @click="close"
+      >
         <svg viewBox="0 0 12 12" aria-hidden="true">
           <path d="M3.5 3.5l5 5M8.5 3.5l-5 5" />
         </svg>
@@ -109,7 +115,13 @@ onBeforeUnmount(() => stopResize?.())
         </svg>
         <svg v-else viewBox="0 0 10 10" aria-hidden="true"><path d="M0.5 0.5h9v9h-9z" /></svg>
       </button>
-      <button type="button" class="win-btn win-btn-close" title="关闭（隐藏到托盘）" @click="close">
+      <button
+        type="button"
+        class="win-btn win-btn-close"
+        title="关闭"
+        aria-label="关闭（隐藏到托盘，可从托盘图标唤回）"
+        @click="close"
+      >
         <svg viewBox="0 0 10 10" aria-hidden="true"><path d="M0 0l10 10M10 0L0 10" /></svg>
       </button>
     </template>

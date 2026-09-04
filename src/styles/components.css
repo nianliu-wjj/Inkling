@@ -483,6 +483,10 @@
   display: flex;
   align-items: center;
 }
+/* 控件用负 margin 撑到标题栏边缘，标题栏不能裁掉溢出部分。 */
+.window-titlebar {
+  overflow: visible;
+}
 .window-titlebar.controls-left .win-controls {
   margin-left: 0;
   margin-right: 4px;
@@ -539,17 +543,24 @@ body:not(:focus-within) .mac-dot {
 }
 
 /* ── Windows：右上角三个方形按钮 ──
- * 原生规格：46×32 命中区、图标 10px、无圆角、悬浮浅底，关闭键悬浮转红底白字。
- * 标题栏上下 padding 已占 12px，这里把按钮拉伸到贴满标题栏高度以对齐系统观感。 */
+ * 原生规格：46px 宽、铺满标题栏高度、无圆角、图标 10px，
+ * 悬浮浅底，关闭键悬浮转红底白字（#c42b1c，Windows 11 的值）。
+ *
+ * 关键是**悬浮底色必须铺满整个命中区**：基类 .win-controls 用了
+ * align-items: center，按钮会缩到图标那么高，底色只占中间一条，
+ * 看着像贴了块色块而不是按钮变色；右上角圆角作用在这条矮色块上还会切出斜角。
+ * 因此这里两级都改成 stretch——align-self 让控件组在标题栏里撑满，
+ * align-items 让按钮在控件组里撑满。负 margin 抵消标题栏的 12px/16px 内边距，
+ * 使按钮真正贴到窗口边缘。 */
 .win-controls-win {
   gap: 0;
-  margin-top: -12px;
-  margin-bottom: -12px;
-  margin-right: -16px;
   align-self: stretch;
+  align-items: stretch;
+  margin: -12px -16px -12px 0;
 }
 .win-btn {
   width: 46px;
+  /* 不设 height：高度由 align-items: stretch 撑满标题栏。 */
   padding: 0;
   border: none;
   border-radius: 0;
@@ -567,14 +578,19 @@ body:not(:focus-within) .mac-dot {
   stroke: currentColor;
   stroke-width: 1;
   fill: none;
-  /* 1px 线条在整数坐标上会跨像素而发虚，偏移半像素对齐设备像素网格。 */
+  /* 1px 细线在非整数坐标上会跨像素发虚，对齐设备像素网格保持锐利。 */
   shape-rendering: crispEdges;
 }
+/* 关闭键的 ✕ 比另两个图标略大，与系统一致。 */
+.win-btn-close svg {
+  width: 11px;
+  height: 11px;
+}
 .win-btn:hover {
-  background: rgba(var(--wsa), 0.12);
+  background: rgba(var(--wsa), 0.1);
 }
 .win-btn:active {
-  background: rgba(var(--wsa), 0.18);
+  background: rgba(var(--wsa), 0.16);
 }
 /* 关闭键是系统里唯一带强调色的按钮，配色取自 Windows 11。 */
 .win-btn-close:hover {
@@ -585,7 +601,8 @@ body:not(:focus-within) .mac-dot {
   background: #b2261a;
   color: #fff;
 }
-/* 最右一个按钮要跟上窗口圆角，否则悬浮底色会溢出圆角外形成方角。 */
+/* 最右一个按钮跟随窗口圆角，否则悬浮底色会在圆角外溢出成方角。
+   半径与 window-fit.css 里 #mainWindow 的 8px 保持一致。 */
 .win-controls-win .win-btn:last-child {
   border-top-right-radius: 8px;
 }
