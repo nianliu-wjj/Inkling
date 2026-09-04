@@ -51,8 +51,17 @@ pub struct Todo {
     pub completed_at: Option<String>,
     /// open / done
     pub status: String,
-    /// 下一次提醒时间；为空时按 `due_at` 应用默认提醒计划。
+    /// 重复提醒推进时的游标；**不再是用户设置的提醒时刻**。
+    ///
+    /// 用户设的是相对偏移（`remind_offset_minutes`），实际提醒时刻由
+    /// `due_at - offset` 现算，这样改完成时间后提醒会自动跟随。
     pub remind_at: Option<String>,
+    /// 提醒偏移分钟数（完成时间之前）；`None` = 不提醒。
+    pub remind_offset_minutes: Option<i64>,
+    /// 是否桌面弹窗提醒。
+    pub remind_desktop: bool,
+    /// 是否邮件提醒。
+    pub remind_email: bool,
     /// daily / weekly / None
     pub repeat_rule: Option<String>,
     /// 用户在提醒卡片上点击「关闭」后置位，抑制后续提醒；编辑提醒时复位。
@@ -64,6 +73,15 @@ pub struct Todo {
     pub tags: Vec<String>,
     pub created_at: String,
     pub updated_at: String,
+}
+
+/// SMTP 默认端口：465（隐式 TLS），与多数邮箱服务商的默认一致。
+fn default_smtp_port() -> i64 {
+    465
+}
+
+fn default_true() -> bool {
+    true
 }
 
 /// 面板唤出位置：四个方向均以屏幕中线为基准。
@@ -98,6 +116,23 @@ pub struct Settings {
     /// top / bottom / left / right；缺少该设置时使用当前平台默认值。
     #[serde(default = "default_panel_position")]
     pub panel_position: String,
+    /// SMTP 服务器地址，如 smtp.qq.com；为空表示未配置邮件提醒。
+    #[serde(default)]
+    pub smtp_host: String,
+    #[serde(default = "default_smtp_port")]
+    pub smtp_port: i64,
+    #[serde(default = "default_true")]
+    pub smtp_tls: bool,
+    #[serde(default)]
+    pub smtp_username: String,
+    /// 建议填邮箱的**应用专用密码**而非主账号密码。
+    /// 读取时会被替换为掩码，避免真实值进入前端状态与日志。
+    #[serde(default)]
+    pub smtp_password: String,
+    #[serde(default)]
+    pub smtp_from: String,
+    #[serde(default)]
+    pub smtp_to: String,
 }
 
 impl Default for Settings {
@@ -111,6 +146,13 @@ impl Default for Settings {
             theme: "dark".into(),
             main_acrylic: true,
             panel_position: default_panel_position(),
+            smtp_host: String::new(),
+            smtp_port: default_smtp_port(),
+            smtp_tls: true,
+            smtp_username: String::new(),
+            smtp_password: String::new(),
+            smtp_from: String::new(),
+            smtp_to: String::new(),
         }
     }
 }

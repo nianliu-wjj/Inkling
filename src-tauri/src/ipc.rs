@@ -360,6 +360,12 @@ pub struct TodoPayload {
     pub content: String,
     pub due_at: String,
     pub remind_at: Option<String>,
+    /// 提醒偏移分钟数；`None` = 不提醒。
+    pub remind_offset_minutes: Option<i64>,
+    #[serde(default)]
+    pub remind_desktop: bool,
+    #[serde(default)]
+    pub remind_email: bool,
     pub repeat_rule: Option<String>,
     pub priority: String,
     pub remark: String,
@@ -375,6 +381,9 @@ fn todo_input(payload: TodoPayload) -> todos_data::TodoInput {
         content: payload.content,
         due_at: payload.due_at,
         remind_at: payload.remind_at,
+        remind_offset_minutes: payload.remind_offset_minutes,
+        remind_desktop: payload.remind_desktop,
+        remind_email: payload.remind_email,
         repeat_rule: payload.repeat_rule,
         priority: payload.priority,
         remark: payload.remark,
@@ -395,6 +404,10 @@ pub fn todo_save(
     state: State<'_, AppState>,
     input: TodoPayload,
 ) -> Result<Todo, String> {
+    // 勾了邮件却没配好 SMTP 时直接拦截，避免用户以为已生效却收不到信。
+    if input.remind_email && !crate::services::mailer::is_configured(&app) {
+        return Err("尚未配置邮件提醒，请先在设置页填写 SMTP 信息".into());
+    }
     let parent_id = input.parent_id.clone();
     let todo = if let Some(parent) = parent_id.filter(|_| input.id.is_none()) {
         state
@@ -451,15 +464,36 @@ pub fn todo_reminder(
     app: AppHandle,
     state: State<'_, AppState>,
     id: String,
-    remind_at: Option<String>,
+    offset_minutes: Option<i64>,
+    desktop: bool,
+    email: bool,
     repeat_rule: Option<String>,
 ) -> Result<Todo, String> {
-    let todo =
-        state
-            .lock_store()?
-            .set_todo_reminder(&id, remind_at.as_deref(), repeat_rule.as_deref())?;
+    // 勾了邮件却没配好 SMTP 时直接拦截，避免用户以为已生效却收不到信。
+    if email && !crate::services::mailer::is_configured(&app) {
+        return Err("尚未配置邮件提醒，请先在设置页填写 SMTP 信息".into());
+    }
+    let todo = state.lock_store()?.set_todo_reminder(
+        &id,
+        offset_minutes,
+        desktop,
+        email,
+        repeat_rule.as_deref(),
+    )?;
     emit_all(&app, events::TODOS_CHANGED, id);
     Ok(todo)
+}
+
+/// 发送一封测试邮件，用于验证 SMTP 配置。同步执行，错误原样回传界面。
+#[tauri::command]
+pub fn mail_test(app: AppHandle) -> Result<(), String> {
+    crate::services::mailer::send_now(
+        &app,
+        &crate::services::mailer::MailRequest {
+            subject: "[Inkling] 测试邮件".into(),
+            body: "这是一封来自 Inkling 的测试邮件。收到它说明邮件提醒已配置成功。".into(),
+        },
+    )
 }
 
 #[tauri::command]
@@ -470,7 +504,7 @@ pub fn todo_delete(app: AppHandle, state: State<'_, AppState>, id: String) -> Re
     Ok(())
 }
 
-/// 提醒卡片「稍后提醒」：只更新 remind_at。
+/// 提醒卡片「稍后提醒」：写入一次性的额外提醒时刻。
 #[tauri::command]
 pub fn todo_snooze(
     app: AppHandle,
@@ -478,9 +512,8 @@ pub fn todo_snooze(
     id: String,
     minutes: i64,
 ) -> Result<Todo, String> {
-    let next = (chrono::Utc::now() + chrono::Duration::minutes(minutes)).to_rfc3339();
     let store = state.lock_store()?;
-    let todo = store.set_todo_reminder(&id, Some(&next), None)?;
+    let todo = store.snooze_todo(&id, minutes)?;
     drop(store);
     emit_all(&app, events::TODOS_CHANGED, id);
     Ok(todo)

@@ -156,6 +156,13 @@ impl Store {
                 .pragma_update(None, "user_version", 2)
                 .map_err(db_err)?;
         }
+        if version < 3 {
+            self.with_v3()
+                .map_err(|e| format!("数据库迁移到 v3 失败: {e}"))?;
+            self.db
+                .pragma_update(None, "user_version", 3)
+                .map_err(db_err)?;
+        }
         Ok(())
     }
 
@@ -212,6 +219,24 @@ impl Store {
         self.db
             .execute(
                 "UPDATE notes SET editor_mode='text' WHERE editor_mode IS NULL OR editor_mode=''",
+                [],
+            )
+            .map_err(db_err)?;
+        Ok(())
+    }
+
+    /// v3 增量：提醒偏移与提醒渠道。
+    ///
+    /// 存量数据统一归为「前 15 分钟 + 只弹窗」并清空 `remind_at`。
+    /// 不按原 `remind_at` 与 `due_at` 的差值就近归类到六个档位——那会产生
+    /// 「我设的 18:40 变成 18:45」这种静默偏移，比统一归默认值更难向用户解释。
+    fn with_v3(&self) -> Result<(), String> {
+        self.add_column_if_missing("todos", "remind_offset_minutes", "INTEGER")?;
+        self.add_column_if_missing("todos", "remind_desktop", "INTEGER NOT NULL DEFAULT 1")?;
+        self.add_column_if_missing("todos", "remind_email", "INTEGER NOT NULL DEFAULT 0")?;
+        self.db
+            .execute(
+                "UPDATE todos SET remind_offset_minutes=15, remind_desktop=1,                  remind_email=0, remind_at=NULL",
                 [],
             )
             .map_err(db_err)?;
@@ -344,7 +369,7 @@ impl Store {
         self.db
             .query_row(
                 "SELECT id, content, due_at, completed_at, status, remind_at, repeat_rule, remind_off, \
-                 priority, remark, parent_id, created_at, updated_at FROM todos WHERE id=?",
+                 priority, remark, parent_id, created_at, updated_at,                  remind_offset_minutes, remind_desktop, remind_email FROM todos WHERE id=?",
                 [id],
                 |r| {
                     Ok(crate::domain::models::Todo {
@@ -362,6 +387,9 @@ impl Store {
                         tags: Vec::new(),
                         created_at: r.get(11)?,
                         updated_at: r.get(12)?,
+                        remind_offset_minutes: r.get(13)?,
+                        remind_desktop: r.get::<_, i64>(14)? != 0,
+                        remind_email: r.get::<_, i64>(15)? != 0,
                     })
                 },
             )
@@ -432,5 +460,65 @@ impl Store {
             created_at,
             updated_at,
         })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// 建一个 v2 状态的库：只有 todos 基础列，user_version=2。
+    fn v2_db() -> rusqlite::Connection {
+        let db = rusqlite::Connection::open_in_memory().unwrap();
+        db.execute_batch(
+            "CREATE TABLE todos (
+               id TEXT PRIMARY KEY,
+               content TEXT NOT NULL,
+               due_at TEXT NOT NULL,
+               remind_at TEXT,
+               status TEXT NOT NULL DEFAULT 'open',
+               priority TEXT NOT NULL DEFAULT 'medium',
+               remark TEXT NOT NULL DEFAULT '',
+               created_at TEXT NOT NULL,
+               updated_at TEXT NOT NULL
+             );
+             INSERT INTO todos(id, content, due_at, remind_at, created_at, updated_at)
+             VALUES('a','旧待办','2026-09-10T10:00:00+00:00','2026-09-10T09:40:00+00:00','x','x');
+             INSERT INTO todos(id, content, due_at, remind_at, created_at, updated_at)
+             VALUES('b','无提醒待办','2026-09-11T10:00:00+00:00',NULL,'x','x');",
+        )
+        .unwrap();
+        db.pragma_update(None, "user_version", 2).unwrap();
+        db
+    }
+
+    #[test]
+    fn v3_migration_normalizes_existing_reminders() {
+        let db = v2_db();
+        let store = Store {
+            db,
+            data_dir: std::path::PathBuf::from("."),
+        };
+        store.with_v3().unwrap();
+
+        // 存量一律归为「前 15 分钟 + 只弹窗」，remind_at 清空。
+        let mut stmt = store
+            .db
+            .prepare(
+                "SELECT remind_offset_minutes, remind_desktop, remind_email, remind_at                  FROM todos ORDER BY id",
+            )
+            .unwrap();
+        let rows: Vec<(i64, i64, i64, Option<String>)> = stmt
+            .query_map([], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?)))
+            .unwrap()
+            .map(|x| x.unwrap())
+            .collect();
+        assert_eq!(rows.len(), 2);
+        for row in rows {
+            assert_eq!(row.0, 15);
+            assert_eq!(row.1, 1);
+            assert_eq!(row.2, 0);
+            assert_eq!(row.3, None);
+        }
     }
 }

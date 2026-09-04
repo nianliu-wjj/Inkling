@@ -28,6 +28,13 @@ pulldown-cmark = "0.13"
 ab_glyph = "0.2"
 genpdfi = "0.2.7"
 enigo = "0.6.1"
+# 邮件提醒：SMTP 客户端。关掉默认的 async 运行时，只用阻塞式发送——
+# 发信在独立线程的队列里串行执行，不需要再引入一套异步栈。
+lettre = { version = "0.11", default-features = false, features = [
+  "smtp-transport",
+  "rustls-tls",
+  "builder",
+] }
 
 # 仅 Windows：设置 DWM 窗口圆角（Win11）。Mica / Acrylic 由 DWM 在窗口矩形上绘制，
 # CSS 的 clip-path 只能裁 WebView 内容，裁不掉底下这层系统背景，四角仍是方的。

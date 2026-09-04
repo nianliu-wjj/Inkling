@@ -76,12 +76,30 @@ pub fn validate_parent(
     Ok(())
 }
 
-/// 默认提醒计划：完成时间前 30 分钟、前 5 分钟、到点时刻。
-/// 返回 (触发时刻, 槽位标识) 列表，按时间升序。
-pub fn default_reminder_slots(due_at: DateTime<Utc>) -> Vec<(DateTime<Utc>, &'static str)> {
+/// 可选的提醒偏移档位（分钟）。
+///
+/// 与前端下拉框选项一一对应，前后端都以此为准：
+/// 15 分钟 / 30 分钟 / 1 小时 / 3 小时 / 6 小时 / 1 天。
+pub const REMIND_OFFSETS: [i64; 6] = [15, 30, 60, 180, 360, 1440];
+
+/// 偏移值是否合法。`None`（不提醒）由调用方单独处理，不走这里。
+pub fn is_valid_offset(minutes: i64) -> bool {
+    REMIND_OFFSETS.contains(&minutes)
+}
+
+/// 某待办的提醒槽位：偏移提醒一次 + 到点兜底一次。
+///
+/// 兜底的存在是为了让「前 1 天」这类大偏移不至于错过到期本身。
+/// `offset_minutes` 为 `None` 时表示不提醒，返回空列表。
+pub fn reminder_slots(
+    due_at: DateTime<Utc>,
+    offset_minutes: Option<i64>,
+) -> Vec<(DateTime<Utc>, &'static str)> {
+    let Some(minutes) = offset_minutes else {
+        return Vec::new();
+    };
     vec![
-        (due_at - Duration::minutes(30), "due-30m"),
-        (due_at - Duration::minutes(5), "due-5m"),
+        (due_at - Duration::minutes(minutes), "offset"),
         (due_at, "due"),
     ]
 }
@@ -95,9 +113,18 @@ pub fn repeat_period(rule: &str) -> Option<Duration> {
     }
 }
 
-/// 提醒实例的幂等键：待办 + 槽位 + 触发时刻毫秒。
-pub fn reminder_instance_key(todo_id: &str, slot: &str, when: DateTime<Utc>) -> String {
-    format!("{todo_id}|{slot}|{}", when.timestamp_millis())
+/// 提醒实例的幂等键：待办 + 槽位 + 渠道 + 触发时刻毫秒。
+///
+/// 含渠道维度，是为了让弹窗与邮件各自独立记账：邮件发送失败重试时，
+/// 若与弹窗共用一条记录，会被弹窗那次成功的记录挡掉而永不重发。
+/// 后续接入新渠道（如 QQ 机器人）也不必再改键的结构。
+pub fn reminder_instance_key(
+    todo_id: &str,
+    slot: &str,
+    channel: &str,
+    when: DateTime<Utc>,
+) -> String {
+    format!("{todo_id}|{slot}|{channel}|{}", when.timestamp_millis())
 }
 
 #[cfg(test)]
@@ -115,15 +142,6 @@ mod tests {
         assert!(is_overdue("2026-08-30T10:00:00+00:00", "open", now));
         assert!(!is_overdue("2026-08-30T10:00:00+00:00", "done", now));
         assert!(!is_overdue("2026-08-30T13:00:00+00:00", "open", now));
-    }
-
-    #[test]
-    fn default_slots_are_ordered() {
-        let due = t(2026, 8, 30, 18, 0);
-        let slots = default_reminder_slots(due);
-        assert_eq!(slots[0].1, "due-30m");
-        assert_eq!(slots[0].0, due - Duration::minutes(30));
-        assert_eq!(slots[2].0, due);
     }
 
     #[test]
@@ -186,12 +204,37 @@ mod tests {
     }
 
     #[test]
-    fn reminder_keys_are_idempotent_per_slot() {
-        let a = reminder_instance_key("t1", "due", t(2026, 8, 30, 18, 0));
-        let b = reminder_instance_key("t1", "due", t(2026, 8, 30, 18, 0));
-        let c = reminder_instance_key("t1", "due-5m", t(2026, 8, 30, 17, 55));
-        assert_eq!(a, b);
-        assert_ne!(a, c);
+    fn reminder_slots_use_offset_plus_due() {
+        let due = t(2026, 8, 30, 18, 0);
+        let slots = reminder_slots(due, Some(15));
+        assert_eq!(slots.len(), 2);
+        assert_eq!(slots[0].0, due - Duration::minutes(15));
+        assert_eq!(slots[0].1, "offset");
+        assert_eq!(slots[1].0, due);
+        assert_eq!(slots[1].1, "due");
+    }
+
+    #[test]
+    fn reminder_slots_empty_when_offset_missing() {
+        let due = t(2026, 8, 30, 18, 0);
+        assert!(reminder_slots(due, None).is_empty());
+    }
+
+    #[test]
+    fn reminder_key_separates_channels() {
+        let when = t(2026, 8, 30, 18, 0);
+        let desktop = reminder_instance_key("t1", "due", "desktop", when);
+        let email = reminder_instance_key("t1", "due", "email", when);
+        assert_ne!(desktop, email);
+        assert_eq!(desktop, reminder_instance_key("t1", "due", "desktop", when));
+    }
+
+    #[test]
+    fn only_listed_offsets_are_valid() {
+        assert!(is_valid_offset(15));
+        assert!(is_valid_offset(1440));
+        assert!(!is_valid_offset(20));
+        assert!(!is_valid_offset(0));
     }
 
     #[test]

@@ -1,15 +1,18 @@
-//! 提醒调度：每 30s 扫描到期提醒实例（幂等抢占），创建右上角提醒卡片窗口。
+//! 提醒调度：每 30s 扫描到期提醒实例（幂等抢占），按渠道分别触发。
 //!
-//! 默认提醒计划（未设置 remind_at）：完成时间前 30 分钟 / 前 5 分钟 / 到点；
-//! 设置了 remind_at：仅该时刻一次；repeat_rule 在提醒关闭或触发后按周期推进。
+//! 提醒时刻由「完成时间 - 用户选择的偏移」现算，另加一次到点兜底；
+//! 弹窗与邮件各自记账，互不影响（邮件重试不会被弹窗的成功记录挡掉）。
+//! `repeat_rule` 在提醒触发后按周期推进 `remind_at` 游标。
 
 use chrono::{DateTime, Duration, Utc};
 use std::time::Duration as StdDuration;
 
 use crate::app::state::AppState;
 use crate::app::windows;
+use crate::domain::models::Todo;
 use crate::domain::todo as logic;
 use crate::events;
+use crate::services::mailer::{self, MailRequest};
 use tauri::{AppHandle, Emitter, Manager};
 
 const TICK: StdDuration = StdDuration::from_secs(30);
@@ -37,87 +40,130 @@ fn tick(app: &AppHandle) -> Result<(), String> {
         let Some(due) = logic::parse_time(&todo.due_at) else {
             continue;
         };
-        // 跳过未来 1 天以后的事项，降低无效计算。
-        if due > now + Duration::days(1) && todo.remind_at.is_none() {
+        // 跳过未来 1 天以后的事项，降低无效计算；最大偏移正好是 1 天。
+        if due > now + Duration::days(1) {
             continue;
         }
+
+        // 一次性 / 重复的额外提醒（提醒卡片的「稍后提醒」写入 remind_at）。
+        if let Some(extra) = todo.remind_at.as_deref().and_then(logic::parse_time) {
+            if extra <= now {
+                fire_channels(app, &todo, "snooze", extra)?;
+                finish_or_repeat(app, &todo, extra)?;
+            }
+        }
+
         let mut due_fired = false;
-        if let Some(remind_at) = todo.remind_at.as_deref().and_then(logic::parse_time) {
-            if remind_at <= now {
-                let key = logic::reminder_instance_key(&todo.id, "custom", remind_at);
-                fire_or_repeat(app, &todo.id, &key, remind_at, todo.repeat_rule.as_deref())?;
+        for (when, slot) in logic::reminder_slots(due, todo.remind_offset_minutes) {
+            if when > now {
+                continue;
             }
-            continue;
-        }
-        for (when, slot) in logic::default_reminder_slots(due) {
-            if when <= now {
-                let key = logic::reminder_instance_key(&todo.id, slot, when);
-                let store = state.lock_store()?;
-                if store.reminder_fired(&key)? {
-                    if slot == "due" {
-                        due_fired = true;
-                    }
-                    continue;
-                }
-                drop(store);
-                fire(app, &todo.id, &key)?;
-                if slot == "due" {
-                    due_fired = true;
-                }
+            fire_channels(app, &todo, slot, when)?;
+            if slot == "due" {
+                due_fired = true;
             }
         }
+
         if due_fired {
-            // 到点提醒已触发：默认计划结束，标记 remind_off 抑制后续扫描。
-            let store = state.lock_store()?;
+            finish_or_repeat(app, &todo, due)?;
+        }
+    }
+    Ok(())
+}
+
+/// 按待办启用的渠道分别触发一次提醒。
+fn fire_channels(
+    app: &AppHandle,
+    todo: &Todo,
+    slot: &str,
+    when: DateTime<Utc>,
+) -> Result<(), String> {
+    if todo.remind_desktop {
+        fire_desktop(app, todo, slot, when)?;
+    }
+    if todo.remind_email {
+        fire_email(app, todo, slot, when)?;
+    }
+    Ok(())
+}
+
+/// 抢占一次提醒实例；返回 true 表示本次由当前调用负责触发。
+fn claim(
+    app: &AppHandle,
+    todo_id: &str,
+    slot: &str,
+    channel: &str,
+    when: DateTime<Utc>,
+) -> Result<bool, String> {
+    let key = logic::reminder_instance_key(todo_id, slot, channel, when);
+    let state = app.state::<AppState>();
+    let store = state.lock_store()?;
+    store.log_reminder(&key, todo_id)
+}
+
+fn fire_desktop(
+    app: &AppHandle,
+    todo: &Todo,
+    slot: &str,
+    when: DateTime<Utc>,
+) -> Result<(), String> {
+    if !claim(app, &todo.id, slot, "desktop", when)? {
+        return Ok(());
+    }
+    eprintln!("[reminder] 弹窗提醒 todo={} slot={slot}", todo.id);
+    windows::reminder_show(app, &todo.id)?;
+    let _ = app.emit(events::REMINDER_FIRED, todo.id.clone());
+    Ok(())
+}
+
+fn fire_email(app: &AppHandle, todo: &Todo, slot: &str, when: DateTime<Utc>) -> Result<(), String> {
+    if !claim(app, &todo.id, slot, "email", when)? {
+        return Ok(());
+    }
+    eprintln!("[reminder] 邮件提醒入队 todo={} slot={slot}", todo.id);
+    let heading = if slot == "due" {
+        "待办已到完成时间"
+    } else {
+        "待办即将到期"
+    };
+    let remark_line = if todo.remark.is_empty() {
+        String::new()
+    } else {
+        format!(
+            "备注：{}
+",
+            todo.remark
+        )
+    };
+    mailer::enqueue(MailRequest {
+        subject: format!("[Inkling] {heading}：{}", todo.content),
+        body: format!(
+            "{heading}
+
+内容：{}
+完成时间：{}
+优先级：{}
+{remark_line}",
+            todo.content, todo.due_at, todo.priority
+        ),
+    });
+    Ok(())
+}
+
+/// 提醒触发后的收尾：有重复规则则把 `remind_at` 推进到下一周期，
+/// 否则清空一次性提醒并抑制后续扫描。
+fn finish_or_repeat(app: &AppHandle, todo: &Todo, from: DateTime<Utc>) -> Result<(), String> {
+    let state = app.state::<AppState>();
+    let store = state.lock_store()?;
+    match todo.repeat_rule.as_deref() {
+        Some(rule) if logic::repeat_period(rule).is_some() => {
+            store.advance_repeat(&todo.id, from, rule)?;
+        }
+        _ => {
+            store.clear_remind_at(&todo.id)?;
             store
                 .db
                 .execute("UPDATE todos SET remind_off=1 WHERE id=?", [&todo.id])
-                .map_err(|e| format!("数据库操作失败: {e}"))?;
-        }
-    }
-    Ok(())
-}
-
-fn fire(app: &AppHandle, todo_id: &str, key: &str) -> Result<(), String> {
-    let state = app.state::<AppState>();
-    let store = state.lock_store()?;
-    if !store.log_reminder(key, todo_id)? {
-        return Ok(());
-    }
-    drop(store);
-    windows::reminder_show(app, todo_id)?;
-    let _ = app.emit(events::REMINDER_FIRED, todo_id.to_string());
-    Ok(())
-}
-
-/// 自定义提醒触发：重复规则按周期推进 remind_at；一次性提醒关闭抑制。
-fn fire_or_repeat(
-    app: &AppHandle,
-    todo_id: &str,
-    key: &str,
-    from: DateTime<Utc>,
-    rule: Option<&str>,
-) -> Result<(), String> {
-    let state = app.state::<AppState>();
-    {
-        let store = state.lock_store()?;
-        if store.reminder_fired(key)? {
-            return Ok(());
-        }
-    }
-    match rule {
-        Some(rule) if logic::repeat_period(rule).is_some() => {
-            // 重复提醒：先登记实例，再推进下一次时间，随后弹出本次提醒。
-            fire(app, todo_id, key)?;
-            let store = state.lock_store()?;
-            store.advance_repeat(todo_id, from, rule)?;
-        }
-        _ => {
-            fire(app, todo_id, key)?;
-            let store = state.lock_store()?;
-            store
-                .db
-                .execute("UPDATE todos SET remind_off=1 WHERE id=?", [todo_id])
                 .map_err(|e| format!("数据库操作失败: {e}"))?;
         }
     }

@@ -3,4 +3,5 @@
 pub mod clipboard_watcher;
 pub mod export;
 pub mod hotzone_watcher;
+pub mod mailer;
 pub mod reminder;

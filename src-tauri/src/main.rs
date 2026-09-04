@@ -47,6 +47,7 @@ fn main() {
             services::clipboard_watcher::start(app.clone());
             services::reminder::start(app.clone());
             services::hotzone_watcher::start(app.clone());
+            services::mailer::start(app.clone());
             // 启动时按保留策略清理一次过期剪贴板。
             let handle_for_cleanup = app.clone();
             std::thread::spawn(move || {
@@ -112,6 +113,7 @@ fn main() {
             ipc::todo_dismiss_reminder,
             ipc::settings_get,
             ipc::settings_save,
+            ipc::mail_test,
             ipc::stats_heatmap,
             ipc::stats_trend,
             ipc::stats_summary,

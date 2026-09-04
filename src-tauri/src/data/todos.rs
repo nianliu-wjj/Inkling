@@ -13,7 +13,14 @@ pub struct TodoInput {
     pub id: Option<String>,
     pub content: String,
     pub due_at: String,
+    /// 兼容字段，前端不再传；提醒时刻改由 `due_at - remind_offset_minutes` 派生。
     pub remind_at: Option<String>,
+    /// 提醒偏移分钟数；`None` = 不提醒。取值须在 `domain::todo::REMIND_OFFSETS` 内。
+    pub remind_offset_minutes: Option<i64>,
+    /// 是否桌面弹窗提醒。
+    pub remind_desktop: bool,
+    /// 是否邮件提醒。
+    pub remind_email: bool,
     pub repeat_rule: Option<String>,
     pub priority: String,
     pub remark: String,
@@ -48,8 +55,9 @@ impl Store {
 
     pub fn list_open_remindable_todos(&self) -> Result<Vec<Todo>, String> {
         self.todo_ids(
-            "WHERE status='open' AND remind_off=0",
-            "ORDER BY remind_at ASC",
+            "WHERE status='open' AND remind_off=0 \
+               AND (remind_offset_minutes IS NOT NULL OR remind_at IS NOT NULL)",
+            "ORDER BY due_at ASC",
         )?
         .iter()
         .map(|id| self.todo(id))
@@ -85,6 +93,12 @@ impl Store {
                 return Err("无效的重复规则".into());
             }
         }
+        // 偏移必须是下拉框列出的档位之一，防止前端传入任意值绕过 UI 约束。
+        if let Some(minutes) = input.remind_offset_minutes {
+            if !logic::is_valid_offset(minutes) {
+                return Err("提醒偏移不在允许的档位内".into());
+            }
+        }
         let due = logic::parse_time(&input.due_at).ok_or("完成时间格式无效")?;
         let id = input
             .id
@@ -94,8 +108,9 @@ impl Store {
         if let Some(existing) = old.as_ref().filter(|todo| todo.status == "done") {
             let same_configuration = existing.content == input.content.trim()
                 && existing.due_at == input.due_at
-                && existing.remind_at.as_deref().unwrap_or("")
-                    == input.remind_at.as_deref().unwrap_or("")
+                && existing.remind_offset_minutes == input.remind_offset_minutes
+                && existing.remind_desktop == input.remind_desktop
+                && existing.remind_email == input.remind_email
                 && existing.repeat_rule.as_deref().unwrap_or("")
                     == input.repeat_rule.as_deref().unwrap_or("")
                 && existing.priority == input.priority
@@ -135,27 +150,35 @@ impl Store {
             .as_ref()
             .map(|x| x.created_at.clone())
             .unwrap_or_else(|| timestamp.clone());
-        let remind_at = input.remind_at.as_deref().filter(|x| !x.is_empty());
         let repeat_rule = input.repeat_rule.as_deref().filter(|x| !x.is_empty());
+        // remind_at 一律写 NULL：它只是重复提醒的推进游标，用户设的是偏移。
         self.db
             .execute(
-                "INSERT INTO todos(id, content, due_at, remind_at, repeat_rule, remind_off, priority, remark, parent_id, created_at, updated_at) \
-                 VALUES(?,?,?,?,?,0,?,?,?,?,?) \
-                 ON CONFLICT(id) DO UPDATE SET content=excluded.content, due_at=excluded.due_at, \
-                   remind_at=excluded.remind_at, repeat_rule=excluded.repeat_rule, remind_off=0, \
-                   priority=excluded.priority, remark=excluded.remark, parent_id=excluded.parent_id, \
-                   updated_at=excluded.updated_at",
+                "INSERT INTO todos(id, content, due_at, remind_at, repeat_rule, remind_off, \
+                   priority, remark, parent_id, created_at, updated_at, \
+                   remind_offset_minutes, remind_desktop, remind_email) \
+                 VALUES(?,?,?,NULL,?,0,?,?,?,?,?,?,?,?) \
+                 ON CONFLICT(id) DO UPDATE SET content=excluded.content, \
+                   due_at=excluded.due_at, remind_at=NULL, \
+                   repeat_rule=excluded.repeat_rule, remind_off=0, \
+                   priority=excluded.priority, remark=excluded.remark, \
+                   parent_id=excluded.parent_id, updated_at=excluded.updated_at, \
+                   remind_offset_minutes=excluded.remind_offset_minutes, \
+                   remind_desktop=excluded.remind_desktop, \
+                   remind_email=excluded.remind_email",
                 rusqlite::params![
                     id,
                     input.content.trim(),
                     input.due_at,
-                    remind_at,
                     repeat_rule,
                     input.priority,
                     input.remark,
                     input.parent_id,
                     created_at,
-                    timestamp
+                    timestamp,
+                    input.remind_offset_minutes,
+                    input.remind_desktop as i64,
+                    input.remind_email as i64
                 ],
             )
             .map_err(db_err)?;
@@ -191,19 +214,26 @@ impl Store {
 
         let tx = self.tx()?;
         tx.execute(
-            "INSERT INTO todos(id, content, due_at, remind_at, repeat_rule, status, remind_off, priority, remark, parent_id, created_at, updated_at) \
-             VALUES(?,?,?,?,?,'open',0,?,?,?,?,?)",
+            "INSERT INTO todos(id, content, due_at, remind_at, repeat_rule, status, \
+               remind_off, priority, remark, parent_id, created_at, updated_at, \
+               remind_offset_minutes, remind_desktop, remind_email) \
+             VALUES(?,?,?,NULL,?,'open',0,?,?,?,?,?,?,?,?)",
             rusqlite::params![
                 id,
                 input.content.trim(),
                 input.due_at,
-                input.remind_at.as_deref().filter(|value| !value.is_empty()),
-                input.repeat_rule.as_deref().filter(|value| !value.is_empty()),
+                input
+                    .repeat_rule
+                    .as_deref()
+                    .filter(|value| !value.is_empty()),
                 input.priority,
                 input.remark,
                 parent_id,
                 timestamp,
-                timestamp
+                timestamp,
+                input.remind_offset_minutes,
+                input.remind_desktop as i64,
+                input.remind_email as i64
             ],
         )
         .map_err(db_err)?;
@@ -362,21 +392,25 @@ impl Store {
         self.todo(id)
     }
 
-    /// 提醒窄更新：只改下一次提醒时间与重复规则；重新设置会解除关闭抑制。
+    /// 快捷修改提醒设置（徽章点击入口）。
+    ///
+    /// 与 `save_todo` 一样只接受档位内的偏移；写入后复位 `remind_off`，
+    /// 让此前被用户关掉的提醒重新参与调度。
     pub fn set_todo_reminder(
         &self,
         id: &str,
-        remind_at: Option<&str>,
+        offset_minutes: Option<i64>,
+        desktop: bool,
+        email: bool,
         repeat_rule: Option<&str>,
     ) -> Result<Todo, String> {
         let todo = self.todo(id)?;
         if todo.status == "done" {
             return Err("已完成待办不可修改提醒".into());
         }
-        let remind_at = remind_at.filter(|x| !x.is_empty());
-        if let Some(value) = remind_at {
-            if logic::parse_time(value).is_none() {
-                return Err("提醒时间格式无效".into());
+        if let Some(minutes) = offset_minutes {
+            if !logic::is_valid_offset(minutes) {
+                return Err("提醒偏移不在允许的档位内".into());
             }
         }
         let repeat_rule = repeat_rule.filter(|x| !x.is_empty());
@@ -387,11 +421,48 @@ impl Store {
         }
         self.db
             .execute(
-                "UPDATE todos SET remind_at=?, repeat_rule=?, remind_off=0, updated_at=? WHERE id=?",
-                rusqlite::params![remind_at, repeat_rule, now(), id],
+                "UPDATE todos SET remind_offset_minutes=?, remind_desktop=?, \
+                   remind_email=?, repeat_rule=?, remind_at=NULL, remind_off=0, \
+                   updated_at=? WHERE id=?",
+                rusqlite::params![
+                    offset_minutes,
+                    desktop as i64,
+                    email as i64,
+                    repeat_rule,
+                    now(),
+                    id
+                ],
             )
             .map_err(db_err)?;
         self.todo(id)
+    }
+
+    /// 提醒卡片「稍后提醒」：写入一次性的额外提醒时刻。
+    ///
+    /// 走 `remind_at` 而非偏移：snooze 的语义是「从现在起再过 N 分钟」，
+    /// 与「完成时间之前多久」不是同一个维度，无法用档位表达。
+    /// 调度器把 `remind_at` 当作一次额外提醒处理，触发后清空（有重复规则则推进）。
+    pub fn snooze_todo(&self, id: &str, minutes: i64) -> Result<Todo, String> {
+        let todo = self.todo(id)?;
+        if todo.status == "done" {
+            return Err("已完成待办不可修改提醒".into());
+        }
+        let next = (Utc::now() + chrono::Duration::minutes(minutes)).to_rfc3339();
+        self.db
+            .execute(
+                "UPDATE todos SET remind_at=?, remind_off=0, updated_at=? WHERE id=?",
+                rusqlite::params![next, now(), id],
+            )
+            .map_err(db_err)?;
+        self.todo(id)
+    }
+
+    /// 清空一次性提醒时刻（调度器触发后调用）。
+    pub fn clear_remind_at(&self, id: &str) -> Result<(), String> {
+        self.db
+            .execute("UPDATE todos SET remind_at=NULL WHERE id=?", [id])
+            .map_err(db_err)?;
+        Ok(())
     }
 
     pub fn delete_todo(&self, id: &str) -> Result<(), String> {
@@ -485,5 +556,57 @@ impl Store {
             .map(|x| x.with_timezone(&Utc))
             .unwrap_or_else(|_| Utc::now());
         Ok(local_date_key(dt))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn store() -> Store {
+        let dir = std::env::temp_dir().join(format!("inkling-test-{}", uuid::Uuid::new_v4()));
+        std::fs::create_dir_all(&dir).unwrap();
+        Store::open(dir).unwrap()
+    }
+
+    fn input(offset: Option<i64>, email: bool) -> TodoInput {
+        TodoInput {
+            id: None,
+            content: "测试待办".into(),
+            due_at: "2099-01-01T10:00:00+00:00".into(),
+            remind_at: None,
+            remind_offset_minutes: offset,
+            remind_desktop: true,
+            remind_email: email,
+            repeat_rule: None,
+            priority: "medium".into(),
+            remark: String::new(),
+            tags: Vec::new(),
+            parent_id: None,
+            allow_past: false,
+        }
+    }
+
+    #[test]
+    fn save_todo_persists_offset_and_channels() {
+        let store = store();
+        let saved = store.save_todo(&input(Some(30), true)).unwrap();
+        assert_eq!(saved.remind_offset_minutes, Some(30));
+        assert!(saved.remind_desktop);
+        assert!(saved.remind_email);
+    }
+
+    #[test]
+    fn save_todo_rejects_unlisted_offset() {
+        let store = store();
+        let error = store.save_todo(&input(Some(20), false)).unwrap_err();
+        assert!(error.contains("提醒偏移"), "实际错误: {error}");
+    }
+
+    #[test]
+    fn save_todo_accepts_none_offset_as_no_reminder() {
+        let store = store();
+        let saved = store.save_todo(&input(None, false)).unwrap();
+        assert_eq!(saved.remind_offset_minutes, None);
     }
 }
