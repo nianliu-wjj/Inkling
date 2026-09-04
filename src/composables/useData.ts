@@ -24,6 +24,13 @@ const DEFAULT_SETTINGS: Settings = {
   theme: 'dark',
   main_acrylic: true,
   panel_position: 'top',
+  smtp_host: '',
+  smtp_port: 465,
+  smtp_tls: true,
+  smtp_username: '',
+  smtp_password: '',
+  smtp_from: '',
+  smtp_to: '',
 }
 
 const notes = ref<Note[]>([])

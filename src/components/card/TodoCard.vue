@@ -172,8 +172,9 @@ function onPriority(anchor: HTMLElement): void {
             <!-- 悬浮才显示的操作区 -->
             <div class="todo-ops">
               <RemindBadge
-                :remind-at="props.todo.remind_at"
-                :due-at="props.todo.due_at"
+                :offset-minutes="props.todo.remind_offset_minutes"
+                :desktop="props.todo.remind_desktop"
+                :email="props.todo.remind_email"
                 :readonly="done"
                 @edit="emit('edit-remind')"
               />

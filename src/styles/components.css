@@ -1199,6 +1199,46 @@
   padding: 4px 8px;
   font-size: 12.5px;
 }
+/* 文本类输入框：上面的规则只覆盖了 select 与 number，
+   SMTP 配置用到 text / password，不补样式会是浏览器默认外观。 */
+.settings-body input[type='text'],
+.settings-body input[type='password'],
+.settings-body input:not([type]) {
+  flex: 1;
+  min-width: 0;
+  background: rgba(var(--wsa), 0.1);
+  border: 1px solid rgba(var(--wsa), 0.15);
+  color: var(--text);
+  border-radius: 6px;
+  padding: 4px 8px;
+  font-size: 12.5px;
+  outline: none;
+}
+.settings-body input[type='text']:focus,
+.settings-body input[type='password']:focus,
+.settings-body input:not([type]):focus {
+  border-color: var(--accent);
+}
+/* 设置页·分区标题与说明文字 */
+.setting-section-title {
+  margin: 18px 0 2px;
+  padding: 0 4px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--text);
+  letter-spacing: 0.3px;
+}
+.setting-hint {
+  margin: 0 0 4px;
+  padding: 0 4px;
+  font-size: 11.5px;
+  line-height: 1.6;
+  color: var(--text-dim);
+}
+.setting-hint strong {
+  color: var(--text);
+  font-weight: 600;
+}
 /* ═══ 下拉框跟随主题：修复展开列表白底不可读（全局生效） ═══ */
 select {
   color-scheme: var(--scheme);
@@ -2342,6 +2382,38 @@ mark {
 }
 .te-field-priority {
   flex: 0.9;
+}
+/* 编辑弹窗·提醒方式勾选：与左侧下拉同高，勾选项横向排列。 */
+.te-remind-channels {
+  flex: 1.2;
+}
+.te-channel-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  height: 30px;
+}
+.te-channel {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12.5px;
+  color: var(--text);
+  cursor: pointer;
+}
+.te-channel input[type='checkbox'] {
+  width: auto;
+  margin: 0;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+/* 选「不提醒」时整组置灰，表明勾选此刻不起作用。 */
+.te-channel:has(input:disabled) {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.te-channel input[type='checkbox']:disabled {
+  cursor: not-allowed;
 }
 
 /* ═══ 优先级阶梯下拉菜单 ═══ */

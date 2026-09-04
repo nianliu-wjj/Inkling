@@ -1,18 +1,18 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import { formatRemindLabel } from '@/utils/datetime'
+import { remindOffsetLabel } from '@/constants/reminder'
 
 /**
  * 提醒徽章。
  *
- * 需求 2.2：
- * - 已设提醒 → 常显「⏰ 日期 时间」（与完成同日仅显时间），点击进入提醒模式编辑；
- * - 未设置 → 淡色 ⏰ 占位，悬浮提示默认提醒计划（完成前 30 分 / 前 5 分 / 到点各一次）。
+ * 展示用户选择的提醒偏移与启用的渠道，点击进入提醒编辑。
+ * 偏移为 null（不提醒）时显示淡色 ⏰ 占位。
  */
 const props = withDefaults(
   defineProps<{
-    remindAt: string | null
-    dueAt: string
+    offsetMinutes: number | null
+    desktop: boolean
+    email: boolean
     readonly?: boolean
   }>(),
   { readonly: false },
@@ -20,22 +20,30 @@ const props = withDefaults(
 
 const emit = defineEmits<{ (e: 'edit'): void }>()
 
-const label = computed(() => (props.remindAt ? formatRemindLabel(props.remindAt, props.dueAt) : ''))
+const label = computed(() => (props.offsetMinutes === null ? '' : remindOffsetLabel(props.offsetMinutes)))
+
+/** 渠道图标：弹窗与邮件各占一个，都没勾时不显示。 */
+const channels = computed(() => {
+  const marks: string[] = []
+  if (props.desktop) marks.push('🔔')
+  if (props.email) marks.push('✉️')
+  return marks.join('')
+})
 
 const title = computed(() =>
-  props.remindAt
-    ? '点击修改提醒时间'
-    : '未设置提醒时间，将在完成时间前 30 分钟、前 5 分钟与到点时各提醒一次；点击可设置',
+  props.offsetMinutes === null
+    ? '未设置提醒；点击可设置'
+    : `将在完成时间${remindOffsetLabel(props.offsetMinutes)}与到点各提醒一次；点击修改`,
 )
 </script>
 
 <template>
   <span
     class="remind-badge"
-    :class="{ 'no-remind': !props.remindAt }"
+    :class="{ 'no-remind': props.offsetMinutes === null }"
     :title="title"
     @click.stop="!props.readonly && emit('edit')"
   >
-    ⏰<template v-if="label"> {{ label }}</template>
+    ⏰<template v-if="label"> {{ label }}{{ channels ? ` ${channels}` : '' }}</template>
   </span>
 </template>

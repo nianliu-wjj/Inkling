@@ -103,6 +103,30 @@ function startRecording(): void {
   window.addEventListener('keydown', onRecordKeydown, { once: false })
 }
 
+/** 测试邮件发送中的状态，避免重复点击。 */
+const mailTesting = ref(false)
+
+/**
+ * 发送一封测试邮件验证 SMTP 配置。
+ *
+ * 同步等待后端发送结果，失败时把具体错误（认证失败 / 连接超时等）原样提示，
+ * 让用户能据此修正配置，而不是等到提醒到点才发现收不到信。
+ */
+async function sendTestMail(): Promise<void> {
+  if (mailTesting.value) return
+  mailTesting.value = true
+  logger.info('settings', '发送测试邮件')
+  try {
+    await api.mail.test()
+    toast('测试邮件已发送，请查收')
+  } catch (error) {
+    logger.error('settings', '发送测试邮件失败', error)
+    toast(String(error))
+  } finally {
+    mailTesting.value = false
+  }
+}
+
 /** 打开数据目录，便于用户查看落盘的笔记与图片。 */
 async function openDataDir(): Promise<void> {
   try {
@@ -224,6 +248,74 @@ async function openDataDir(): Promise<void> {
       <div class="setting-row">
         <span>数据目录</span>
         <button type="button" class="btn tiny" @click="openDataDir">打开数据目录</button>
+      </div>
+
+      <div class="setting-section-title">邮件提醒</div>
+      <p class="setting-hint">请填写邮箱的<strong>应用专用密码</strong>而非主账号密码。配置保存在本地数据库中。</p>
+      <label class="setting-row">
+        <span>SMTP 服务器</span>
+        <input
+          :value="settings.smtp_host"
+          placeholder="smtp.qq.com"
+          @change="patch({ smtp_host: ($event.target as HTMLInputElement).value.trim() })"
+        />
+      </label>
+      <label class="setting-row">
+        <span>端口</span>
+        <input
+          :value="settings.smtp_port"
+          type="number"
+          min="1"
+          max="65535"
+          @change="patch({ smtp_port: Number(($event.target as HTMLInputElement).value) })"
+        />
+      </label>
+      <label class="setting-row">
+        <span>启用 TLS</span>
+        <input
+          :checked="settings.smtp_tls"
+          type="checkbox"
+          @change="patch({ smtp_tls: ($event.target as HTMLInputElement).checked })"
+        />
+      </label>
+      <label class="setting-row">
+        <span>账号</span>
+        <input
+          :value="settings.smtp_username"
+          placeholder="you@example.com"
+          @change="patch({ smtp_username: ($event.target as HTMLInputElement).value.trim() })"
+        />
+      </label>
+      <label class="setting-row">
+        <span>密码</span>
+        <input
+          :value="settings.smtp_password"
+          type="password"
+          placeholder="应用专用密码"
+          @change="patch({ smtp_password: ($event.target as HTMLInputElement).value })"
+        />
+      </label>
+      <label class="setting-row">
+        <span>发件人</span>
+        <input
+          :value="settings.smtp_from"
+          placeholder="you@example.com"
+          @change="patch({ smtp_from: ($event.target as HTMLInputElement).value.trim() })"
+        />
+      </label>
+      <label class="setting-row">
+        <span>收件人</span>
+        <input
+          :value="settings.smtp_to"
+          placeholder="you@example.com"
+          @change="patch({ smtp_to: ($event.target as HTMLInputElement).value.trim() })"
+        />
+      </label>
+      <div class="setting-row">
+        <span>连通性</span>
+        <button type="button" class="btn tiny" :disabled="mailTesting" @click="sendTestMail">
+          {{ mailTesting ? '发送中…' : '发送测试邮件' }}
+        </button>
       </div>
     </div>
   </div>

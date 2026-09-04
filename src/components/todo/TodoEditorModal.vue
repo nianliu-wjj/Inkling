@@ -6,6 +6,7 @@ import { useShakeConfirm } from '@/composables/useShakeConfirm'
 import { useToast } from '@/composables/useToast'
 import { logger } from '@/service/logger'
 import type { Priority, Todo, TodoInput } from '@/typings/domain'
+import { DEFAULT_REMIND_OFFSET, REMIND_OPTIONS } from '@/constants/reminder'
 import { fromDateAndTimeInputs, toDateAndTimeInputs, todayKey } from '@/utils/datetime'
 
 /**
@@ -53,25 +54,27 @@ function defaultDue(): { date: string; time: string } {
 }
 
 const initialDue = props.todo ? toDateAndTimeInputs(props.todo.due_at) : defaultDue()
-const initialRemind = toDateAndTimeInputs(props.todo?.remind_at ?? null)
 
 const content = ref(props.todo?.content ?? '')
 const contentInput = ref<HTMLInputElement | null>(null)
 const dueTimeInput = ref<HTMLInputElement | null>(null)
-const remindTimeInput = ref<HTMLInputElement | null>(null)
+const remindSelect = ref<HTMLSelectElement | null>(null)
 const tags = ref<string[]>([...(props.todo?.tags ?? [])])
 const tagInput = ref('')
 const remark = ref(props.todo?.remark ?? '')
 const dueDate = ref(initialDue.date)
 const dueTime = ref(initialDue.time)
-const remindDate = ref(initialRemind.date)
-const remindTime = ref(initialRemind.time)
+const remindOffset = ref<number | null>(props.todo ? props.todo.remind_offset_minutes : DEFAULT_REMIND_OFFSET)
+const remindDesktop = ref(props.todo ? props.todo.remind_desktop : true)
+const remindEmail = ref(props.todo ? props.todo.remind_email : false)
 const priority = ref<Priority>((props.todo?.priority as Priority) ?? 'medium')
 
 /** 已完成事项只允许编辑备注，约束由前后端共同执行。 */
 const completedOnly = computed(() => props.todo?.status === 'done')
 const fieldsDisabled = computed(() => completedOnly.value)
 /** 新建（含子任务）时锁定日期下限为今天。 */
+/** 选「不提醒」时渠道勾选无意义，禁用并置灰。 */
+const channelsDisabled = computed(() => fieldsDisabled.value || remindOffset.value === null)
 const isNew = computed(() => props.mode === 'create' || props.mode === 'child')
 const minDate = computed(() => (isNew.value && !props.presetDate ? todayKey() : ''))
 
@@ -90,13 +93,13 @@ const hint = computed(() => {
   if (completedOnly.value) return '已完成待办仅允许修改备注'
   if (props.presetDate && props.presetDate < todayKey()) return '历史日期补录：将归入所选日期'
   if (props.mode === 'child') return '子任务的完成时间不能晚于父待办'
-  return '完成时间为必填；提醒时间留空时使用默认提醒计划'
+  return '完成时间为必填；提醒会在所选时间点与完成时间到点各触发一次'
 })
 
 onMounted(() => {
   void nextTick(() => {
     if (props.focus === 'due') dueTimeInput.value?.focus()
-    else if (props.focus === 'remind') remindTimeInput.value?.focus()
+    else if (props.focus === 'remind') remindSelect.value?.focus()
     else contentInput.value?.focus()
   })
 })
@@ -151,10 +154,9 @@ function save(): void {
     }
   }
 
-  // 提醒时间：日期与时刻必须同时填写或同时留空。
-  const remindAt = fromDateAndTimeInputs(remindDate.value, remindTime.value)
-  if ((remindDate.value || remindTime.value) && !remindAt) {
-    toast('请填写完整的提醒日期与时间，或全部留空')
+  // 选了提醒时间却一个渠道都没勾，等于不会提醒，提前拦下避免误以为已生效。
+  if (remindOffset.value !== null && !remindDesktop.value && !remindEmail.value) {
+    toast('请至少选择一种提醒方式')
     return
   }
 
@@ -162,7 +164,9 @@ function save(): void {
     id: props.todo?.id,
     content: content.value.trim(),
     dueAt,
-    remindAt,
+    remindOffsetMinutes: remindOffset.value,
+    remindDesktop: remindDesktop.value,
+    remindEmail: remindEmail.value,
     repeatRule: props.todo?.repeat_rule ?? null,
     priority: priority.value,
     remark: remark.value,
@@ -244,13 +248,26 @@ function save(): void {
 
     <div class="todo-editor-grid">
       <label class="te-field te-field-date">
-        提醒日期（选填）
-        <input v-model="remindDate" type="date" :disabled="fieldsDisabled" />
+        提醒时间
+        <select ref="remindSelect" v-model="remindOffset" :disabled="fieldsDisabled">
+          <option v-for="option in REMIND_OPTIONS" :key="String(option.value)" :value="option.value">
+            {{ option.label }}
+          </option>
+        </select>
       </label>
-      <label class="te-field te-field-time">
-        提醒时间（选填）
-        <input ref="remindTimeInput" v-model="remindTime" type="time" :disabled="fieldsDisabled" />
-      </label>
+      <div class="te-field te-remind-channels">
+        提醒方式
+        <div class="te-channel-row">
+          <label class="te-channel">
+            <input v-model="remindDesktop" type="checkbox" :disabled="channelsDisabled" />
+            桌面弹窗
+          </label>
+          <label class="te-channel">
+            <input v-model="remindEmail" type="checkbox" :disabled="channelsDisabled" />
+            邮箱
+          </label>
+        </div>
+      </div>
     </div>
 
     <template #footer>

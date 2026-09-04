@@ -44,7 +44,12 @@ export interface Todo {
   due_at: string
   completed_at: string | null
   status: 'open' | 'done'
+  /** 一次性 / 重复的额外提醒时刻（「稍后提醒」写入），不是用户选的偏移。 */
   remind_at: string | null
+  /** 提醒偏移分钟数（完成时间之前）；null = 不提醒。 */
+  remind_offset_minutes: number | null
+  remind_desktop: boolean
+  remind_email: boolean
   repeat_rule: 'daily' | 'weekly' | string | null
   remind_off: boolean
   priority: Priority
@@ -76,7 +81,9 @@ export interface TodoInput {
   id?: string
   content: string
   dueAt: string
-  remindAt?: string | null
+  remindOffsetMinutes: number | null
+  remindDesktop: boolean
+  remindEmail: boolean
   repeatRule?: string | null
   priority: Priority
   remark: string
@@ -96,6 +103,14 @@ export interface Settings {
   main_acrylic: boolean
   /** 面板从屏幕哪一侧的中间位置唤出。 */
   panel_position: PanelPosition
+  smtp_host: string
+  smtp_port: number
+  smtp_tls: boolean
+  smtp_username: string
+  /** 读取时后端返回掩码；原样回存表示不修改密码。 */
+  smtp_password: string
+  smtp_from: string
+  smtp_to: string
 }
 
 export interface ActivityDay {

@@ -66,8 +66,8 @@ export const api = {
     complete: (id: string, completed: boolean) => invoke<Todo[]>('todo_complete', { id, completed }),
     priority: (id: string, priority: string) => invoke<Todo>('todo_priority', { id, priority }),
     due: (id: string, dueAt: string) => invoke<Todo>('todo_due', { id, dueAt }),
-    reminder: (id: string, remindAt: string | null, repeatRule: string | null) =>
-      invoke<Todo>('todo_reminder', { id, remindAt, repeatRule }),
+    reminder: (id: string, offsetMinutes: number | null, desktop: boolean, email: boolean, repeatRule: string | null) =>
+      invoke<Todo>('todo_reminder', { id, offsetMinutes, desktop, email, repeatRule }),
     remove: (id: string) => invoke<void>('todo_delete', { id }),
     snooze: (id: string, minutes: number) => invoke<Todo>('todo_snooze', { id, minutes }),
     dismissReminder: (id: string) => invoke<void>('todo_dismiss_reminder', { id }),
@@ -85,6 +85,12 @@ export const api = {
   exportItems: (refs: string[], format: string, outputDir?: string | null) =>
     invoke<string>('export_items', { payload: { refs, format, outputDir: outputDir ?? null } }),
   dataDir: () => invoke<string>('data_dir'),
+
+  /** 邮件提醒。 */
+  mail: {
+    /** 发送测试邮件验证 SMTP 配置，失败时错误信息原样抛出给界面。 */
+    test: () => invoke<void>('mail_test'),
+  },
 
   /** 系统集成：走 tauri-plugin-opener，避免在 WebView 内直接导航。 */
   system: {
