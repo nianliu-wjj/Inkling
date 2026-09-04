@@ -1,0 +1,104 @@
+/* ═══════════════════════════════════════════════════════════════════════
+ * 动效层
+ *
+ * 只做「让状态变化可感知」的动效，不做纯装饰动画。
+ * 全部引用 tokens.css 的动效令牌（--dur-* / --ease-* / --lift），
+ * 因此 prefers-reduced-motion 下由 base.css 把令牌归零即可整体失效，不会漏。
+ *
+ * 加载顺序在 components.css 之后：需要覆盖既有组件里硬编码的 transition。
+ *
+ * 三条硬约束，都是本项目实测踩到的坑：
+ *
+ * 1. 带 backdrop-filter 的容器（.glass）**不加 transform**。
+ *    WebView2 下毛玻璃的绘制不跟随变换，会与元素错位。
+ *
+ * 2. **不用 `animation` + `fill-mode: both` 做入场淡入。**
+ *    WebView2 在窗口 hide 后会挂起，动画随之暂停；若恰好停在 opacity: 0，
+ *    窗口再显示时就是一片空白。面板与提醒卡都是「隐藏后复用」的窗口，
+ *    这个风险是实打实的，而入场淡入只是锦上添花——不值得拿空白窗口去换。
+ *    需要入场动效的地方用 JS 驱动（见 PanelApp 的 GSAP playEnter，
+ *    它由 panelShown 事件重新触发，不依赖动画自身的时间线）。
+ *
+ * 3. 因此本文件**只含 transition**：由状态变化驱动，任何时刻的静止态
+ *    都是元素的正常样式，挂起/恢复都不会让内容消失。
+ * ═══════════════════════════════════════════════════════════════════════ */
+
+/* ── 卡片 hover：抬升 + 阴影加深 ── */
+.todo-item,
+.clip-item,
+.archive-item {
+  transition:
+    transform var(--dur-fast) var(--ease-out),
+    box-shadow var(--dur-fast) var(--ease-out),
+    background var(--dur-fast) var(--ease-out);
+}
+.todo-item:hover,
+.clip-item:hover,
+.archive-item:hover {
+  transform: translateY(calc(-1 * var(--lift)));
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.16);
+}
+/* 已完成待办不抬升：它不是可继续操作的对象，给悬浮反馈会误导。 */
+.todo-item.done:hover {
+  transform: none;
+  box-shadow: none;
+}
+
+/* ── 徽章状态变化：优先级、到期、提醒改动后有颜色过渡 ── */
+.prio-badge,
+.due-badge,
+.remind-badge,
+.tag-chip {
+  transition:
+    background var(--dur-fast) var(--ease-out),
+    color var(--dur-fast) var(--ease-out),
+    border-color var(--dur-fast) var(--ease-out);
+}
+
+/* ── 圆点导航：选中与悬浮的缩放反馈 ── */
+.nav-dot {
+  transition:
+    transform var(--dur-fast) var(--ease-out),
+    opacity var(--dur-fast) var(--ease-out);
+}
+.nav-dot:hover {
+  transform: scale(1.12);
+}
+.nav-dot.active {
+  transform: scale(1.18);
+}
+
+/* ── 按钮：按下即时反馈 ── */
+.btn,
+.icon-btn {
+  transition:
+    transform var(--dur-instant) var(--ease-out),
+    background var(--dur-fast) var(--ease-out),
+    border-color var(--dur-fast) var(--ease-out);
+}
+.btn:active,
+.icon-btn:active {
+  transform: scale(0.96);
+}
+
+/* ── 输入控件：聚焦描边过渡 ── */
+.search-input,
+.te-field input,
+.te-field select,
+.settings-body input,
+.settings-body select {
+  transition:
+    border-color var(--dur-fast) var(--ease-out),
+    background var(--dur-fast) var(--ease-out);
+}
+
+/* ── 复选框与勾选态 ── */
+.todo-item .checkbox {
+  transition:
+    background var(--dur-fast) var(--ease-out),
+    border-color var(--dur-fast) var(--ease-out),
+    transform var(--dur-instant) var(--ease-out);
+}
+.todo-item .checkbox:active {
+  transform: scale(0.9);
+}

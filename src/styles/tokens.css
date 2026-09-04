@@ -24,6 +24,19 @@
   --glass-shadow: 0 12px 40px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.08);
   /* 玻璃质感：这里的值即「标准」档，由 styles/glass.css 的 [data-glass] 覆盖为其他档位。
      抽成令牌是为了让质感与配色正交——同一套配色可轻可厚，不必再复制一套主题。 */
+  /* ═══ 动效令牌 ═══
+     全站动画只引用这些值，不再逐处硬编码时长与曲线：
+     「整体快一点/慢一点」是改一个变量的事，reduced-motion 也只需归零这几个时长。 */
+  --dur-instant: 90ms;
+  --dur-fast: 150ms;
+  --dur-base: 220ms;
+  --dur-slow: 320ms;
+  /* 收尾减速，适合进入类动效；比 ease 更利落。 */
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  /* 卡片悬浮抬升距离与列表逐项延迟。 */
+  --lift: 2px;
+  --stagger: 30ms;
   --glass-blur: 24px;
   --glass-saturate: 160%;
   --glass-border-width: 1px;

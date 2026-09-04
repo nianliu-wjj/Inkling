@@ -130,7 +130,13 @@ async function hide(): Promise<void> {
   }
 }
 
-/** 滑入：物理弹性（back.out）呼应需求「Spring/Ease-out」。 */
+/**
+ * 滑入：物理弹性（back.out）呼应需求「Spring/Ease-out」。
+ *
+ * 这是全项目唯一保留 GSAP 的地方——弹性曲线用 CSS 表达不了，
+ * 而窗口入场只此一处。其余动效一律走 styles/motion.css 的 CSS 令牌，
+ * 避免四个独立 Vue app 都为一条曲线背上整个动画库的启动开销。
+ */
 function playEnter(): void {
   if (!panel.value) return
   const axis = motionAxis()

@@ -49,6 +49,16 @@ textarea,
 
 /* 尊重系统「减少动态效果」设置：关闭装饰性动画，保留必要的状态反馈。 */
 @media (prefers-reduced-motion: reduce) {
+  /* 时长令牌整体归零：新增动画只要引用令牌就自动跟随，不会漏。 */
+  :root {
+    --dur-instant: 0.01ms;
+    --dur-fast: 0.01ms;
+    --dur-base: 0.01ms;
+    --dur-slow: 0.01ms;
+    --stagger: 0ms;
+    --lift: 0px;
+  }
+  /* 兜住仍在使用硬编码时长的历史样式。 */
   *,
   *::before,
   *::after {
