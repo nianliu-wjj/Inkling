@@ -278,9 +278,14 @@ function reportHeight(): void {
   if (!panel.value) return
 
   const modals = Array.from(document.querySelectorAll<HTMLElement>('.modal-shell'))
-  // 只量元素自身，绝不能把 #app 拿进来：#app 是 height: 100vh 的容器，
-  // 它的 scrollHeight 恒 ≥ 窗口高度，据此上报会「窗口越高、量得越高」地无限膨胀。
-  const measure = (element: HTMLElement): number => Math.max(element.offsetHeight, element.scrollHeight)
+  // 只能量 offsetHeight，**不能掺 scrollHeight**。
+  //
+  // 笔记页的编辑器容器带 flex: 1，会跟着窗口高度一起长；而 scrollHeight 又把
+  // 这份被拉伸的高度算进来，于是「量得更高 → 上报 → 窗口更高 → 量得更高」
+  // 形成正反馈，面板一路膨胀到上限，编辑区被拉成一大片空白。
+  // （同理也不能量 #app：它是 height: 100vh，scrollHeight 恒 ≥ 窗口高度。）
+  // 异步内容导致的高度变化由下方的 MutationObserver 负责补报。
+  const measure = (element: HTMLElement): number => element.offsetHeight
   const contentHeight = modals.length ? Math.max(...modals.map(measure)) : measure(panel.value)
   const height = Math.min(PANEL_MAX_HEIGHT, Math.max(PANEL_MIN_HEIGHT, Math.ceil(contentHeight) + PANEL_HEIGHT_PADDING))
 

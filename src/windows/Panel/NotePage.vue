@@ -21,8 +21,14 @@ const emit = defineEmits<{ (e: 'modal', open: boolean): void }>()
 const { toast } = useToast()
 
 const content = ref('')
-const editorMode = ref<'text' | 'mindmap'>('text')
-const mindmapData = ref<string | null>(null)
+/**
+ * 面板**只写文本笔记**，模式恒为 text。
+ *
+ * 思维导图统一在归档页创建、在独立窗口里编辑（见 NotesView）：它需要大画布与
+ * 反复调整，与面板「极速捕获」的节奏不同，塞进 480px 面板里容器高度也会失控。
+ * 这里不再从草稿恢复 mindmap 模式——否则一旦存在思维导图草稿，
+ * 面板就会渲染导图编辑器，而没有切换条可以切回文本，文本输入被彻底锁死。
+ */
 const tags = ref<string[]>([])
 /** 草稿 id：首次暂存后由后端返回，后续复用以免产生多条草稿。 */
 const draftId = ref<string | undefined>(undefined)
@@ -43,10 +49,14 @@ async function loadDraft(): Promise<void> {
   try {
     const draft = await api.notes.draft()
     if (!draft) return
+    // 思维导图草稿不在面板里恢复：面板没有导图编辑能力，恢复它只会得到一块
+    // 无法输入的空白。此类草稿留给归档页的思维导图窗口处理。
+    if (draft.editor_mode === 'mindmap') {
+      logger.info('panel-note', `跳过思维导图草稿 id=${draft.id}，请在归档页编辑`)
+      return
+    }
     draftId.value = draft.id
     content.value = draft.content
-    editorMode.value = draft.editor_mode
-    mindmapData.value = draft.mindmap_data
     tags.value = [...draft.tags]
     saveState.value = 'saved'
     logger.info('panel-note', `恢复草稿 id=${draft.id}`)
@@ -58,15 +68,15 @@ void loadDraft()
 
 /** 暂存草稿（不广播 notes-changed，后端对草稿不发事件）。 */
 async function persistDraft(): Promise<void> {
-  if (!content.value.trim() && !tags.value.length && !mindmapData.value) return
+  if (!content.value.trim() && !tags.value.length) return
   saveState.value = 'saving'
   try {
     const note = await api.notes.save({
       id: draftId.value,
       content: content.value,
       tags: [...tags.value],
-      editorMode: editorMode.value,
-      mindmapData: mindmapData.value,
+      editorMode: 'text',
+      mindmapData: null,
       draft: true,
     })
     draftId.value = note.id
@@ -79,7 +89,7 @@ async function persistDraft(): Promise<void> {
 }
 
 // 输入停止 500ms 后自动暂存（需求 2.2「混合存储策略」）。
-watch([content, tags, editorMode, mindmapData], () => {
+watch([content, tags], () => {
   saveState.value = 'idle'
   if (debounceTimer !== null) clearTimeout(debounceTimer)
   debounceTimer = setTimeout(() => {
@@ -90,29 +100,22 @@ watch([content, tags, editorMode, mindmapData], () => {
 
 /** 归档：把草稿提升为正式笔记。 */
 async function archive(): Promise<void> {
-  if (editorMode.value === 'text' && !content.value.trim()) {
+  if (!content.value.trim()) {
     toast('还没有写下任何内容')
     return
   }
-  if (editorMode.value === 'mindmap' && !mindmapData.value) {
-    toast('请先创建思维导图内容')
-    return
-  }
-
   logger.info('panel-note', '归档念头')
   try {
     await api.notes.save({
       id: draftId.value,
       content: content.value,
       tags: [...tags.value],
-      editorMode: editorMode.value,
-      mindmapData: mindmapData.value,
+      editorMode: 'text',
+      mindmapData: null,
       draft: false,
     })
     // 归档后清空面板，进入下一次捕获。
     content.value = ''
-    editorMode.value = 'text'
-    mindmapData.value = null
     tags.value = []
     draftId.value = undefined
     saveState.value = 'idle'
@@ -146,13 +149,7 @@ defineExpose({ archive })
     <!-- 不给模式切换条：思维导图统一在归档页的笔记列表创建（见 NotesView）。
          面板是「极速捕获」的入口，思维导图需要大画布与反复调整，两者节奏不同。
          已有的思维导图草稿仍会按其自身模式渲染，不会因此丢数据。 -->
-    <NoteEditor
-      v-model="content"
-      v-model:editor-mode="editorMode"
-      v-model:mindmap-data="mindmapData"
-      :show-mode-bar="false"
-      @submit="archive"
-    />
+    <NoteEditor v-model="content" editor-mode="text" :show-mode-bar="false" @submit="archive" />
 
     <div class="editor-footer">
       <span class="save-state" :class="{ saving: saveState === 'saving' }">{{ saveLabel }}</span>
