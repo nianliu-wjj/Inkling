@@ -28,6 +28,8 @@ pulldown-cmark = "0.13"
 ab_glyph = "0.2"
 genpdfi = "0.2.7"
 enigo = "0.6.1"
+# 标识符拼接：macro_rules! 无法生成 set_xxx 这类名字（concat_idents! 仍不稳定）。
+paste = "1"
 # 邮件提醒：SMTP 客户端。关掉默认的 async 运行时，只用阻塞式发送——
 # 发信在独立线程的队列里串行执行，不需要再引入一套异步栈。
 lettre = { version = "0.11", default-features = false, features = [
