@@ -115,28 +115,16 @@ impl Store {
 
     pub fn stats_summary(&self) -> Result<StatsSummary, String> {
         let now = super::now();
-        let mut summary = StatsSummary::default();
-        summary.notes = self
-            .db
-            .query_row("SELECT COUNT(*) FROM notes WHERE is_draft=0", [], |r| {
-                r.get(0)
-            })
-            .map_err(db_err)?;
-        summary.clips = self
-            .db
-            .query_row("SELECT COUNT(*) FROM clipboard_entries", [], |r| r.get(0))
-            .map_err(db_err)?;
-        summary.todos = self
-            .db
-            .query_row("SELECT COUNT(*) FROM todos", [], |r| r.get(0))
-            .map_err(db_err)?;
-        summary.completed = self
-            .db
-            .query_row("SELECT COUNT(*) FROM todos WHERE status='done'", [], |r| {
-                r.get(0)
-            })
-            .map_err(db_err)?;
-        summary.overdue = self
+        // 先取各项计数再一次性构造，而不是 default() 后逐字段赋值：
+        // 后者绕过了结构体的完整性检查，新增字段时容易漏赋值而静默留默认值。
+        let count = |sql: &str| -> Result<i64, String> {
+            self.db.query_row(sql, [], |r| r.get(0)).map_err(db_err)
+        };
+        let notes = count("SELECT COUNT(*) FROM notes WHERE is_draft=0")?;
+        let clips = count("SELECT COUNT(*) FROM clipboard_entries")?;
+        let todos = count("SELECT COUNT(*) FROM todos")?;
+        let completed = count("SELECT COUNT(*) FROM todos WHERE status='done'")?;
+        let overdue = self
             .db
             .query_row(
                 "SELECT COUNT(*) FROM todos WHERE status='open' AND due_at < ?",
@@ -144,7 +132,13 @@ impl Store {
                 |r| r.get(0),
             )
             .map_err(db_err)?;
-        Ok(summary)
+        Ok(StatsSummary {
+            notes,
+            clips,
+            todos,
+            completed,
+            overdue,
+        })
     }
 
     /// 某日全部记录（笔记按归档时刻、剪贴板按捕获时刻、待办按计划完成时刻），

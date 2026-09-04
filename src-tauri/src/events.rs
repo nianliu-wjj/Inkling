@@ -8,7 +8,6 @@ pub const CLIPBOARD_CHANGED: &str = "inkling://clipboard-changed";
 pub const TODOS_CHANGED: &str = "inkling://todos-changed";
 pub const SETTINGS_CHANGED: &str = "inkling://settings-changed";
 pub const STATS_CHANGED: &str = "inkling://stats-changed";
-pub const PIN_UPDATED: &str = "inkling://pin-updated";
 pub const REMINDER_FIRED: &str = "inkling://reminder-fired";
 /// 光标进入 / 离开顶部感应区，payload 为 bool（仅发给 hotzone 窗口）。
 pub const HOTZONE_HOVER: &str = "inkling://hotzone-hover";

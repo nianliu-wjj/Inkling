@@ -35,7 +35,7 @@ impl Store {
     fn entry_by(&self, where_clause: &str, param: &str) -> Result<Option<ClipboardEntry>, String> {
         let sql = format!("SELECT {ROW_COLUMNS} FROM clipboard_entries {where_clause}");
         self.db
-            .query_row(&sql, [param], |r| row_entry(r))
+            .query_row(&sql, [param], row_entry)
             .optional()
             .map_err(db_err)
     }
@@ -54,7 +54,7 @@ impl Store {
         );
         let mut stmt = self.db.prepare(&sql).map_err(db_err)?;
         let rows = stmt
-            .query_map([], |r| row_entry(r))
+            .query_map([], row_entry)
             .map_err(db_err)?
             .collect::<Result<Vec<_>, _>>()
             .map_err(db_err)?;

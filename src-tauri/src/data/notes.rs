@@ -168,9 +168,4 @@ impl Store {
             .map_err(db_err)?;
         Ok(())
     }
-
-    /// 读取笔记正文（含外置文件回读），导出使用。
-    pub fn note_content(&self, id: &str) -> Result<String, String> {
-        Ok(self.note(id)?.content)
-    }
 }

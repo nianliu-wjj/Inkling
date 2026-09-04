@@ -15,11 +15,6 @@ pub fn local_date_key(dt: DateTime<Utc>) -> String {
     dt.with_timezone(&Local).format("%Y-%m-%d").to_string()
 }
 
-/// 本地月份键（yyyy-MM）。
-pub fn local_month_key(dt: DateTime<Utc>) -> String {
-    dt.with_timezone(&Local).format("%Y-%m").to_string()
-}
-
 /// 本地某日起点的 UTC RFC3339 字符串（用于与存储值做字典序比较）。
 pub fn local_day_start(date: &str) -> String {
     let naive = chrono::NaiveDate::parse_from_str(date, "%Y-%m-%d")

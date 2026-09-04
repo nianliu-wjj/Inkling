@@ -90,18 +90,17 @@ fn default_true() -> bool {
 }
 
 /// 面板唤出位置：四个方向均以屏幕中线为基准。
+///
+/// 用 `cfg!` 宏而非 `#[cfg]` 属性块：属性块里写 `return` 会让后面的兜底表达式
+/// 在该平台上永远不可达，编译器据此报 unreachable_code。
+/// `cfg!` 是编译期常量，未命中的分支会被优化掉，且不产生不可达代码。
 pub fn default_panel_position() -> String {
-    #[cfg(target_os = "windows")]
-    {
-        return "bottom".into();
+    if cfg!(target_os = "windows") {
+        // Windows 任务栏在底部，面板从底部唤出更贴近手的落点。
+        "bottom".into()
+    } else {
+        "top".into()
     }
-
-    #[cfg(target_os = "macos")]
-    {
-        return "top".into();
-    }
-
-    "top".into()
 }
 
 /// 偏好设置。

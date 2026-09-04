@@ -2,16 +2,6 @@
 
 use chrono::{DateTime, Duration, Utc};
 
-/// 优先级排序权重：高 → 中 → 低。
-pub fn priority_weight(priority: &str) -> i32 {
-    match priority {
-        "high" => 0,
-        "medium" => 1,
-        "low" => 2,
-        _ => 3,
-    }
-}
-
 pub fn is_valid_priority(priority: &str) -> bool {
     matches!(priority, "high" | "medium" | "low")
 }
@@ -25,11 +15,6 @@ pub fn parse_time(value: &str) -> Option<DateTime<Utc>> {
     DateTime::parse_from_rfc3339(value)
         .map(|dt| dt.with_timezone(&Utc))
         .ok()
-}
-
-/// 判定未完成事项是否逾期：完成时刻已过即逾期。
-pub fn is_overdue(due_at: &str, status: &str, now: DateTime<Utc>) -> bool {
-    status == "open" && parse_time(due_at).is_some_and(|due| due < now)
 }
 
 /// 校验待办字段（内容 / 优先级 / 备注 / 标签）。
@@ -134,14 +119,6 @@ mod tests {
 
     fn t(y: i32, m: u32, d: u32, h: u32, min: u32) -> DateTime<Utc> {
         Utc.with_ymd_and_hms(y, m, d, h, min, 0).unwrap()
-    }
-
-    #[test]
-    fn overdue_depends_on_status_and_time() {
-        let now = t(2026, 8, 30, 12, 0);
-        assert!(is_overdue("2026-08-30T10:00:00+00:00", "open", now));
-        assert!(!is_overdue("2026-08-30T10:00:00+00:00", "done", now));
-        assert!(!is_overdue("2026-08-30T13:00:00+00:00", "open", now));
     }
 
     #[test]

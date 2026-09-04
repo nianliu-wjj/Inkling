@@ -209,11 +209,6 @@ fn top_center(monitor: &tauri::Monitor, width: f64, top_offset: f64) -> (f64, f6
     (x_logical, y_logical)
 }
 
-/// 屏幕顶部居中 + 竖直方向偏移。
-fn top_center_offset(monitor: &tauri::Monitor, width: f64, offset: f64) -> (f64, f64) {
-    top_center(monitor, width, offset)
-}
-
 /// 计算面板从显示器四边中点唤出的逻辑坐标。
 fn panel_position(monitor: &tauri::Monitor, width: f64, height: f64, position: &str) -> (f64, f64) {
     let scale = monitor.scale_factor();
@@ -477,14 +472,4 @@ pub fn reminder_close(app: &AppHandle, todo_id: &str) -> Result<(), String> {
 /// 应用退出。
 pub fn quit_app(app: &AppHandle) {
     app.exit(0);
-}
-
-/// 供 ipc 调用的顶层重导出（避免 ipc 直接依赖内部定位细节）。
-pub fn offset_top_center(monitor: &tauri::Monitor, width: f64, offset: f64) -> (f64, f64) {
-    top_center_offset(monitor, width, offset)
-}
-
-/// 状态存取快捷入口。
-pub fn state(app: &AppHandle) -> tauri::State<'_, AppState> {
-    app.state::<AppState>()
 }

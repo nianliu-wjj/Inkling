@@ -261,7 +261,7 @@ pub fn clipboard_write(
                 bytes: rgba.into_raw().into(),
             })
             .map_err(|e| format!("写回剪贴板失败: {e}"))?;
-        crate::domain::clipboard::hash_content(&format!("image:{width}x{height}").as_bytes())
+        crate::domain::clipboard::hash_content(format!("image:{width}x{height}").as_bytes())
     } else {
         let text = if entry.content.is_empty() {
             entry.preview.clone()
@@ -382,7 +382,6 @@ pub struct TodoPayload {
     pub id: Option<String>,
     pub content: String,
     pub due_at: String,
-    pub remind_at: Option<String>,
     /// 提醒偏移分钟数；`None` = 不提醒。
     pub remind_offset_minutes: Option<i64>,
     #[serde(default)]
@@ -403,7 +402,6 @@ fn todo_input(payload: TodoPayload) -> todos_data::TodoInput {
         id: payload.id,
         content: payload.content,
         due_at: payload.due_at,
-        remind_at: payload.remind_at,
         remind_offset_minutes: payload.remind_offset_minutes,
         remind_desktop: payload.remind_desktop,
         remind_email: payload.remind_email,

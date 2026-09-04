@@ -15,6 +15,10 @@ pub enum CaptureKind {
     Text,
     Link,
     Code,
+    /// 图片。数据库 `clipboard_entries.content_type` 的 CHECK 约束包含 image，
+    /// 落盘与展示链路都已就绪，但剪贴板监听尚未实现图片分支，故暂无构造点。
+    /// 保留该变体是为了让 `as_str` 覆盖完整的类型集合，删掉会让契约缺一种。
+    #[allow(dead_code)]
     Image,
     RichText,
 }

@@ -3,6 +3,7 @@
 //! - md/txt/html：直接生成文本文件；
 //! - pdf：genpdfi + 系统中文字体纯文本排版；
 //! - png：ab_glyph 渲染简版文本位图。
+//!
 //! 全部导出到用户选择的目录（由前端 dialog 插件提供路径），默认回退桌面。
 
 use std::fs;
@@ -18,21 +19,6 @@ pub enum ExportItem {
 }
 
 impl ExportItem {
-    fn title(&self) -> String {
-        match self {
-            ExportItem::Note(note) => note
-                .content
-                .lines()
-                .find(|l| !l.trim().is_empty())
-                .unwrap_or("笔记")
-                .chars()
-                .take(20)
-                .collect(),
-            ExportItem::Todo(todo) => todo.content.chars().take(20).collect(),
-            ExportItem::Clip(clip) => clip.preview.chars().take(20).collect(),
-        }
-    }
-
     fn markdown(&self) -> String {
         match self {
             ExportItem::Note(note) => {

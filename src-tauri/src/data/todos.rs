@@ -1,10 +1,9 @@
 //! 待办数据访问：校验、父子事务、完成联动、优先级/时间/提醒的窄更新与提醒实例登记。
 
-use super::{db_err, local_date_key, now, Store};
+use super::{db_err, now, Store};
 use crate::domain::models::Todo;
 use crate::domain::todo as logic;
 use chrono::{DateTime, Duration, Utc};
-use rusqlite::OptionalExtension;
 
 /// 创建时间下限容差（秒），抵消时钟微差。
 const CREATE_TIME_TOLERANCE_SECS: i64 = 60;
@@ -13,8 +12,6 @@ pub struct TodoInput {
     pub id: Option<String>,
     pub content: String,
     pub due_at: String,
-    /// 兼容字段，前端不再传；提醒时刻改由 `due_at - remind_offset_minutes` 派生。
-    pub remind_at: Option<String>,
     /// 提醒偏移分钟数；`None` = 不提醒。取值须在 `domain::todo::REMIND_OFFSETS` 内。
     pub remind_offset_minutes: Option<i64>,
     /// 是否桌面弹窗提醒。
@@ -492,16 +489,6 @@ impl Store {
         Ok(())
     }
 
-    /// 提醒实例是否已触发过（幂等防重复弹窗）。
-    pub fn reminder_fired(&self, key: &str) -> Result<bool, String> {
-        let exists: Option<i64> = self
-            .db
-            .query_row("SELECT 1 FROM reminder_log WHERE id=?", [key], |r| r.get(0))
-            .optional()
-            .map_err(db_err)?;
-        Ok(exists.is_some())
-    }
-
     /// 登记提醒实例，返回是否成功抢占（首次触发）。
     pub fn log_reminder(&self, key: &str, todo_id: &str) -> Result<bool, String> {
         let inserted = self
@@ -559,20 +546,6 @@ impl Store {
             .map_err(db_err)?;
         Ok((todos, completed))
     }
-
-    /// 创建事件日期键（诊断用）。
-    pub fn todo_created_date(&self, id: &str) -> Result<String, String> {
-        let created: String = self
-            .db
-            .query_row("SELECT created_at FROM todos WHERE id=?", [id], |r| {
-                r.get(0)
-            })
-            .map_err(db_err)?;
-        let dt = DateTime::parse_from_rfc3339(&created)
-            .map(|x| x.with_timezone(&Utc))
-            .unwrap_or_else(|_| Utc::now());
-        Ok(local_date_key(dt))
-    }
 }
 
 #[cfg(test)]
@@ -590,7 +563,6 @@ mod tests {
             id: None,
             content: "测试待办".into(),
             due_at: "2099-01-01T10:00:00+00:00".into(),
-            remind_at: None,
             remind_offset_minutes: offset,
             remind_desktop: true,
             remind_email: email,
