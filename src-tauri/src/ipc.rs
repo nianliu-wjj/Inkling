@@ -14,6 +14,11 @@ use crate::events;
 
 fn emit_all<T: Clone + serde::Serialize>(app: &AppHandle, name: &str, payload: T) {
     let _ = app.emit(name, payload);
+    // 待办变化会改变托盘提示的内容（当天未完成清单），在广播的同一处顺带刷新，
+    // 避免每个改待办的命令各自记得调一次。
+    if name == events::TODOS_CHANGED {
+        crate::app::tray::refresh_tooltip(app);
+    }
 }
 
 // ── 窗口控制 ────────────────────────────────────────────────

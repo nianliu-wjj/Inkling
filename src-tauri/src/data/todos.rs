@@ -53,6 +53,22 @@ impl Store {
         .collect()
     }
 
+    /// 托盘提示用：当天未完成的待办，逾期的排在前面。
+    ///
+    /// 口径与面板待办页一致——「今天到期且未完成」+「此前日期仍未完成」，
+    /// 未来日期不计入。这样托盘提示与用户在面板里看到的是同一批事项。
+    /// 排序：先逾期后今天，同组内按优先级再按到期时间。
+    pub fn list_today_open_todos(&self, today: &str) -> Result<Vec<Todo>, String> {
+        let end = super::local_day_end(today);
+        self.todo_ids(
+            &format!("WHERE status='open' AND due_at < '{end}'"),
+            "ORDER BY due_at ASC, CASE priority WHEN 'high' THEN 0 WHEN 'medium' THEN 1 ELSE 2 END ASC",
+        )?
+        .iter()
+        .map(|id| self.todo(id))
+        .collect()
+    }
+
     pub fn list_open_remindable_todos(&self) -> Result<Vec<Todo>, String> {
         self.todo_ids(
             "WHERE status='open' AND remind_off=0 \

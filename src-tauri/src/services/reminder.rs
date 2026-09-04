@@ -31,6 +31,8 @@ pub fn start(app: AppHandle) {
 
 fn tick(app: &AppHandle) -> Result<(), String> {
     let now = Utc::now();
+    // 顺带兜住托盘提示的跨日刷新：日期未变时只是比较一个字符串，开销可忽略。
+    crate::app::tray::refresh_tooltip_if_day_changed(app);
     let state = app.state::<AppState>();
     let todos = {
         let store = state.lock_store()?;
