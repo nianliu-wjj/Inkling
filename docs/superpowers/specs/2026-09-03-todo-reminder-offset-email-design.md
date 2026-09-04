@@ -171,6 +171,32 @@ for 每条待办:
 验证需要真实 SMTP 凭据（主机 / 端口 / 账号 / 应用专用密码 / 收件邮箱），
 仅写入本地数据库，不进仓库、不回显在输出中。
 
+## 实施补记（2026-09-03 实现后追加）
+
+实现过程中发现两处设计缺口，按「采用推荐方案并记录」处理：
+
+### 1. 任务排序无法逐个验证
+
+原计划 Task 1（领域层）独立跑测试时整个 crate 编译不过：`services/reminder.rs` 仍调用旧 API，
+而它的改造又依赖 Task 2 的新字段与 Task 5 的 mailer，构成循环依赖。
+改为 1→2→3→5→4→6→7 连续实现、段末统一验证，保证每个提交都处于可编译状态。
+
+### 2. `todo_snooze`（提醒卡片「稍后提醒」）在设计里漏了
+
+该功能原本靠 `set_todo_reminder` 写一个绝对时刻，而新模型下 `set_todo_reminder` 只接受档位偏移。
+snooze 的语义是「从现在起再过 N 分钟」，与「完成时间之前多久」不是同一维度，无法用档位表达。
+
+**采用**：`remind_at` 改承担「一次性 / 重复的额外提醒时刻」这一职责，
+调度器在偏移槽位之外单独处理它，触发后清空（有重复规则则推进到下一周期）。
+新增 `Store::snooze_todo` 与 `Store::clear_remind_at`。
+
+这也让 `remind_at` 的语义更内聚：它始终表示「下一次额外提醒的时刻」，
+不论来源是 snooze 还是 repeat_rule 推进。
+
+`list_open_remindable_todos` 的过滤条件随之放宽为
+`remind_offset_minutes IS NOT NULL OR remind_at IS NOT NULL`，
+否则「不提醒」的待办被 snooze 后扫不到。
+
 ## 未决
 
-无。
+Task 10（真实 SMTP 发信实机验证）待用户提供凭据后执行。
