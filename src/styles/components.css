@@ -552,11 +552,20 @@ body:not(:focus-within) .mac-dot {
  * 因此这里两级都改成 stretch——align-self 让控件组在标题栏里撑满，
  * align-items 让按钮在控件组里撑满。负 margin 抵消标题栏的 12px/16px 内边距，
  * 使按钮真正贴到窗口边缘。 */
-.win-controls-win {
+/* 选择器必须写成 `.window-titlebar .win-controls-win`（0,2,0）：
+   上面的基类规则 `.window-titlebar .win-controls` 也是 0,2,0 且带
+   align-items: center，只写单个 `.win-controls-win`（0,1,0）会被它压住，
+   按钮就撑不满、悬浮底色只剩中间一条。margin-left 显式写 auto，
+   因为这里的 margin 简写会覆盖基类的 margin-left: auto。 */
+.window-titlebar .win-controls-win {
   gap: 0;
   align-self: stretch;
   align-items: stretch;
-  margin: -12px -16px -12px 0;
+  margin: -12px -16px -12px auto;
+}
+/* 双保险：即使父容器的 align-items 又被别处覆盖，按钮自身也撑满。 */
+.window-titlebar .win-controls-win .win-btn {
+  align-self: stretch;
 }
 .win-btn {
   width: 46px;
