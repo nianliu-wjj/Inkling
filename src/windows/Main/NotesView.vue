@@ -25,16 +25,33 @@ const { toast } = useToast()
 const confirm = useConfirmDelete('notes-view')
 
 const keyword = ref('')
+/** 类型筛选：思维导图与文本笔记混排，需要能只看一类。 */
+const kindFilter = ref<'all' | 'text' | 'mindmap'>('all')
 /** 正在管理标签的笔记。 */
 const tagTarget = ref<Note | null>(null)
 /** 正在编辑正文/思维导图的笔记。 */
 const editTarget = ref<Note | null>(null)
+/** 新建思维导图的弹窗开关。思维导图只能从这里创建，面板不提供入口。 */
+const creatingMindmap = ref(false)
+
+/** 空列表提示：区分「筛没了」与「本来就没有」，否则用户以为数据丢了。 */
+const emptyHint = computed(() => {
+  if (keyword.value.trim()) return '没有匹配的笔记'
+  if (kindFilter.value === 'mindmap') return '还没有思维导图，点右上角「新建导图」开始'
+  if (kindFilter.value === 'text') return '还没有文本笔记'
+  return '还没有归档的念头'
+})
 
 const visible = computed(() => {
   const key = keyword.value.trim().toLowerCase()
   return notes.value
     .filter((note) => {
       if (note.is_draft) return false
+      // 类型筛选：editor_mode 缺省视为文本笔记（v2 迁移前的历史数据）。
+      if (kindFilter.value !== 'all') {
+        const kind = note.editor_mode === 'mindmap' ? 'mindmap' : 'text'
+        if (kind !== kindFilter.value) return false
+      }
       if (!key) return true
       // 正文 + 标签双重匹配
       return note.content.toLowerCase().includes(key) || note.tags.some((tag) => tag.toLowerCase().includes(key))
@@ -88,23 +105,43 @@ async function saveTags(tags: string[]): Promise<void> {
   }
 }
 
-/** 保存笔记正文 / 思维导图（标签由 NoteEditModal 原样带回，不在此处改动）。 */
+/**
+ * 保存笔记正文 / 思维导图（标签由 NoteEditModal 原样带回，不在此处改动）。
+ *
+ * 同时承担新建思维导图的落库：input 不带 id 时后端插入新记录。
+ */
 async function saveNote(input: NoteInput): Promise<void> {
   try {
     await api.notes.save(input)
-    toast('已保存')
+    toast(input.id ? '已保存' : '思维导图已创建')
   } catch (error) {
     logger.error('notes-view', '保存笔记失败', error)
     toast('保存失败')
   } finally {
     editTarget.value = null
+    creatingMindmap.value = false
   }
 }
 </script>
 
 <template>
   <div class="archive-page">
-    <input v-model="keyword" class="search-input" placeholder="🔍 搜索笔记…（正文与标签）" />
+    <div class="notes-toolbar">
+      <input v-model="keyword" class="search-input" placeholder="🔍 搜索笔记…（正文与标签）" />
+      <select v-model="kindFilter" class="prio-select" title="按类型筛选">
+        <option value="all">全部类型</option>
+        <option value="text">📝 笔记</option>
+        <option value="mindmap">🧠 思维导图</option>
+      </select>
+      <button
+        type="button"
+        class="btn tiny"
+        title="新建思维导图（思维导图只能在此创建）"
+        @click="creatingMindmap = true"
+      >
+        🧠 新建导图
+      </button>
+    </div>
 
     <div>
       <NoteCard
@@ -120,12 +157,15 @@ async function saveNote(input: NoteInput): Promise<void> {
         @cancel-delete="confirm.cancel()"
       />
       <div v-if="!visible.length" class="tag-mgr-empty">
-        {{ keyword ? '没有匹配的笔记' : '还没有归档的念头' }}
+        {{ emptyHint }}
       </div>
     </div>
 
     <!-- ✏️ 编辑：笔记正文 / 思维导图 -->
     <NoteEditModal v-if="editTarget" :note="editTarget" @save="saveNote" @close="editTarget = null" />
+
+    <!-- 🧠 新建思维导图：不传 note 即新建态，模式固定 mindmap -->
+    <NoteEditModal v-if="creatingMindmap" initial-mode="mindmap" @save="saveNote" @close="creatingMindmap = false" />
 
     <!-- 标签区：仅管理标签 -->
     <TagManagerModal

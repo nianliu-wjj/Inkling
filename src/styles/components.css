@@ -473,6 +473,55 @@
   font-weight: 600;
 }
 
+/* ═══ 笔记列表：工具条与类型标识 ═══ */
+/* 搜索框 + 类型筛选 + 新建导图，一行排布，搜索框占剩余宽度。 */
+.notes-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+.notes-toolbar .search-input {
+  /* 必须显式写 width: auto —— .search-input 基类有 width: 100%，
+     在 flex 容器里它会让搜索框吃掉整行，把筛选与新建按钮挤出可见区。 */
+  flex: 1 1 auto;
+  width: auto;
+  min-width: 0;
+  margin-bottom: 0;
+}
+.notes-toolbar .prio-select {
+  flex-shrink: 0;
+}
+.notes-toolbar .btn.tiny {
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+/* 类型徽章：固定在元数据行首，让两种笔记在混排列表里一眼可辨。 */
+.note-kind {
+  flex-shrink: 0;
+  padding: 1px 7px;
+  border-radius: 999px;
+  font-size: 10.5px;
+  line-height: 1.7;
+  border: 1px solid transparent;
+}
+.kind-text {
+  color: var(--text-dim);
+  background: rgba(var(--wsa), 0.08);
+  border-color: rgba(var(--wsa), 0.12);
+}
+/* 思维导图用笔记类别色（--c-note）着色，与统计图表里的笔记色系一致。 */
+.kind-mindmap {
+  color: rgb(var(--c-note));
+  background: rgba(var(--c-note), 0.12);
+  border-color: rgba(var(--c-note), 0.3);
+}
+/* 卡片左侧留一道同色细边，扫视列表时不必读徽章也能分组。 */
+.archive-item.mindmap {
+  border-left: 2px solid rgba(var(--c-note), 0.55);
+}
+
 /* ═══ 窗口控件（自绘标题栏）═══
  * 主窗口是无边框窗口，系统不画标题栏，最小化/最大化/关闭三个键必须自绘。
  * 按平台各自的原生规格实现，见 components/base/WindowControls.vue。 */

@@ -36,7 +36,9 @@ const emit = defineEmits<{
 /** 归档时刻优先，草稿回落到创建时刻。 */
 const stamp = computed(() => formatStamp(props.note.archived_at ?? props.note.created_at))
 
-const mindmapLabel = computed(() => (props.note.editor_mode === 'mindmap' ? '🧠 思维导图笔记' : ''))
+/** 是否思维导图笔记：列表里要能一眼分辨两种类型。 */
+const isMindmap = computed(() => props.note.editor_mode === 'mindmap')
+const mindmapLabel = computed(() => (isMindmap.value ? '🧠 思维导图笔记' : ''))
 const html = computed(() =>
   props.note.editor_mode === 'mindmap'
     ? `<p class="note-mindmap-summary">${mindmapLabel.value}</p>`
@@ -45,7 +47,7 @@ const html = computed(() =>
 </script>
 
 <template>
-  <div class="archive-item" :class="{ pinned: props.note.pinned }">
+  <div class="archive-item" :class="{ pinned: props.note.pinned, mindmap: isMindmap }">
     <ConfirmPopover
       v-if="props.confirming"
       text="⚠️ 确认删除该笔记？"
@@ -59,6 +61,10 @@ const html = computed(() =>
     <div class="a-text" v-html="html" />
 
     <div class="a-meta">
+      <!-- 类型徽章：思维导图与文本笔记在列表里混排，需要固定位置的类型标识 -->
+      <span class="note-kind" :class="isMindmap ? 'kind-mindmap' : 'kind-text'">
+        {{ isMindmap ? '🧠 导图' : '📝 笔记' }}
+      </span>
       <span>{{ stamp }}</span>
       <TagList :tags="props.note.tags" :max="3" @open="emit('open-tags')" />
 

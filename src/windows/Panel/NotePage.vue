@@ -143,10 +143,14 @@ defineExpose({ archive })
 
 <template>
   <section class="panel-page">
+    <!-- 不给模式切换条：思维导图统一在归档页的笔记列表创建（见 NotesView）。
+         面板是「极速捕获」的入口，思维导图需要大画布与反复调整，两者节奏不同。
+         已有的思维导图草稿仍会按其自身模式渲染，不会因此丢数据。 -->
     <NoteEditor
       v-model="content"
       v-model:editor-mode="editorMode"
       v-model:mindmap-data="mindmapData"
+      :show-mode-bar="false"
       @submit="archive"
     />
 
