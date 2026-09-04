@@ -37,6 +37,12 @@
   border-radius: 8px;
   clip-path: inset(0 round 8px);
 }
+/* 最大化时取消圆角：铺满屏幕的窗口留着圆角会在四角露出桌面。
+   DWM 侧的窗口圆角在最大化时由系统自动取消，这里同步内容层。 */
+:root[data-maximized] #mainWindow.app-window {
+  border-radius: 0;
+  clip-path: none;
+}
 
 /* 左右结构占满标题栏以下的全部空间。 */
 #mainWindow .archive-layout {

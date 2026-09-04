@@ -79,6 +79,24 @@ pub fn set_main_acrylic(app: AppHandle, enabled: bool) -> Result<(), String> {
     crate::app::windows::set_main_acrylic(&app, enabled)
 }
 
+/// 最小化主窗口到任务栏。
+#[tauri::command]
+pub fn minimize_main(app: AppHandle) -> Result<(), String> {
+    windows::minimize_main(&app)
+}
+
+/// 切换主窗口最大化，返回切换后的状态。
+#[tauri::command]
+pub fn toggle_maximize_main(app: AppHandle) -> Result<bool, String> {
+    windows::toggle_maximize_main(&app)
+}
+
+/// 查询主窗口是否最大化。
+#[tauri::command]
+pub fn main_is_maximized(app: AppHandle) -> Result<bool, String> {
+    windows::main_is_maximized(&app)
+}
+
 #[tauri::command]
 pub fn quit_app(app: AppHandle) -> Result<(), String> {
     windows::quit_app(&app);

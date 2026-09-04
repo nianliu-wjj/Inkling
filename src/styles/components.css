@@ -472,16 +472,125 @@
   font-size: 14px;
   font-weight: 600;
 }
-.win-close {
+
+/* ═══ 窗口控件（自绘标题栏）═══
+ * 主窗口是无边框窗口，系统不画标题栏，最小化/最大化/关闭三个键必须自绘。
+ * 按平台各自的原生规格实现，见 components/base/WindowControls.vue。 */
+
+/* 标题栏本体：默认标题在左、控件在右；macOS 下控件在左，标题让位到其右侧。 */
+.window-titlebar .win-controls {
   margin-left: auto;
-  cursor: pointer;
-  color: var(--text-dim);
-  padding: 2px 8px;
-  border-radius: 6px;
+  display: flex;
+  align-items: center;
 }
-.win-close:hover {
-  background: rgba(255, 95, 87, 0.7);
+.window-titlebar.controls-left .win-controls {
+  margin-left: 0;
+  margin-right: 4px;
+}
+.window-titlebar.controls-left .win-title {
+  margin-right: auto;
+}
+
+/* ── macOS：左上角红黄绿三点 ──
+ * 原生规格：直径 12px、间距 8px；符号平时不显示，指针进入控件组时整组显现。 */
+.win-controls-mac {
+  gap: 8px;
+}
+.mac-dot {
+  width: 12px;
+  height: 12px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  cursor: default;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.mac-dot svg {
+  width: 12px;
+  height: 12px;
+  opacity: 0;
+  stroke: rgba(0, 0, 0, 0.55);
+  stroke-width: 1.2;
+  stroke-linecap: round;
+  fill: none;
+  transition: opacity var(--dur-fast) var(--ease-out);
+}
+/* 悬浮整组才显符号，与系统一致——不是逐个按钮各自显现。 */
+.win-controls-mac:hover .mac-dot svg {
+  opacity: 1;
+}
+.mac-close {
+  background: #ff5f57;
+}
+.mac-min {
+  background: #febc2e;
+}
+.mac-max {
+  background: #28c840;
+}
+.mac-dot:active {
+  filter: brightness(0.85);
+}
+/* 窗口失焦时三点转灰，这是 macOS 的既有行为。 */
+body:not(:focus-within) .mac-dot {
+  background: rgba(var(--wsa), 0.22);
+}
+
+/* ── Windows：右上角三个方形按钮 ──
+ * 原生规格：46×32 命中区、图标 10px、无圆角、悬浮浅底，关闭键悬浮转红底白字。
+ * 标题栏上下 padding 已占 12px，这里把按钮拉伸到贴满标题栏高度以对齐系统观感。 */
+.win-controls-win {
+  gap: 0;
+  margin-top: -12px;
+  margin-bottom: -12px;
+  margin-right: -16px;
+  align-self: stretch;
+}
+.win-btn {
+  width: 46px;
+  padding: 0;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  color: var(--text);
+  cursor: default;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: background var(--dur-fast) var(--ease-out);
+}
+.win-btn svg {
+  width: 10px;
+  height: 10px;
+  stroke: currentColor;
+  stroke-width: 1;
+  fill: none;
+  /* 1px 线条在整数坐标上会跨像素而发虚，偏移半像素对齐设备像素网格。 */
+  shape-rendering: crispEdges;
+}
+.win-btn:hover {
+  background: rgba(var(--wsa), 0.12);
+}
+.win-btn:active {
+  background: rgba(var(--wsa), 0.18);
+}
+/* 关闭键是系统里唯一带强调色的按钮，配色取自 Windows 11。 */
+.win-btn-close:hover {
+  background: #c42b1c;
   color: #fff;
+}
+.win-btn-close:active {
+  background: #b2261a;
+  color: #fff;
+}
+/* 最右一个按钮要跟上窗口圆角，否则悬浮底色会溢出圆角外形成方角。 */
+.win-controls-win .win-btn:last-child {
+  border-top-right-radius: 8px;
+}
+:root[data-maximized] .win-controls-win .win-btn:last-child {
+  border-top-right-radius: 0;
 }
 .window-body {
   padding: 14px 16px;

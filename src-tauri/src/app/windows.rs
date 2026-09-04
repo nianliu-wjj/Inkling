@@ -318,6 +318,35 @@ pub fn show_main(app: &AppHandle, view: &str) -> Result<(), String> {
 }
 
 /// 隐藏主窗口（保持托盘常驻）。
+/// 最小化主窗口到任务栏。
+///
+/// 与 `hide_main` 的区别：最小化仍留在任务栏，用户可点回来；
+/// hide 是彻底隐藏、只能从托盘唤起。标题栏的「最小化」与「关闭」分别对应这两者。
+pub fn minimize_main(app: &AppHandle) -> Result<(), String> {
+    let main = app.get_webview_window("main").ok_or("主窗口未初始化")?;
+    eprintln!("[window] 最小化主窗口");
+    main.minimize().map_err(|e| e.to_string())
+}
+
+/// 切换主窗口的最大化状态，返回切换后是否为最大化。
+pub fn toggle_maximize_main(app: &AppHandle) -> Result<bool, String> {
+    let main = app.get_webview_window("main").ok_or("主窗口未初始化")?;
+    let maximized = main.is_maximized().map_err(|e| e.to_string())?;
+    if maximized {
+        main.unmaximize().map_err(|e| e.to_string())?;
+    } else {
+        main.maximize().map_err(|e| e.to_string())?;
+    }
+    eprintln!("[window] 主窗口最大化 = {}", !maximized);
+    Ok(!maximized)
+}
+
+/// 主窗口当前是否最大化（前端据此切换按钮图标与窗口圆角）。
+pub fn main_is_maximized(app: &AppHandle) -> Result<bool, String> {
+    let main = app.get_webview_window("main").ok_or("主窗口未初始化")?;
+    main.is_maximized().map_err(|e| e.to_string())
+}
+
 pub fn hide_main(app: &AppHandle) -> Result<(), String> {
     if let Some(main) = app.get_webview_window("main") {
         let _ = main.hide();

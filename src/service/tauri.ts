@@ -27,6 +27,10 @@ export const api = {
     editorReady: () => invoke<void>('editor_ready'),
     showMain: (view: string) => invoke<void>('show_main', { view }),
     hideMain: () => invoke<void>('hide_main'),
+    minimizeMain: () => invoke<void>('minimize_main'),
+    /** 切换最大化，返回切换后的状态。 */
+    toggleMaximizeMain: () => invoke<boolean>('toggle_maximize_main'),
+    mainIsMaximized: () => invoke<boolean>('main_is_maximized'),
     quit: () => invoke<void>('quit_app'),
     /** 切换归档主窗口毛玻璃（运行时可调，无需重建窗口）。 */
     setMainAcrylic: (enabled: boolean) => invoke<void>('set_main_acrylic', { enabled }),

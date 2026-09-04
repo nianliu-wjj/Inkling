@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
 import ToastHost from '@/components/base/ToastHost.vue'
+import WindowControls from '@/components/base/WindowControls.vue'
+import { controlsOnLeft } from '@/constants/platform'
 import { useClips, useNotes, useSettings, useTodos } from '@/composables/useData'
 import { applyCachedGlass, useGlass } from '@/composables/useGlass'
 import { applyCachedTheme, useTheme } from '@/composables/useTheme'
@@ -81,14 +83,6 @@ function pickDate(dateKey: string): void {
   view.value = 'day'
 }
 
-async function close(): Promise<void> {
-  try {
-    await api.windows.hideMain()
-  } catch (error) {
-    logger.error('main', '隐藏主窗口失败', error)
-  }
-}
-
 onMounted(() => {
   void loadActivity()
 
@@ -107,9 +101,12 @@ onMounted(() => {
 
 <template>
   <div id="mainWindow" class="app-window glass">
-    <div class="window-titlebar" data-tauri-drag-region>
+    <!-- 标题栏：控件位置随平台——macOS 三点在左，Windows 三键在右（见 constants/platform.ts）。
+         整条是拖拽区，控件内部用 .no-drag 排除。 -->
+    <div class="window-titlebar" :class="{ 'controls-left': controlsOnLeft }" data-tauri-drag-region>
+      <WindowControls v-if="controlsOnLeft" />
       <span class="win-title"><span class="app-ico">✒️</span> Inkling</span>
-      <span class="win-close" title="关闭" @click="close">✕</span>
+      <WindowControls v-if="!controlsOnLeft" />
     </div>
 
     <div class="archive-layout">
