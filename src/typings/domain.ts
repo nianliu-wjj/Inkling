@@ -105,6 +105,8 @@ export interface Settings {
   main_acrylic: boolean
   /** 面板从屏幕哪一侧的中间位置唤出。 */
   panel_position: PanelPosition
+  /** 启用的面板插件 id 有序列表（逗号分隔）；为空则用全部内置插件的默认顺序。 */
+  panel_plugins: string
   /** 玻璃质感档位，与配色主题正交。 */
   glass_level: GlassLevel
   smtp_host: string

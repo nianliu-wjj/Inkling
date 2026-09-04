@@ -5,6 +5,7 @@ import { useToast } from '@/composables/useToast'
 import { useGlass } from '@/composables/useGlass'
 import { useTheme } from '@/composables/useTheme'
 import { glassLevels } from '@/constants/glass'
+import { builtinPlugins, resolvePlugins, serializePlugins } from '@/panel-plugins'
 import { themes } from '@/constants/themes'
 import { logger } from '@/service/logger'
 import { api } from '@/service/tauri'
@@ -129,6 +130,32 @@ async function sendTestMail(): Promise<void> {
   } finally {
     mailTesting.value = false
   }
+}
+
+/** 当前启用的插件 id 集合，用于勾选框的 checked 状态。 */
+const enabledPluginIds = computed(
+  () => new Set(resolvePlugins(settings.value.panel_plugins).map((plugin) => plugin.id)),
+)
+
+/**
+ * 启用 / 禁用某个面板插件。
+ *
+ * 顺序始终沿用注册表的默认次序（勾选不改变排序），因此这里按 builtinPlugins
+ * 过滤后重新序列化即可。全部取消勾选时不写入空串——空串会被 resolvePlugins
+ * 兜回「全部启用」，与用户「一个都不要」的意图相反；因此至少保留一个。
+ */
+function togglePlugin(id: string, enabled: boolean): void {
+  const next = new Set(enabledPluginIds.value)
+  if (enabled) next.add(id)
+  else next.delete(id)
+
+  if (next.size === 0) {
+    toast('至少需要启用一个面板插件')
+    return
+  }
+  const ordered = builtinPlugins.filter((plugin) => next.has(plugin.id))
+  logger.info('settings', `面板插件启用列表 = ${serializePlugins(ordered)}`)
+  void patch({ panel_plugins: serializePlugins(ordered) })
 }
 
 /**
@@ -276,6 +303,17 @@ async function openDataDir(): Promise<void> {
         <span>数据目录</span>
         <button type="button" class="btn tiny" @click="openDataDir">打开数据目录</button>
       </div>
+
+      <div class="setting-section-title">面板插件</div>
+      <p class="setting-hint">控制呼出面板显示哪些能力页。勾选顺序固定，序号即 <strong>⌃N</strong> 快捷键。</p>
+      <label v-for="plugin in builtinPlugins" :key="plugin.id" class="setting-row">
+        <span>{{ plugin.dot }} {{ plugin.label }}</span>
+        <input
+          type="checkbox"
+          :checked="enabledPluginIds.has(plugin.id)"
+          @change="togglePlugin(plugin.id, ($event.target as HTMLInputElement).checked)"
+        />
+      </label>
 
       <div class="setting-section-title">邮件提醒</div>
       <p class="setting-hint">请填写邮箱的<strong>应用专用密码</strong>而非主账号密码。配置保存在本地数据库中。</p>

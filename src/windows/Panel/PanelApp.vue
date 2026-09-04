@@ -8,13 +8,14 @@ import { applyCachedTheme, useTheme } from '@/composables/useTheme'
 import { AppEvents, onAppEvent } from '@/service/events'
 import { logger } from '@/service/logger'
 import { api } from '@/service/tauri'
-import type { CaptureMode } from '@/typings/domain'
-import ClipPage from './ClipPage.vue'
-import NotePage from './NotePage.vue'
-import TodoPage from './TodoPage.vue'
+import { MAX_HOTKEY_SLOTS, resolvePlugins } from '@/panel-plugins'
 
 /**
- * 呼出面板：三态合一（笔记 / 粘贴板 / 待办）。
+ * 呼出面板：由插件注册表驱动的多态容器。
+ *
+ * 页面不再硬编码——启用哪些、什么顺序由 `Settings.panel_plugins` 决定，
+ * 组件从 `@/panel-plugins` 注册表解析（见该文件对「为何不做运行时加载」的说明）。
+ * 新增一种捕获能力只需在注册表登记，不必改本文件。
  *
  * 需求 2.1：
  * - 滑入 200ms / 滑出 150ms 的弹性过渡（GSAP）；
@@ -33,7 +34,8 @@ const { settings } = useSettings()
 const { applyTheme } = useTheme()
 const { applyGlass } = useGlass()
 
-const mode = ref<CaptureMode>('note')
+/** 当前展示的插件 id；空串表示尚未初始化，由下方 watch 兜到首个插件。 */
+const activeId = ref('')
 const panel = ref<HTMLElement | null>(null)
 /** 面板内弹窗的层数：>0 时禁止失焦收起。 */
 const modalDepth = ref(0)
@@ -74,11 +76,24 @@ const PANEL_MAX_HEIGHT = 600
 /** 内容高度之外预留给窗口的余量（面板阴影与边框）。 */
 const PANEL_HEIGHT_PADDING = 12
 
-const MODES: readonly { key: CaptureMode; dot: string; label: string; hotkey: string }[] = [
-  { key: 'note', dot: '🔴', label: '笔记', hotkey: '⌃1' },
-  { key: 'clipboard', dot: '🟡', label: '粘贴板', hotkey: '⌃2' },
-  { key: 'todo', dot: '🟢', label: '待办', hotkey: '⌃3' },
-]
+/** 当前启用的插件，顺序即展示顺序与快捷键序号。 */
+const plugins = computed(() => resolvePlugins(settings.value.panel_plugins))
+
+/**
+ * 保证 activeId 始终指向一个启用中的插件。
+ *
+ * 用户在设置里禁用了当前正在看的插件时也要落到有效页面上，
+ * 否则面板会变成一片空白——没有任何 v-show 命中。
+ */
+watch(
+  plugins,
+  (list) => {
+    if (!list.some((plugin) => plugin.id === activeId.value)) {
+      activeId.value = list[0]?.id ?? ''
+    }
+  },
+  { immediate: true },
+)
 
 /** 后端设置变化时同步主题。 */
 watch(
@@ -231,12 +246,13 @@ function onKeydown(event: KeyboardEvent): void {
     return
   }
 
-  // ⌃1/2/3 切换三态
+  // ⌃1..⌃9 按启用顺序切换插件；超出 9 个的插件只能用圆点点击。
   if (event.ctrlKey || event.metaKey) {
     const index = Number(event.key) - 1
-    if (index >= 0 && index < MODES.length) {
+    const list = plugins.value
+    if (index >= 0 && index < Math.min(list.length, MAX_HOTKEY_SLOTS)) {
       event.preventDefault()
-      mode.value = MODES[index].key
+      activeId.value = list[index].id
     }
   }
 }
@@ -327,7 +343,7 @@ onBeforeUnmount(() => {
   clearCollapseTimer()
 })
 
-const activeLabel = computed(() => MODES.find((m) => m.key === mode.value)?.label ?? '')
+const activeLabel = computed(() => plugins.value.find((plugin) => plugin.id === activeId.value)?.label ?? '')
 </script>
 
 <template>
@@ -339,24 +355,31 @@ const activeLabel = computed(() => MODES.find((m) => m.key === mode.value)?.labe
     :class="{ 'modal-open': modalDepth > 0 }"
     :aria-label="`Inkling 呼出面板 · ${activeLabel}`"
   >
-    <!-- 三态圆点导航 -->
+    <!-- 插件圆点导航：序号即 ⌃N 快捷键 -->
     <div class="panel-nav">
       <span
-        v-for="item in MODES"
-        :key="item.key"
+        v-for="(plugin, index) in plugins"
+        :key="plugin.id"
         class="nav-dot"
-        :class="{ active: mode === item.key }"
-        :title="`${item.label} (${item.hotkey})`"
-        @click="mode = item.key"
-        >{{ item.dot }}</span
+        :class="{ active: activeId === plugin.id }"
+        :title="index < MAX_HOTKEY_SLOTS ? `${plugin.label} (⌃${index + 1})` : plugin.label"
+        @click="activeId = plugin.id"
+        >{{ plugin.dot }}</span
       >
       <span class="panel-hint">Esc 收起</span>
     </div>
 
-    <!-- 三态页面：用 v-show 保留各自状态（如笔记草稿、搜索关键词） -->
-    <NotePage v-show="mode === 'note'" @modal="onModalToggle" />
-    <ClipPage v-show="mode === 'clipboard'" @modal="onModalToggle" />
-    <TodoPage v-show="mode === 'todo'" @external-editor="onExternalEditorOpen" />
+    <!-- 插件页面：用 v-show 而非 v-if，保留各自状态（如笔记草稿、搜索关键词）。
+         两个事件统一绑定——modal 是面板内弹窗开合，external-editor 是独立编辑窗口；
+         不 emit 对应事件的插件不受影响。 -->
+    <component
+      :is="plugin.component"
+      v-for="plugin in plugins"
+      v-show="activeId === plugin.id"
+      :key="plugin.id"
+      @modal="onModalToggle"
+      @external-editor="onExternalEditorOpen"
+    />
 
     <ToastHost />
   </div>

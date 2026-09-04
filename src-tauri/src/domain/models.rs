@@ -121,6 +121,10 @@ pub struct Settings {
     /// top / bottom / left / right；缺少该设置时使用当前平台默认值。
     #[serde(default = "default_panel_position")]
     pub panel_position: String,
+    /// 启用的面板插件 id 有序列表（逗号分隔）。
+    /// 在列表里 = 启用，列表次序 = 展示顺序与快捷键序号；为空则用全部内置插件的默认顺序。
+    #[serde(default)]
+    pub panel_plugins: String,
     /// 玻璃质感档位：minimal / standard / frosted。
     /// 与配色主题正交——同一套配色可轻可厚，见 styles/glass.css。
     #[serde(default = "default_glass_level")]
@@ -155,6 +159,7 @@ impl Default for Settings {
             theme: "dark".into(),
             main_acrylic: true,
             panel_position: default_panel_position(),
+            panel_plugins: String::new(),
             glass_level: default_glass_level(),
             smtp_host: String::new(),
             smtp_port: default_smtp_port(),

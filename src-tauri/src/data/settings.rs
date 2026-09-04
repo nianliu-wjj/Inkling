@@ -50,6 +50,7 @@ impl Store {
                 .get("panel_position")
                 .cloned()
                 .unwrap_or(defaults.panel_position),
+            panel_plugins: values.get("panel_plugins").cloned().unwrap_or_default(),
             glass_level: values
                 .get("glass_level")
                 .cloned()
@@ -99,6 +100,7 @@ impl Store {
             ("theme", settings.theme.clone()),
             ("main_acrylic", settings.main_acrylic.to_string()),
             ("panel_position", settings.panel_position.clone()),
+            ("panel_plugins", settings.panel_plugins.clone()),
             ("glass_level", settings.glass_level.clone()),
             ("smtp_host", settings.smtp_host.clone()),
             ("smtp_port", settings.smtp_port.to_string()),
