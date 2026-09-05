@@ -171,47 +171,55 @@ impl Default for Settings {
     }
 }
 
-/// 单日活跃度（真实业务数据派生，非聚合表推断）。
-#[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct DayActivity {
-    pub date: String,
-    pub notes: i64,
-    pub clips: i64,
-    pub todos: i64,
-    pub completed: i64,
-    pub overdue: i64,
+crate::dto! {
+    /// 单日活跃度（真实业务数据派生，非聚合表推断）。
+    #[derive(Debug, Serialize, Deserialize, Clone)]
+    pub struct DayActivity {
+        date: String,
+        notes: i64,
+        clips: i64,
+        todos: i64,
+        completed: i64,
+        overdue: i64,
+    }
 }
 
-/// 月度趋势。
-#[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct MonthTrend {
-    pub month: String,
-    pub notes: i64,
-    pub clips: i64,
-    pub todos: i64,
-    pub completed: i64,
+crate::dto! {
+    /// 月度趋势。
+    #[derive(Debug, Serialize, Deserialize, Clone)]
+    pub struct MonthTrend {
+        month: String,
+        notes: i64,
+        clips: i64,
+        todos: i64,
+        completed: i64,
+    }
 }
 
-/// 全量统计摘要。
-#[derive(Debug, Serialize, Deserialize, Clone, Default)]
-pub struct StatsSummary {
-    pub notes: i64,
-    pub clips: i64,
-    pub todos: i64,
-    pub completed: i64,
-    pub overdue: i64,
+crate::dto! {
+    /// 全量统计摘要。
+    #[derive(Debug, Serialize, Deserialize, Clone)]
+    pub struct StatsSummary {
+        notes: i64,
+        clips: i64,
+        todos: i64,
+        completed: i64,
+        overdue: i64,
+    }
 }
 
-/// 日期详情混排条目：同一天内的笔记 / 剪贴板 / 待办。
-#[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct DayDetailItem {
-    /// note / clip / todo
-    pub kind: String,
-    pub time: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub note: Option<Note>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub clip: Option<ClipboardEntry>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub todo: Option<Todo>,
+crate::dto! {
+    /// 日期详情混排条目：同一天内的笔记 / 剪贴板 / 待办。
+    #[derive(Debug, Serialize, Deserialize, Clone)]
+    pub struct DayDetailItem {
+        /// note / clip / todo
+        kind: String,
+        time: String,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        note: Option<Note>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        clip: Option<ClipboardEntry>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        todo: Option<Todo>,
+    }
 }

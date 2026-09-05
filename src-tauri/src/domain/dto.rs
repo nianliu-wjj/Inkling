@@ -12,6 +12,12 @@
 //! 依赖 `paste`：`macro_rules!` 不能拼接标识符（生成 `set_id` 需要
 //! 不稳定的 `concat_idents!`），`paste::paste!` 是唯一的稳定做法。
 //!
+//! 生成的访问器都带 `#[allow(dead_code)]`：DTO 的读写往往不对称——
+//! 统计类结构只被构造后序列化给前端，Rust 侧既不读也不写它的字段。
+//! 用 `pub` 字段时 serde 直接访问字段、不触发 dead_code；改成私有字段 + 访问器后，
+//! 这些访问器就成了没有调用方的样板。宏无法区分哪个 DTO 会用到，故统一放行。
+//! 代价是拼错名字的访问器不会被 dead_code 检查出来——这是宏化封装的固有取舍。
+//!
 //! Builder 的字段类型是 `Option<字段类型>`——**包括本身就是 `Option<T>` 的字段**，
 //! 此时为 `Option<Option<T>>`：未设置报「缺少字段」，显式设 `None` 才通过。
 //! 这样 `build()` 的必填校验与原先的结构体字面量等价（字面量也必须列全字段）。
@@ -61,6 +67,9 @@ macro_rules! dto {
 
                 $(
                     #[doc = concat!("读取 `", stringify!($field), "`。")]
+                    // 与 setter 同理：只序列化给前端的 DTO（统计类）在 Rust 侧不读字段，
+                    // 访问器没有调用方。宏无法区分哪个 DTO 会用到，统一放行。
+                    #[allow(dead_code)]
                     pub fn $field(&self) -> &$ty {
                         &self.$field
                     }
@@ -68,6 +77,9 @@ macro_rules! dto {
 
                 $(
                     #[doc = concat!("写入 `", stringify!($field), "`，返回 `&mut Self` 以便链式调用。")]
+                    // 读写不对称是 DTO 的常态：统计类结构只被读取，没有 setter 调用方。
+                    // 宏是通用设施，不该为了消告警逼调用方去用不需要的 setter。
+                    #[allow(dead_code)]
                     pub fn [<set_ $field>](&mut self, value: $ty) -> &mut Self {
                         self.$field = value;
                         self

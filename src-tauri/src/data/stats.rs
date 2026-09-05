@@ -47,14 +47,16 @@ impl Store {
             let date = today - Days::new(offset as u64);
             let date_str = date.to_string();
             let (todos, completed) = self.todos_on(&date_str)?;
-            result.push(DayActivity {
-                notes: self.notes_archived_on(&date_str)?,
-                clips: self.clips_captured_on(&date_str)?,
-                todos,
-                completed,
-                overdue: self.overdue_on(&date_str, &now)?,
-                date: date_str,
-            });
+            result.push(
+                DayActivity::builder()
+                    .notes(self.notes_archived_on(&date_str)?)
+                    .clips(self.clips_captured_on(&date_str)?)
+                    .todos(todos)
+                    .completed(completed)
+                    .overdue(self.overdue_on(&date_str, &now)?)
+                    .date(date_str)
+                    .build()?,
+            );
         }
         Ok(result)
     }
@@ -102,21 +104,23 @@ impl Store {
                     |r| r.get(0),
                 )
                 .map_err(db_err)?;
-            result.push(MonthTrend {
-                month,
-                notes,
-                clips,
-                todos,
-                completed,
-            });
+            result.push(
+                MonthTrend::builder()
+                    .month(month)
+                    .notes(notes)
+                    .clips(clips)
+                    .todos(todos)
+                    .completed(completed)
+                    .build()?,
+            );
         }
         Ok(result)
     }
 
     pub fn stats_summary(&self) -> Result<StatsSummary, String> {
         let now = super::now();
-        // 先取各项计数再一次性构造，而不是 default() 后逐字段赋值：
-        // 后者绕过了结构体的完整性检查，新增字段时容易漏赋值而静默留默认值。
+        // 先取各项计数再走建造者：build() 会校验字段是否齐全，
+        // 新增字段时漏赋值会在构造时报出字段名，而不是静默留一个默认值。
         let count = |sql: &str| -> Result<i64, String> {
             self.db.query_row(sql, [], |r| r.get(0)).map_err(db_err)
         };
@@ -132,13 +136,13 @@ impl Store {
                 |r| r.get(0),
             )
             .map_err(db_err)?;
-        Ok(StatsSummary {
-            notes,
-            clips,
-            todos,
-            completed,
-            overdue,
-        })
+        StatsSummary::builder()
+            .notes(notes)
+            .clips(clips)
+            .todos(todos)
+            .completed(completed)
+            .overdue(overdue)
+            .build()
     }
 
     /// 某日全部记录（笔记按归档时刻、剪贴板按捕获时刻、待办按计划完成时刻），
@@ -169,13 +173,15 @@ impl Store {
                 .archived_at
                 .clone()
                 .unwrap_or_else(|| note.created_at.clone());
-            items.push(DayDetailItem {
-                kind: "note".into(),
-                time,
-                note: Some(note),
-                clip: None,
-                todo: None,
-            });
+            items.push(
+                DayDetailItem::builder()
+                    .kind("note".into())
+                    .time(time)
+                    .note(Some(note))
+                    .clip(None)
+                    .todo(None)
+                    .build()?,
+            );
         }
 
         let clip_ids: Vec<String> = {
@@ -193,13 +199,15 @@ impl Store {
         for id in clip_ids {
             if let Some(clip) = self.clipboard_entry(&id)? {
                 let time = clip.copied_at.clone();
-                items.push(DayDetailItem {
-                    kind: "clip".into(),
-                    time,
-                    clip: Some(clip),
-                    note: None,
-                    todo: None,
-                });
+                items.push(
+                    DayDetailItem::builder()
+                        .kind("clip".into())
+                        .time(time)
+                        .clip(Some(clip))
+                        .note(None)
+                        .todo(None)
+                        .build()?,
+                );
             }
         }
 
@@ -218,16 +226,18 @@ impl Store {
         for id in todo_ids {
             let todo: Todo = self.todo(&id)?;
             let time = todo.due_at.clone();
-            items.push(DayDetailItem {
-                kind: "todo".into(),
-                time,
-                todo: Some(todo),
-                note: None,
-                clip: None,
-            });
+            items.push(
+                DayDetailItem::builder()
+                    .kind("todo".into())
+                    .time(time)
+                    .todo(Some(todo))
+                    .note(None)
+                    .clip(None)
+                    .build()?,
+            );
         }
 
-        items.sort_by(|a, b| a.time.cmp(&b.time));
+        items.sort_by(|a, b| a.time().cmp(b.time()));
         Ok(items)
     }
 }
