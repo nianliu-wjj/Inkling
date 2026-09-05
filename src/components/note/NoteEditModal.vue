@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { ref } from 'vue'
 import ModalShell from '@/components/base/ModalShell.vue'
 import NoteEditor from '@/editor/NoteEditor.vue'
 import { useToast } from '@/composables/useToast'
@@ -7,25 +7,17 @@ import { logger } from '@/service/logger'
 import type { Note, NoteInput } from '@/typings/domain'
 
 /**
- * 笔记内容编辑弹窗，兼作思维导图的新建入口。
+ * 笔记正文编辑弹窗。
  *
- * 需求 2.2：归档页笔记卡片底部右侧的「✏️ 编辑」用于修改**笔记正文 / 思维导图**；
+ * 需求 2.2：归档页笔记卡片底部右侧的「✏️ 编辑」用于修改**笔记正文**；
  * 标签的增删改走另一条入口——点击卡片左侧的标签区打开标签管理弹窗。
  * 两者互不混用，因此本弹窗不提供标签编辑。
  *
- * `note` 为 null 时是**新建态**：由笔记列表的「新建思维导图」入口打开，
- * 模式固定为 mindmap，保存时不带 id，后端据此插入新笔记。
- * 思维导图只能在这里创建——面板不提供模式切换。
+ * **只处理文本笔记**：思维导图的新建与编辑都在独立窗口里进行（见 NotesView 的
+ * openMindmap）。导图需要大画布，而 MindMapEditor 带 flex: 1，
+ * 放在高度不定的弹窗里会被拉伸成一块空白板。
  */
-const props = withDefaults(
-  defineProps<{
-    /** 编辑既有笔记时传入；新建时为 null。 */
-    note?: Note | null
-    /** 新建态的初始模式，目前只用于思维导图。 */
-    initialMode?: 'text' | 'mindmap'
-  }>(),
-  { note: null, initialMode: 'mindmap' },
-)
+const props = defineProps<{ note: Note }>()
 
 const emit = defineEmits<{
   (e: 'save', input: NoteInput): void
@@ -35,51 +27,36 @@ const emit = defineEmits<{
 const { toast } = useToast()
 
 /** 新建态：没有既有笔记。 */
-const isNew = computed(() => !props.note)
-
-const title = computed(() =>
-  isNew.value ? (props.initialMode === 'mindmap' ? '🧠 新建思维导图' : '📝 新建笔记') : '✏️ 编辑笔记',
-)
-
 // 编辑副本：保存时才回传，取消则丢弃。
-const content = ref(props.note?.content ?? '')
-const editorMode = ref<'text' | 'mindmap'>(props.note?.editor_mode ?? props.initialMode)
-const mindmapData = ref<string | null>(props.note?.mindmap_data ?? null)
+const content = ref(props.note.content)
 
 function save(): void {
-  // 文本模式要求正文非空；思维导图模式以导图数据为准，正文可为空。
-  if (editorMode.value === 'text' && !content.value.trim()) {
+  if (!content.value.trim()) {
     toast('笔记内容不能为空')
     return
   }
-  // 新建的思维导图至少要动过一个节点，否则会落下一条空记录。
-  if (isNew.value && editorMode.value === 'mindmap' && !mindmapData.value) {
-    toast('请先编辑思维导图内容')
-    return
-  }
 
-  logger.info('note-edit', `保存笔记 id=${props.note?.id ?? '(新建)'} mode=${editorMode.value}`)
+  logger.info('note-edit', `保存笔记正文 id=${props.note.id}`)
   emit('save', {
-    // 新建时不带 id，后端据此插入新笔记。
-    id: props.note?.id,
+    id: props.note.id,
     content: content.value,
-    // 标签保持原值——本弹窗不负责标签编辑；新建时为空。
-    tags: [...(props.note?.tags ?? [])],
-    editorMode: editorMode.value,
-    mindmapData: mindmapData.value,
+    // 标签保持原值——本弹窗不负责标签编辑。
+    tags: [...props.note.tags],
+    // 模式与导图数据原样带回，避免编辑正文时把它们清空。
+    editorMode: props.note.editor_mode,
+    mindmapData: props.note.mindmap_data,
     draft: false,
   })
 }
 </script>
 
 <template>
-  <ModalShell overlay-id="clipEditorOverlay" modal-id="clipEditorModal" :title="title" @close="emit('close')">
+  <ModalShell overlay-id="clipEditorOverlay" modal-id="clipEditorModal" title="✏️ 编辑笔记" @close="emit('close')">
     <NoteEditor
       v-model="content"
-      v-model:editor-mode="editorMode"
-      v-model:mindmap-data="mindmapData"
+      editor-mode="text"
       :show-mode-bar="false"
-      :placeholder="editorMode === 'mindmap' ? '可在此补充说明（选填）' : '编辑笔记内容…支持 Markdown 即时渲染'"
+      placeholder="编辑笔记内容…支持 Markdown 即时渲染"
       @submit="save"
     />
 

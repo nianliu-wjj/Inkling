@@ -59,6 +59,26 @@ pub fn editor_payload(app: AppHandle) -> Result<Option<String>, String> {
     Ok(windows::editor_payload(&app))
 }
 
+/// 打开思维导图窗口。`note_id` 为空表示新建。
+///
+/// 必须是 async 命令：同步命令跑在主线程上，而 build() 需要主线程的事件循环
+/// 去处理，两边互等——窗口句柄虽然建出来了，但 WebView 不初始化。
+#[tauri::command]
+pub async fn mindmap_open(app: AppHandle, note_id: Option<String>) -> Result<(), String> {
+    windows::mindmap_open(&app, note_id.filter(|id| !id.is_empty()))
+}
+
+/// 思维导图窗口挂载时拉取自己的打开参数（按窗口 label 区分）。
+#[tauri::command]
+pub fn mindmap_payload(app: AppHandle, label: String) -> Result<Option<String>, String> {
+    Ok(windows::mindmap_payload(&app, &label))
+}
+
+#[tauri::command]
+pub fn mindmap_close(app: AppHandle, label: String) -> Result<(), String> {
+    windows::mindmap_close(&app, &label)
+}
+
 /// 编辑窗口渲染完成，请求显示（避免先弹出空白遮罩再填内容）。
 #[tauri::command]
 pub fn editor_ready(app: AppHandle) -> Result<(), String> {

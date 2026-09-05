@@ -31,8 +31,20 @@ const kindFilter = ref<'all' | 'text' | 'mindmap'>('all')
 const tagTarget = ref<Note | null>(null)
 /** 正在编辑正文/思维导图的笔记。 */
 const editTarget = ref<Note | null>(null)
-/** 新建思维导图的弹窗开关。思维导图只能从这里创建，面板不提供入口。 */
-const creatingMindmap = ref(false)
+/**
+ * 打开思维导图窗口。
+ *
+ * 思维导图走**独立窗口**而非弹窗：它需要大画布，MindMapEditor 带 flex: 1，
+ * 放在高度不定的弹窗里会被无限拉伸成一块空白板。独立窗口还能与主窗口互不干扰
+ * ——关掉主窗口它照常在，缩放也各自独立。
+ */
+function openMindmap(id?: string): void {
+  logger.info('notes-view', `打开思维导图窗口 id=${id ?? '(新建)'}`)
+  void api.windows.mindmapOpen(id).catch((error) => {
+    logger.error('notes-view', '打开思维导图窗口失败', error)
+    toast('打开思维导图失败')
+  })
+}
 
 /** 空列表提示：区分「筛没了」与「本来就没有」，否则用户以为数据丢了。 */
 const emptyHint = computed(() => {
@@ -119,7 +131,6 @@ async function saveNote(input: NoteInput): Promise<void> {
     toast('保存失败')
   } finally {
     editTarget.value = null
-    creatingMindmap.value = false
   }
 }
 </script>
@@ -133,12 +144,7 @@ async function saveNote(input: NoteInput): Promise<void> {
         <option value="text">📝 笔记</option>
         <option value="mindmap">🧠 思维导图</option>
       </select>
-      <button
-        type="button"
-        class="btn tiny"
-        title="新建思维导图（思维导图只能在此创建）"
-        @click="creatingMindmap = true"
-      >
+      <button type="button" class="btn tiny" title="新建思维导图（思维导图只能在此创建）" @click="openMindmap()">
         🧠 新建导图
       </button>
     </div>
@@ -150,7 +156,7 @@ async function saveNote(input: NoteInput): Promise<void> {
         :note="note"
         :confirming="confirm.isPending(note.id)"
         @pin="togglePin(note)"
-        @edit="editTarget = note"
+        @edit="note.editor_mode === 'mindmap' ? openMindmap(note.id) : (editTarget = note)"
         @open-tags="tagTarget = note"
         @ask-delete="confirm.ask(note.id)"
         @confirm-delete="remove(note)"
@@ -163,9 +169,6 @@ async function saveNote(input: NoteInput): Promise<void> {
 
     <!-- ✏️ 编辑：笔记正文 / 思维导图 -->
     <NoteEditModal v-if="editTarget" :note="editTarget" @save="saveNote" @close="editTarget = null" />
-
-    <!-- 🧠 新建思维导图：不传 note 即新建态，模式固定 mindmap -->
-    <NoteEditModal v-if="creatingMindmap" initial-mode="mindmap" @save="saveNote" @close="creatingMindmap = false" />
 
     <!-- 标签区：仅管理标签 -->
     <TagManagerModal

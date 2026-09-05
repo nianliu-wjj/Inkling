@@ -18,6 +18,8 @@ const HOTZONE_WIDTH: f64 = 240.0;
 const HOTZONE_HEIGHT: f64 = 80.0;
 const PINNED_SIZE: (f64, f64) = (230.0, 150.0);
 const REMINDER_SIZE: (f64, f64) = (320.0, 208.0);
+/// 思维导图窗口的初始尺寸。导图需要大画布，且窗口可自由缩放。
+const MINDMAP_SIZE: (f64, f64) = (960.0, 700.0);
 
 /// 光标所在显示器（回退主屏）。
 pub fn cursor_monitor(app: &AppHandle) -> Option<tauri::Monitor> {
@@ -175,6 +177,83 @@ pub fn editor_payload(app: &AppHandle) -> Option<String> {
     let payload = app.state::<AppState>().editor_payload();
     eprintln!("[editor] 前端拉取打开参数，命中={}", payload.is_some());
     payload
+}
+
+/// 打开思维导图窗口。
+///
+/// **每个笔记一个独立窗口**（label 形如 `mindmap-<id>`，新建用 `mindmap-new`）：
+/// - 独立顶层窗口，不设 parent，因此关闭主窗口不会连带关掉它；
+/// - 缩放与最大化都是这个窗口自己的事，不影响主窗口；
+/// - 同一笔记重复打开时复用既有窗口并聚焦，而不是叠出第二个。
+///
+/// 与面板、编辑窗口不同，这里**保留系统标题栏**（decorations 默认 true）：
+/// 导图需要频繁缩放与最大化，系统标题栏自带这些交互；画布也需要实心背景
+/// 才看得清节点连线，透明毛玻璃反而干扰。
+///
+/// 必须是 async 命令（见 editor_open 的说明）：同步命令占着主线程，
+/// 而 build() 需要主线程的事件循环去处理，会互相等待。
+pub fn mindmap_open(app: &AppHandle, note_id: Option<String>) -> Result<(), String> {
+    let label = match note_id.as_deref() {
+        Some(id) => format!("mindmap-{id}"),
+        None => "mindmap-new".to_string(),
+    };
+
+    // 已开着就聚焦，不叠第二个窗口。
+    if let Some(existing) = app.get_webview_window(&label) {
+        eprintln!("[mindmap] 复用既有窗口 {label}");
+        let _ = existing.unminimize();
+        let _ = existing.show();
+        let _ = existing.set_focus();
+        return Ok(());
+    }
+
+    // 打开参数与编辑窗口同一套机制：暂存后由前端挂载时拉取。
+    // WebviewUrl::App 收的是相对路径，`?` 会被转义，所以不能走查询串。
+    let payload = note_id.clone().unwrap_or_default();
+    app.state::<AppState>()
+        .set_mindmap_payload(label.clone(), payload);
+
+    let monitor = cursor_monitor(app).ok_or("未找到可用显示器")?;
+    let scale = monitor.scale_factor();
+    let work = monitor.work_area();
+    // 居中于光标所在屏，并且不超出工作区。
+    let width = MINDMAP_SIZE.0.min(work.size.width as f64 / scale - 40.0);
+    let height = MINDMAP_SIZE.1.min(work.size.height as f64 / scale - 40.0);
+    let x = work.position.x as f64 / scale + (work.size.width as f64 / scale - width) / 2.0;
+    let y = work.position.y as f64 / scale + (work.size.height as f64 / scale - height) / 2.0;
+
+    eprintln!("[mindmap] 创建窗口 {label} note_id={note_id:?}");
+    let window = WebviewWindowBuilder::new(app, &label, WebviewUrl::App("mindmap.html".into()))
+        .title(if note_id.is_some() {
+            "🧠 编辑思维导图 · Inkling"
+        } else {
+            "🧠 新建思维导图 · Inkling"
+        })
+        .inner_size(width, height)
+        .min_inner_size(520.0, 400.0)
+        .position(x, y)
+        .resizable(true)
+        .maximizable(true)
+        .build()
+        .map_err(|e| format!("创建思维导图窗口失败: {e}"))?;
+    // 导图窗口是独立工作区，允许出现在任务栏，方便与主窗口来回切换。
+    let _ = window.set_skip_taskbar(false);
+    Ok(())
+}
+
+/// 思维导图窗口的打开参数：目标笔记 id，空串表示新建。
+pub fn mindmap_payload(app: &AppHandle, label: &str) -> Option<String> {
+    app.state::<AppState>().mindmap_payload(label)
+}
+
+/// 关闭指定的思维导图窗口。
+pub fn mindmap_close(app: &AppHandle, label: &str) -> Result<(), String> {
+    if let Some(window) = app.get_webview_window(label) {
+        eprintln!("[mindmap] 关闭窗口 {label}");
+        let _ = window.close();
+    }
+    app.state::<AppState>().take_mindmap_payload(label);
+    Ok(())
 }
 
 /// 编辑窗口内容就绪：接管鼠标事件并聚焦（由前端在对话框首帧渲染后调用）。

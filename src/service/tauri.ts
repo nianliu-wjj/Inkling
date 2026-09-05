@@ -25,6 +25,11 @@ export const api = {
     editorPayload: () => invoke<string | null>('editor_payload'),
     /** 编辑窗口内容渲染完成，请求显示（窗口以隐藏方式创建，避免空白遮罩闪一下）。 */
     editorReady: () => invoke<void>('editor_ready'),
+    /** 打开思维导图窗口；noteId 省略表示新建。 */
+    mindmapOpen: (noteId?: string) => invoke<void>('mindmap_open', { noteId: noteId ?? null }),
+    /** 思维导图窗口挂载时按自己的 label 拉取打开参数。 */
+    mindmapPayload: (label: string) => invoke<string | null>('mindmap_payload', { label }),
+    mindmapClose: (label: string) => invoke<void>('mindmap_close', { label }),
     showMain: (view: string) => invoke<void>('show_main', { view }),
     hideMain: () => invoke<void>('hide_main'),
     minimizeMain: () => invoke<void>('minimize_main'),
