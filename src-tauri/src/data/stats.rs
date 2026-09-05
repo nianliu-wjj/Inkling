@@ -225,7 +225,7 @@ impl Store {
         };
         for id in todo_ids {
             let todo: Todo = self.todo(&id)?;
-            let time = todo.due_at.clone();
+            let time = todo.due_at().clone();
             items.push(
                 DayDetailItem::builder()
                     .kind("todo".into())

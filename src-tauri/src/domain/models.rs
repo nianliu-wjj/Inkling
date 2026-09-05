@@ -44,39 +44,41 @@ crate::dto! {
     }
 }
 
-/// 待办（父待办与一级子任务同构）。
-#[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct Todo {
-    pub id: String,
-    pub content: String,
-    /// 界面所称「完成时间」= 计划完成/截止时间。
-    pub due_at: String,
-    /// 实际勾选完成时刻。
-    pub completed_at: Option<String>,
-    /// open / done
-    pub status: String,
-    /// 重复提醒推进时的游标；**不再是用户设置的提醒时刻**。
-    ///
-    /// 用户设的是相对偏移（`remind_offset_minutes`），实际提醒时刻由
-    /// `due_at - offset` 现算，这样改完成时间后提醒会自动跟随。
-    pub remind_at: Option<String>,
-    /// 提醒偏移分钟数（完成时间之前）；`None` = 不提醒。
-    pub remind_offset_minutes: Option<i64>,
-    /// 是否桌面弹窗提醒。
-    pub remind_desktop: bool,
-    /// 是否邮件提醒。
-    pub remind_email: bool,
-    /// daily / weekly / None
-    pub repeat_rule: Option<String>,
-    /// 用户在提醒卡片上点击「关闭」后置位，抑制后续提醒；编辑提醒时复位。
-    pub remind_off: bool,
-    /// high / medium / low
-    pub priority: String,
-    pub remark: String,
-    pub parent_id: Option<String>,
-    pub tags: Vec<String>,
-    pub created_at: String,
-    pub updated_at: String,
+crate::dto! {
+    /// 待办（父待办与一级子任务同构）。
+    #[derive(Debug, Serialize, Deserialize, Clone)]
+    pub struct Todo {
+        id: String,
+        content: String,
+        /// 界面所称「完成时间」= 计划完成/截止时间。
+        due_at: String,
+        /// 实际勾选完成时刻。
+        completed_at: Option<String>,
+        /// open / done
+        status: String,
+        /// 重复提醒推进时的游标；**不再是用户设置的提醒时刻**。
+        ///
+        /// 用户设的是相对偏移（`remind_offset_minutes`），实际提醒时刻由
+        /// `due_at - offset` 现算，这样改完成时间后提醒会自动跟随。
+        remind_at: Option<String>,
+        /// 提醒偏移分钟数（完成时间之前）；`None` = 不提醒。
+        remind_offset_minutes: Option<i64>,
+        /// 是否桌面弹窗提醒。
+        remind_desktop: bool,
+        /// 是否邮件提醒。
+        remind_email: bool,
+        /// daily / weekly / None
+        repeat_rule: Option<String>,
+        /// 用户在提醒卡片上点击「关闭」后置位，抑制后续提醒；编辑提醒时复位。
+        remind_off: bool,
+        /// high / medium / low
+        priority: String,
+        remark: String,
+        parent_id: Option<String>,
+        tags: Vec<String>,
+        created_at: String,
+        updated_at: String,
+    }
 }
 
 /// 玻璃质感默认档：标准档，等于 tokens.css 里 :root 的既有值，升级后观感不变。

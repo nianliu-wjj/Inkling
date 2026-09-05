@@ -457,7 +457,7 @@ pub fn todo_save(
     } else {
         state.lock_store()?.save_todo(&todo_input(input))?
     };
-    emit_all(&app, events::TODOS_CHANGED, todo.id.clone());
+    emit_all(&app, events::TODOS_CHANGED, todo.id().clone());
     emit_all(&app, events::STATS_CHANGED, ());
     Ok(todo)
 }

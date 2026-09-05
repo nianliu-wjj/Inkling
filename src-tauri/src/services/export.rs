@@ -39,14 +39,14 @@ impl ExportItem {
                 md
             }
             ExportItem::Todo(todo) => {
-                let check = if todo.status == "done" { "x" } else { " " };
+                let check = if todo.status() == "done" { "x" } else { " " };
                 format!(
                     "- [{check}] {}（完成时间 {}，优先级 {}）\n  标签：{}\n  备注：{}",
-                    todo.content,
-                    todo.due_at,
-                    todo.priority,
-                    todo.tags.join(" "),
-                    todo.remark
+                    todo.content(),
+                    todo.due_at(),
+                    todo.priority(),
+                    todo.tags().join(" "),
+                    todo.remark()
                 )
             }
             ExportItem::Clip(clip) => format!(
@@ -64,14 +64,14 @@ impl ExportItem {
             ExportItem::Todo(todo) => {
                 format!(
                     "[{}] {}\n完成时间：{}\n备注：{}",
-                    if todo.status == "done" {
+                    if todo.status() == "done" {
                         "已完成"
                     } else {
                         "未完成"
                     },
-                    todo.content,
-                    todo.due_at,
-                    todo.remark
+                    todo.content(),
+                    todo.due_at(),
+                    todo.remark()
                 )
             }
             ExportItem::Clip(clip) => clip.content().clone(),

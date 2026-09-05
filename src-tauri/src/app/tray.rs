@@ -53,19 +53,19 @@ fn tooltip_text(app: &AppHandle) -> String {
     )];
     for todo in todos.iter().take(TOOLTIP_MAX_ITEMS) {
         // 逾期与高优先级各给一个标记，让用户在提示里就能分辨轻重。
-        let overdue = crate::domain::todo::parse_time(&todo.due_at)
+        let overdue = crate::domain::todo::parse_time(todo.due_at())
             .map(|due| due < chrono::Utc::now())
             .unwrap_or(false);
         let mark = if overdue {
             "⚠️"
-        } else if todo.priority == "high" {
+        } else if todo.priority() == "high" {
             "🔴"
         } else {
             "·"
         };
         // 按字符而非字节截断：中文一个字符占 3 字节，按字节切会切出半个字。
-        let mut text: String = todo.content.chars().take(TOOLTIP_ITEM_CHARS).collect();
-        if todo.content.chars().count() > TOOLTIP_ITEM_CHARS {
+        let mut text: String = todo.content().chars().take(TOOLTIP_ITEM_CHARS).collect();
+        if todo.content().chars().count() > TOOLTIP_ITEM_CHARS {
             text.push('…');
         }
         lines.push(format!("{mark} {text}"));

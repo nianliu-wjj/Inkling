@@ -377,34 +377,38 @@ impl Store {
         self.db
             .query_row(
                 "SELECT id, content, due_at, completed_at, status, remind_at, repeat_rule, remind_off, \
-                 priority, remark, parent_id, created_at, updated_at,                  remind_offset_minutes, remind_desktop, remind_email FROM todos WHERE id=?",
+                 priority, remark, parent_id, created_at, updated_at, \n                 remind_offset_minutes, remind_desktop, remind_email FROM todos WHERE id=?",
                 [id],
                 |r| {
-                    Ok(crate::domain::models::Todo {
-                        id: r.get(0)?,
-                        content: r.get(1)?,
-                        due_at: r.get(2)?,
-                        completed_at: r.get(3)?,
-                        status: r.get(4)?,
-                        remind_at: r.get(5)?,
-                        repeat_rule: r.get(6)?,
-                        remind_off: r.get::<_, i64>(7)? != 0,
-                        priority: r.get(8)?,
-                        remark: r.get(9)?,
-                        parent_id: r.get(10)?,
-                        tags: Vec::new(),
-                        created_at: r.get(11)?,
-                        updated_at: r.get(12)?,
-                        remind_offset_minutes: r.get(13)?,
-                        remind_desktop: r.get::<_, i64>(14)? != 0,
-                        remind_email: r.get::<_, i64>(15)? != 0,
-                    })
+                    // 标签在下面单独查，这里先置空。
+                    crate::domain::models::Todo::builder()
+                        .id(r.get(0)?)
+                        .content(r.get(1)?)
+                        .due_at(r.get(2)?)
+                        .completed_at(r.get(3)?)
+                        .status(r.get(4)?)
+                        .remind_at(r.get(5)?)
+                        .repeat_rule(r.get(6)?)
+                        .remind_off(r.get::<_, i64>(7)? != 0)
+                        .priority(r.get(8)?)
+                        .remark(r.get(9)?)
+                        .parent_id(r.get(10)?)
+                        .tags(Vec::new())
+                        .created_at(r.get(11)?)
+                        .updated_at(r.get(12)?)
+                        .remind_offset_minutes(r.get(13)?)
+                        .remind_desktop(r.get::<_, i64>(14)? != 0)
+                        .remind_email(r.get::<_, i64>(15)? != 0)
+                        .build()
+                        .map_err(build_err)
                 },
             )
             .optional()
             .map_err(db_err)?
             .map(|mut todo| {
-                todo.tags = self.tags("todo_tags", "todo_id", &todo.id)?;
+                // 先取出标签再 set：set_tags 要可变借用 todo，参数里再借 todo.id() 会冲突。
+                let tags = self.tags("todo_tags", "todo_id", todo.id())?;
+                todo.set_tags(tags);
                 Ok(todo)
             })
             .unwrap_or_else(|| Err("待办不存在".into()))

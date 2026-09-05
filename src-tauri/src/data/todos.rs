@@ -118,17 +118,18 @@ impl Store {
             .clone()
             .unwrap_or_else(|| uuid::Uuid::new_v4().to_string());
         let old = self.todo(&id).ok();
-        if let Some(existing) = old.as_ref().filter(|todo| todo.status == "done") {
-            let same_configuration = existing.content == input.content.trim()
-                && existing.due_at == input.due_at
-                && existing.remind_offset_minutes == input.remind_offset_minutes
-                && existing.remind_desktop == input.remind_desktop
-                && existing.remind_email == input.remind_email
-                && existing.repeat_rule.as_deref().unwrap_or("")
+        if let Some(existing) = old.as_ref().filter(|todo| todo.status() == "done") {
+            // getter 返回 &T，与右侧的值比较需在右侧取引用。
+            let same_configuration = existing.content() == input.content.trim()
+                && existing.due_at() == &input.due_at
+                && existing.remind_offset_minutes() == &input.remind_offset_minutes
+                && existing.remind_desktop() == &input.remind_desktop
+                && existing.remind_email() == &input.remind_email
+                && existing.repeat_rule().as_deref().unwrap_or("")
                     == input.repeat_rule.as_deref().unwrap_or("")
-                && existing.priority == input.priority
-                && existing.parent_id == input.parent_id
-                && existing.tags == input.tags;
+                && existing.priority() == &input.priority
+                && existing.parent_id() == &input.parent_id
+                && existing.tags() == &input.tags;
             if !same_configuration {
                 return Err("已完成待办仅允许修改备注".into());
             }
@@ -150,9 +151,9 @@ impl Store {
         if let Some(parent_id) = &input.parent_id {
             let parent = self.todo(parent_id)?;
             logic::validate_parent(
-                &parent.status,
-                &parent.due_at,
-                parent.parent_id.as_deref(),
+                parent.status(),
+                parent.due_at(),
+                parent.parent_id().as_deref(),
                 &input.due_at,
                 self.child_count(parent_id)?,
                 is_new,
@@ -161,7 +162,7 @@ impl Store {
         let timestamp = now();
         let created_at = old
             .as_ref()
-            .map(|x| x.created_at.clone())
+            .map(|x| x.created_at().clone())
             .unwrap_or_else(|| timestamp.clone());
         let repeat_rule = input.repeat_rule.as_deref().filter(|x| !x.is_empty());
         // remind_at 一律写 NULL：它只是重复提醒的推进游标，用户设的是偏移。
@@ -215,9 +216,9 @@ impl Store {
         let tags = crate::domain::clipboard::validate_todo_tags(&input.tags)?;
         let parent = self.todo(parent_id)?;
         logic::validate_parent(
-            &parent.status,
-            &parent.due_at,
-            parent.parent_id.as_deref(),
+            parent.status(),
+            parent.due_at(),
+            parent.parent_id().as_deref(),
             &input.due_at,
             self.child_count(parent_id)?,
             true,
@@ -250,7 +251,7 @@ impl Store {
             ],
         )
         .map_err(db_err)?;
-        let _reopened = parent.status == "done";
+        let _reopened = parent.status() == "done";
         tx.execute(
             "UPDATE todos SET status='open', completed_at=NULL, \
                due_at=CASE WHEN due_at < ? THEN ? ELSE due_at END, updated_at=? WHERE id=?",
@@ -288,10 +289,10 @@ impl Store {
     /// 向上联动：完成最后一个未完成子任务时，父待办自动完成。
     pub fn complete_todo(&self, id: &str, completed: bool) -> Result<Vec<Todo>, String> {
         let todo = self.todo(id)?;
-        if completed && todo.status == "done" {
+        if completed && todo.status() == "done" {
             return Err("已完成待办不可重复完成".into());
         }
-        if !completed && todo.status == "open" {
+        if !completed && todo.status() == "open" {
             return Err("待办尚未完成".into());
         }
         let timestamp = now();
@@ -302,7 +303,7 @@ impl Store {
                 rusqlite::params![timestamp, id],
             )
             .map_err(db_err)?;
-            if let Some(parent_id) = &todo.parent_id {
+            if let Some(parent_id) = &todo.parent_id() {
                 tx.execute(
                     "UPDATE todos SET status='open', completed_at=NULL, remind_off=0, updated_at=? WHERE id=? AND status='done'",
                     rusqlite::params![timestamp, parent_id],
@@ -317,14 +318,14 @@ impl Store {
             rusqlite::params![timestamp, timestamp, id],
         )
         .map_err(db_err)?;
-        if todo.parent_id.is_none() {
+        if todo.parent_id().is_none() {
             tx.execute(
                 "UPDATE todos SET status='done', completed_at=?, remind_off=1, updated_at=? \
                  WHERE parent_id=? AND status='open'",
                 rusqlite::params![timestamp, timestamp, id],
             )
             .map_err(db_err)?;
-        } else if let Some(parent_id) = &todo.parent_id {
+        } else if let Some(parent_id) = &todo.parent_id() {
             let open_children: i64 = tx
                 .query_row(
                     "SELECT COUNT(*) FROM todos WHERE parent_id=? AND status='open'",
@@ -345,9 +346,9 @@ impl Store {
 
         // 幂等记录完成事件（父级自动完成同样计入）。
         let mut completed_ids = vec![id.to_string()];
-        if todo.parent_id.is_none() {
+        if todo.parent_id().is_none() {
             completed_ids.extend(self.child_ids(id)?);
-        } else if let Some(parent_id) = &todo.parent_id {
+        } else if let Some(parent_id) = &todo.parent_id() {
             completed_ids.push(parent_id.clone());
         }
         for cid in completed_ids {
@@ -362,7 +363,7 @@ impl Store {
             return Err("无效的优先级".into());
         }
         let todo = self.todo(id)?;
-        if todo.status == "done" {
+        if todo.status() == "done" {
             return Err("已完成待办不可变更优先级".into());
         }
         self.db
@@ -377,21 +378,21 @@ impl Store {
     /// 完成时间窄更新（聚焦弹窗）。保持父子约束：子不得晚于父；父不得早于任何子。
     pub fn set_todo_due(&self, id: &str, due_at: &str) -> Result<Todo, String> {
         let todo = self.todo(id)?;
-        if todo.status == "done" {
+        if todo.status() == "done" {
             return Err("已完成待办不可修改完成时间".into());
         }
         if logic::parse_time(due_at).is_none() {
             return Err("完成时间格式无效".into());
         }
-        if let Some(parent_id) = &todo.parent_id {
+        if let Some(parent_id) = &todo.parent_id() {
             let parent = self.todo(parent_id)?;
-            if parent.status == "open" && due_at > parent.due_at.as_str() {
+            if parent.status() == "open" && due_at > parent.due_at().as_str() {
                 return Err("子任务的完成时间不能晚于父待办".into());
             }
         } else {
             for child_id in self.child_ids(id)? {
                 let child = self.todo(&child_id)?;
-                if child.status == "open" && child.due_at.as_str() > due_at {
+                if child.status() == "open" && child.due_at().as_str() > due_at {
                     return Err("存在完成时间晚于新时间的子任务，请先调整子任务".into());
                 }
             }
@@ -418,7 +419,7 @@ impl Store {
         repeat_rule: Option<&str>,
     ) -> Result<Todo, String> {
         let todo = self.todo(id)?;
-        if todo.status == "done" {
+        if todo.status() == "done" {
             return Err("已完成待办不可修改提醒".into());
         }
         if let Some(minutes) = offset_minutes {
@@ -457,7 +458,7 @@ impl Store {
     /// 调度器把 `remind_at` 当作一次额外提醒处理，触发后清空（有重复规则则推进）。
     pub fn snooze_todo(&self, id: &str, minutes: i64) -> Result<Todo, String> {
         let todo = self.todo(id)?;
-        if todo.status == "done" {
+        if todo.status() == "done" {
             return Err("已完成待办不可修改提醒".into());
         }
         let next = (Utc::now() + chrono::Duration::minutes(minutes)).to_rfc3339();
@@ -480,7 +481,7 @@ impl Store {
 
     pub fn delete_todo(&self, id: &str) -> Result<(), String> {
         let todo = self.todo(id)?;
-        if todo.status == "done" {
+        if todo.status() == "done" {
             return Err("已完成待办不可删除".into());
         }
         self.db
@@ -579,9 +580,9 @@ mod tests {
     fn save_todo_persists_offset_and_channels() {
         let store = store();
         let saved = store.save_todo(&input(Some(30), true)).unwrap();
-        assert_eq!(saved.remind_offset_minutes, Some(30));
-        assert!(saved.remind_desktop);
-        assert!(saved.remind_email);
+        assert_eq!(saved.remind_offset_minutes(), &Some(30));
+        assert!(*saved.remind_desktop());
+        assert!(*saved.remind_email());
     }
 
     #[test]
@@ -595,6 +596,6 @@ mod tests {
     fn save_todo_accepts_none_offset_as_no_reminder() {
         let store = store();
         let saved = store.save_todo(&input(None, false)).unwrap();
-        assert_eq!(saved.remind_offset_minutes, None);
+        assert_eq!(saved.remind_offset_minutes(), &None);
     }
 }

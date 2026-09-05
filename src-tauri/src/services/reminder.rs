@@ -39,7 +39,7 @@ fn tick(app: &AppHandle) -> Result<(), String> {
         store.list_open_remindable_todos()?
     };
     for todo in todos {
-        let Some(due) = logic::parse_time(&todo.due_at) else {
+        let Some(due) = logic::parse_time(todo.due_at()) else {
             continue;
         };
         // 跳过未来 1 天以后的事项，降低无效计算；最大偏移正好是 1 天。
@@ -48,7 +48,7 @@ fn tick(app: &AppHandle) -> Result<(), String> {
         }
 
         // 一次性 / 重复的额外提醒（提醒卡片的「稍后提醒」写入 remind_at）。
-        if let Some(extra) = todo.remind_at.as_deref().and_then(logic::parse_time) {
+        if let Some(extra) = todo.remind_at().as_deref().and_then(logic::parse_time) {
             if extra <= now {
                 fire_channels(app, &todo, "snooze", extra)?;
                 finish_or_repeat(app, &todo, extra)?;
@@ -56,7 +56,7 @@ fn tick(app: &AppHandle) -> Result<(), String> {
         }
 
         let mut due_fired = false;
-        for (when, slot) in logic::reminder_slots(due, todo.remind_offset_minutes) {
+        for (when, slot) in logic::reminder_slots(due, *todo.remind_offset_minutes()) {
             if when > now {
                 continue;
             }
@@ -80,10 +80,10 @@ fn fire_channels(
     slot: &str,
     when: DateTime<Utc>,
 ) -> Result<(), String> {
-    if todo.remind_desktop {
+    if *todo.remind_desktop() {
         fire_desktop(app, todo, slot, when)?;
     }
-    if todo.remind_email {
+    if *todo.remind_email() {
         fire_email(app, todo, slot, when)?;
     }
     Ok(())
@@ -109,36 +109,36 @@ fn fire_desktop(
     slot: &str,
     when: DateTime<Utc>,
 ) -> Result<(), String> {
-    if !claim(app, &todo.id, slot, "desktop", when)? {
+    if !claim(app, todo.id(), slot, "desktop", when)? {
         return Ok(());
     }
-    eprintln!("[reminder] 弹窗提醒 todo={} slot={slot}", todo.id);
-    windows::reminder_show(app, &todo.id)?;
-    let _ = app.emit(events::REMINDER_FIRED, todo.id.clone());
+    eprintln!("[reminder] 弹窗提醒 todo={} slot={slot}", todo.id());
+    windows::reminder_show(app, todo.id())?;
+    let _ = app.emit(events::REMINDER_FIRED, todo.id().clone());
     Ok(())
 }
 
 fn fire_email(app: &AppHandle, todo: &Todo, slot: &str, when: DateTime<Utc>) -> Result<(), String> {
-    if !claim(app, &todo.id, slot, "email", when)? {
+    if !claim(app, todo.id(), slot, "email", when)? {
         return Ok(());
     }
-    eprintln!("[reminder] 邮件提醒入队 todo={} slot={slot}", todo.id);
+    eprintln!("[reminder] 邮件提醒入队 todo={} slot={slot}", todo.id());
     let heading = if slot == "due" {
         "待办已到完成时间"
     } else {
         "待办即将到期"
     };
-    let remark_line = if todo.remark.is_empty() {
+    let remark_line = if todo.remark().is_empty() {
         String::new()
     } else {
         format!(
             "备注：{}
 ",
-            todo.remark
+            todo.remark()
         )
     };
     mailer::enqueue(MailRequest {
-        subject: format!("[Inkling] {heading}：{}", todo.content),
+        subject: format!("[Inkling] {heading}：{}", todo.content()),
         body: format!(
             "{heading}
 
@@ -146,7 +146,9 @@ fn fire_email(app: &AppHandle, todo: &Todo, slot: &str, when: DateTime<Utc>) -> 
 完成时间：{}
 优先级：{}
 {remark_line}",
-            todo.content, todo.due_at, todo.priority
+            todo.content(),
+            todo.due_at(),
+            todo.priority()
         ),
     });
     Ok(())
@@ -157,15 +159,15 @@ fn fire_email(app: &AppHandle, todo: &Todo, slot: &str, when: DateTime<Utc>) -> 
 fn finish_or_repeat(app: &AppHandle, todo: &Todo, from: DateTime<Utc>) -> Result<(), String> {
     let state = app.state::<AppState>();
     let store = state.lock_store()?;
-    match todo.repeat_rule.as_deref() {
+    match todo.repeat_rule().as_deref() {
         Some(rule) if logic::repeat_period(rule).is_some() => {
-            store.advance_repeat(&todo.id, from, rule)?;
+            store.advance_repeat(todo.id(), from, rule)?;
         }
         _ => {
-            store.clear_remind_at(&todo.id)?;
+            store.clear_remind_at(todo.id())?;
             store
                 .db
-                .execute("UPDATE todos SET remind_off=1 WHERE id=?", [&todo.id])
+                .execute("UPDATE todos SET remind_off=1 WHERE id=?", [&todo.id()])
                 .map_err(|e| format!("数据库操作失败: {e}"))?;
         }
     }
