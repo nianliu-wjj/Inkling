@@ -512,6 +512,9 @@ git add src/composables && git commit -m "feat(composables): 抽出悬浮显隐/
 
 ### Task 17: 导出功能
 
+> **已取消（2026-09-05）**：用户明确表示不需要导出功能。后端 `services/export.rs` 与 IPC `export_items` 保留，
+> 前端不加任何导出入口。以下步骤不再执行。
+
 **Files:** Modify `src/components/card/{NoteCard,ClipCard,TodoCard}.vue`, `src/windows/Main/*View.vue`
 
 - [ ] **Step 1:** 卡片悬浮功能区加「⤓ 导出」按钮，调 `api.export.items`（单条）
