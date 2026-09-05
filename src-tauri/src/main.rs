@@ -40,7 +40,7 @@ fn main() {
             app::windows::create_core_windows(&app, silent).map_err(std::io::Error::other)?;
             app::tray::build_tray(&app).map_err(std::io::Error::other)?;
             app::shortcut::register_startup(&app).map_err(std::io::Error::other)?;
-            if settings.start_on_boot {
+            if *settings.start_on_boot() {
                 let _ = app.autolaunch().enable();
             }
 

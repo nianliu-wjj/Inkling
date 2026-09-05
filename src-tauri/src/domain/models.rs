@@ -109,48 +109,50 @@ pub fn default_panel_position() -> String {
     }
 }
 
-/// 偏好设置。
-#[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct Settings {
-    /// immediate / 3s / never
-    pub collapse_policy: String,
-    pub clipboard_retention_days: i64,
-    pub start_on_boot: bool,
-    pub shortcut: String,
-    /// mixed / icon / text
-    pub remark_style: String,
-    pub theme: String,
-    /// 归档主窗口是否启用毛玻璃（Windows Acrylic / macOS Vibrancy）。
-    /// 关闭时窗口退化为不透明实色，见 styles/base.css 的 [data-acrylic="off"]。
-    pub main_acrylic: bool,
-    /// top / bottom / left / right；缺少该设置时使用当前平台默认值。
-    #[serde(default = "default_panel_position")]
-    pub panel_position: String,
-    /// 启用的面板插件 id 有序列表（逗号分隔）。
-    /// 在列表里 = 启用，列表次序 = 展示顺序与快捷键序号；为空则用全部内置插件的默认顺序。
-    #[serde(default)]
-    pub panel_plugins: String,
-    /// 玻璃质感档位：minimal / standard / frosted。
-    /// 与配色主题正交——同一套配色可轻可厚，见 styles/glass.css。
-    #[serde(default = "default_glass_level")]
-    pub glass_level: String,
-    /// SMTP 服务器地址，如 smtp.qq.com；为空表示未配置邮件提醒。
-    #[serde(default)]
-    pub smtp_host: String,
-    #[serde(default = "default_smtp_port")]
-    pub smtp_port: i64,
-    #[serde(default = "default_true")]
-    pub smtp_tls: bool,
-    #[serde(default)]
-    pub smtp_username: String,
-    /// 建议填邮箱的**应用专用密码**而非主账号密码。
-    /// 读取时会被替换为掩码，避免真实值进入前端状态与日志。
-    #[serde(default)]
-    pub smtp_password: String,
-    #[serde(default)]
-    pub smtp_from: String,
-    #[serde(default)]
-    pub smtp_to: String,
+crate::dto! {
+    /// 偏好设置。
+    #[derive(Debug, Serialize, Deserialize, Clone)]
+    pub struct Settings {
+        /// immediate / 3s / never
+        collapse_policy: String,
+        clipboard_retention_days: i64,
+        start_on_boot: bool,
+        shortcut: String,
+        /// mixed / icon / text
+        remark_style: String,
+        theme: String,
+        /// 归档主窗口是否启用毛玻璃（Windows Acrylic / macOS Vibrancy）。
+        /// 关闭时窗口退化为不透明实色，见 styles/base.css 的 [data-acrylic="off"]。
+        main_acrylic: bool,
+        /// top / bottom / left / right；缺少该设置时使用当前平台默认值。
+        #[serde(default = "default_panel_position")]
+        panel_position: String,
+        /// 启用的面板插件 id 有序列表（逗号分隔）。
+        /// 在列表里 = 启用，列表次序 = 展示顺序与快捷键序号；为空则用全部内置插件的默认顺序。
+        #[serde(default)]
+        panel_plugins: String,
+        /// 玻璃质感档位：minimal / standard / frosted。
+        /// 与配色主题正交——同一套配色可轻可厚，见 styles/glass.css。
+        #[serde(default = "default_glass_level")]
+        glass_level: String,
+        /// SMTP 服务器地址，如 smtp.qq.com；为空表示未配置邮件提醒。
+        #[serde(default)]
+        smtp_host: String,
+        #[serde(default = "default_smtp_port")]
+        smtp_port: i64,
+        #[serde(default = "default_true")]
+        smtp_tls: bool,
+        #[serde(default)]
+        smtp_username: String,
+        /// 建议填邮箱的**应用专用密码**而非主账号密码。
+        /// 读取时会被替换为掩码，避免真实值进入前端状态与日志。
+        #[serde(default)]
+        smtp_password: String,
+        #[serde(default)]
+        smtp_from: String,
+        #[serde(default)]
+        smtp_to: String,
+    }
 }
 
 impl Default for Settings {

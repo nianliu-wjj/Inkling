@@ -594,7 +594,7 @@ pub fn settings_save(
     settings: Settings,
 ) -> Result<(), String> {
     state.lock_store()?.save_settings(&settings)?;
-    if settings.start_on_boot {
+    if *settings.start_on_boot() {
         let _ = app.autolaunch().enable();
     } else {
         let _ = app.autolaunch().disable();

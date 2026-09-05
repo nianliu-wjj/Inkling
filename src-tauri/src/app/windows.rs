@@ -75,7 +75,8 @@ pub fn create_core_windows(app: &AppHandle, silent: bool) -> tauri::Result<()> {
         .lock_store()
         .ok()
         .and_then(|store| store.get_settings().ok())
-        .map(|settings| (settings.panel_position, settings.main_acrylic))
+        // getter 借的是这个临时 Settings，必须在闭包里取走所有权。
+        .map(|settings| (settings.panel_position().clone(), *settings.main_acrylic()))
         .unwrap_or_else(|| ("top".into(), true));
     let (px, py) = panel_position(&monitor, PANEL_WIDTH, PANEL_MAX_HEIGHT, &position);
     let panel = WebviewWindowBuilder::new(app, "panel", WebviewUrl::App("panel.html".into()))
@@ -338,7 +339,12 @@ pub fn reposition_panel(app: &AppHandle) -> Result<(), String> {
         .inner_size()
         .map(|value| value.to_logical::<f64>(monitor.scale_factor()))
         .unwrap_or(LogicalSize::new(PANEL_WIDTH, PANEL_MAX_HEIGHT));
-    let (x, y) = panel_position(&monitor, PANEL_WIDTH, size.height, &settings.panel_position);
+    let (x, y) = panel_position(
+        &monitor,
+        PANEL_WIDTH,
+        size.height,
+        settings.panel_position(),
+    );
     panel
         .set_position(LogicalPosition::new(x, y))
         .map_err(|e| e.to_string())
@@ -375,7 +381,8 @@ pub fn panel_resize(app: &AppHandle, height: f64) -> Result<(), String> {
         .state::<AppState>()
         .lock_store()?
         .get_settings()?
-        .panel_position;
+        .panel_position()
+        .clone();
     let (x, y) = panel_position(&monitor, PANEL_WIDTH, clamped, &position);
     let _ = panel.set_position(LogicalPosition::new(x, y));
     Ok(())

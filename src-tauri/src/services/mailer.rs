@@ -64,13 +64,13 @@ pub fn load_config(app: &AppHandle) -> Result<MailConfig, String> {
     let settings = store.get_settings()?;
     let password = store.smtp_password_raw()?;
     Ok(MailConfig {
-        host: settings.smtp_host,
-        port: settings.smtp_port,
-        tls: settings.smtp_tls,
-        username: settings.smtp_username,
+        host: settings.smtp_host().clone(),
+        port: *settings.smtp_port(),
+        tls: *settings.smtp_tls(),
+        username: settings.smtp_username().clone(),
         password,
-        from: settings.smtp_from,
-        to: settings.smtp_to,
+        from: settings.smtp_from().clone(),
+        to: settings.smtp_to().clone(),
     })
 }
 

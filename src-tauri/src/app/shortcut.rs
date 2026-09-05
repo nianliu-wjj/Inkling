@@ -16,7 +16,7 @@ pub fn rebind(app: &AppHandle, combo: &str) -> Result<String, String> {
     let previous = state
         .lock_store()?
         .get_settings()
-        .map(|s| s.shortcut)
+        .map(|s| s.shortcut().clone())
         .unwrap_or_default();
     if let Ok(old) = previous.parse::<Shortcut>() {
         let _ = manager.unregister(old);
@@ -25,12 +25,12 @@ pub fn rebind(app: &AppHandle, combo: &str) -> Result<String, String> {
         .register(shortcut)
         .map_err(|e| format!("注册快捷键失败（可能与其他应用冲突）: {e}"))?;
     let described = shortcut.into_string();
-    state
-        .lock_store()?
-        .save_settings(&crate::domain::models::Settings {
-            shortcut: described.clone(),
-            ..state.lock_store()?.get_settings()?
-        })?;
+    // 先读出再改再存，而不是「取锁 + 在参数里再取一次锁」：
+    // 方法调用会先求值接收者，原写法在持有 store 锁时又去 lock_store()，
+    // 而 Mutex 不可重入——那是一处死锁。
+    let mut settings = state.lock_store()?.get_settings()?;
+    settings.set_shortcut(described.clone());
+    state.lock_store()?.save_settings(&settings)?;
     Ok(described)
 }
 
@@ -40,7 +40,7 @@ pub fn register_startup(app: &AppHandle) -> Result<(), String> {
     let combo = state
         .lock_store()?
         .get_settings()
-        .map(|s| s.shortcut)
+        .map(|s| s.shortcut().clone())
         .unwrap_or_else(|_| "Ctrl+Shift+Space".into());
     let shortcut: Shortcut = combo
         .parse()
