@@ -192,8 +192,8 @@ pub fn note_save(
         mindmap_data: input.mindmap_data,
         draft: input.draft,
     })?;
-    if !note.is_draft {
-        emit_all(&app, events::NOTES_CHANGED, note.id.clone());
+    if !note.is_draft() {
+        emit_all(&app, events::NOTES_CHANGED, note.id().clone());
         emit_all(&app, events::STATS_CHANGED, ());
     }
     Ok(note)
@@ -245,7 +245,7 @@ pub fn clipboard_capture(app: AppHandle) -> Result<Option<ClipboardEntry>, Strin
     let hash = crate::domain::clipboard::hash_content(text.as_bytes());
     let entry = crate::services::clipboard_watcher::capture_text(&app, text, hash, false);
     if let Some(entry) = &entry {
-        emit_all(&app, events::CLIPBOARD_CHANGED, entry.id.clone());
+        emit_all(&app, events::CLIPBOARD_CHANGED, entry.id().clone());
         emit_all(&app, events::STATS_CHANGED, ());
     }
     Ok(entry)
@@ -269,7 +269,7 @@ pub fn clipboard_write(
         (entry, file)
     };
     let mut board = arboard::Clipboard::new().map_err(|e| format!("访问剪贴板失败: {e}"))?;
-    let hash = if let Some(path) = file.filter(|_| entry.content_type == "image") {
+    let hash = if let Some(path) = file.filter(|_| entry.content_type() == "image") {
         let bytes = std::fs::read(&path).map_err(|e| format!("读取图片附件失败: {e}"))?;
         let image = image::load_from_memory(&bytes).map_err(|e| format!("解码图片失败: {e}"))?;
         let rgba = image.to_rgba8();
@@ -283,10 +283,10 @@ pub fn clipboard_write(
             .map_err(|e| format!("写回剪贴板失败: {e}"))?;
         crate::domain::clipboard::hash_content(format!("image:{width}x{height}").as_bytes())
     } else {
-        let text = if entry.content.is_empty() {
-            entry.preview.clone()
+        let text = if entry.content().is_empty() {
+            entry.preview().clone()
         } else {
-            entry.content.clone()
+            entry.content().clone()
         };
         board
             .set_text(&text)

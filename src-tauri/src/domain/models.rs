@@ -5,39 +5,43 @@
 
 use serde::{Deserialize, Serialize};
 
-/// 笔记。正文 ≤1MB 时直接存储；超出时落盘 `notes/` 并仅在 `file_path` 保留相对路径。
-#[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct Note {
-    pub id: String,
-    pub content: String,
-    /// text / mindmap。思维导图数据单独保存，避免污染 Markdown 正文。
-    #[serde(default)]
-    pub editor_mode: String,
-    /// simple-mind-map 的 JSON 数据。
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub mindmap_data: Option<String>,
-    pub tags: Vec<String>,
-    pub is_draft: bool,
-    pub pinned: bool,
-    /// 成功归档时刻（草稿提升为正式笔记时写入；统计按该时刻计数）。
-    pub archived_at: Option<String>,
-    pub created_at: String,
-    pub updated_at: String,
+crate::dto! {
+    /// 笔记。正文 ≤1MB 时直接存储；超出时落盘 `notes/` 并仅在 `file_path` 保留相对路径。
+    #[derive(Debug, Serialize, Deserialize, Clone)]
+    pub struct Note {
+        id: String,
+        content: String,
+        /// text / mindmap。思维导图数据单独保存，避免污染 Markdown 正文。
+        #[serde(default)]
+        editor_mode: String,
+        /// simple-mind-map 的 JSON 数据。
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        mindmap_data: Option<String>,
+        tags: Vec<String>,
+        is_draft: bool,
+        pinned: bool,
+        /// 成功归档时刻（草稿提升为正式笔记时写入；统计按该时刻计数）。
+        archived_at: Option<String>,
+        created_at: String,
+        updated_at: String,
+    }
 }
 
-/// 剪贴板条目。图片等大附件落盘 `clipboard/` 并以 `file_path` 引用。
-#[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct ClipboardEntry {
-    pub id: String,
-    /// text / link / code / image / richtext
-    pub content_type: String,
-    pub content: String,
-    pub preview: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub file_path: Option<String>,
-    pub pinned: bool,
-    pub copied_at: String,
-    pub modified_at: String,
+crate::dto! {
+    /// 剪贴板条目。图片等大附件落盘 `clipboard/` 并以 `file_path` 引用。
+    #[derive(Debug, Serialize, Deserialize, Clone)]
+    pub struct ClipboardEntry {
+        id: String,
+        /// text / link / code / image / richtext
+        content_type: String,
+        content: String,
+        preview: String,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        file_path: Option<String>,
+        pinned: bool,
+        copied_at: String,
+        modified_at: String,
+    }
 }
 
 /// 待办（父待办与一级子任务同构）。

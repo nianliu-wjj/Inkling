@@ -170,9 +170,9 @@ impl Store {
         for id in note_ids {
             let note: Note = self.note(&id)?;
             let time = note
-                .archived_at
+                .archived_at()
                 .clone()
-                .unwrap_or_else(|| note.created_at.clone());
+                .unwrap_or_else(|| note.created_at().clone());
             items.push(
                 DayDetailItem::builder()
                     .kind("note".into())
@@ -198,7 +198,7 @@ impl Store {
         };
         for id in clip_ids {
             if let Some(clip) = self.clipboard_entry(&id)? {
-                let time = clip.copied_at.clone();
+                let time = clip.copied_at().clone();
                 items.push(
                     DayDetailItem::builder()
                         .kind("clip".into())

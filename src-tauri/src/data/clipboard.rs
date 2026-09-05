@@ -9,16 +9,17 @@ const ROW_COLUMNS: &str =
     "id, content_type, content, preview, file_path, pinned, copied_at, modified_at";
 
 fn row_entry(r: &rusqlite::Row<'_>) -> rusqlite::Result<ClipboardEntry> {
-    Ok(ClipboardEntry {
-        id: r.get(0)?,
-        content_type: r.get(1)?,
-        content: r.get(2)?,
-        preview: r.get(3)?,
-        file_path: r.get(4)?,
-        pinned: r.get::<_, i64>(5)? != 0,
-        copied_at: r.get(6)?,
-        modified_at: r.get(7)?,
-    })
+    ClipboardEntry::builder()
+        .id(r.get(0)?)
+        .content_type(r.get(1)?)
+        .content(r.get(2)?)
+        .preview(r.get(3)?)
+        .file_path(r.get(4)?)
+        .pinned(r.get::<_, i64>(5)? != 0)
+        .copied_at(r.get(6)?)
+        .modified_at(r.get(7)?)
+        .build()
+        .map_err(super::build_err)
 }
 
 /// 一次剪贴板捕获快照（由轮询线程或手动捕获命令产生）。
@@ -92,12 +93,12 @@ impl Store {
     /// 编辑文本类条目：替换内容并更新最后修改时间；命中重复内容时拒绝。
     pub fn update_clipboard(&self, id: &str, content: &str) -> Result<ClipboardEntry, String> {
         let existing = self.clipboard_entry(id)?.ok_or("剪贴板条目不存在")?;
-        if existing.content_type == "image" {
+        if existing.content_type() == "image" {
             return Err("图片条目不可编辑".into());
         }
         let hash = crate::domain::clipboard::hash_content(content.as_bytes());
         if let Some(other) = self.find_clipboard_by_hash(&hash)? {
-            if other.id != id {
+            if other.id() != id {
                 return Err("内容与已有条目重复".into());
             }
         }
@@ -129,7 +130,12 @@ impl Store {
     }
 
     pub fn delete_clipboard(&self, id: &str) -> Result<(), String> {
-        if let Some(path) = self.clipboard_entry(id)?.and_then(|e| e.file_path) {
+        // getter 返回 &Option<String>，这里要取走所有权，故 clone。
+        // 宏无法按字段类型分派，Option 字段的 getter 统一返回引用。
+        if let Some(path) = self
+            .clipboard_entry(id)?
+            .and_then(|e| e.file_path().clone())
+        {
             let _ = std::fs::remove_file(self.data_dir.join(path));
         }
         self.db
@@ -172,7 +178,7 @@ impl Store {
         id: &str,
     ) -> Result<(ClipboardEntry, Option<std::path::PathBuf>), String> {
         let entry = self.clipboard_entry(id)?.ok_or("剪贴板条目不存在")?;
-        let file = entry.file_path.as_ref().map(|p| self.data_dir.join(p));
+        let file = entry.file_path().as_ref().map(|p| self.data_dir.join(p));
         Ok((entry, file))
     }
 

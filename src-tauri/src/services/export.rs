@@ -23,13 +23,13 @@ impl ExportItem {
         match self {
             ExportItem::Note(note) => {
                 let mut md = String::new();
-                md.push_str(&format!("<!-- Inkling 笔记 {} -->\n\n", note.updated_at));
-                md.push_str(&note.content);
-                if !note.tags.is_empty() {
+                md.push_str(&format!("<!-- Inkling 笔记 {} -->\n\n", note.updated_at()));
+                md.push_str(note.content());
+                if !note.tags().is_empty() {
                     md.push_str("\n\n---\n标签：");
                     md.push_str(
                         &note
-                            .tags
+                            .tags()
                             .iter()
                             .map(|t| format!("#{t}"))
                             .collect::<Vec<_>>()
@@ -51,14 +51,16 @@ impl ExportItem {
             }
             ExportItem::Clip(clip) => format!(
                 "> {}（类型 {}，捕获于 {}）",
-                clip.content, clip.content_type, clip.copied_at
+                clip.content(),
+                clip.content_type(),
+                clip.copied_at()
             ),
         }
     }
 
     fn plain(&self) -> String {
         match self {
-            ExportItem::Note(note) => note.content.clone(),
+            ExportItem::Note(note) => note.content().clone(),
             ExportItem::Todo(todo) => {
                 format!(
                     "[{}] {}\n完成时间：{}\n备注：{}",
@@ -72,7 +74,7 @@ impl ExportItem {
                     todo.remark
                 )
             }
-            ExportItem::Clip(clip) => clip.content.clone(),
+            ExportItem::Clip(clip) => clip.content().clone(),
         }
     }
 }

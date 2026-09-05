@@ -11,6 +11,19 @@ use rusqlite::{Connection, OptionalExtension};
 use std::path::PathBuf;
 
 /// 本地日期键（yyyy-MM-dd，用户当前时区）。
+/// 把 DTO builder 的 `String` 错误转成 `rusqlite::Error`。
+///
+/// 行映射闭包必须返回 `rusqlite::Result`，而 `dto!` 生成的 `build()` 返回
+/// `Result<_, String>`。行映射里每个字段都显式设置，`build()` 实际不会失败，
+/// 这层转换只为满足类型；真出错说明行映射漏了字段，属于编码错误。
+pub fn build_err(message: String) -> rusqlite::Error {
+    rusqlite::Error::FromSqlConversionFailure(
+        0,
+        rusqlite::types::Type::Null,
+        Box::new(std::io::Error::other(message)),
+    )
+}
+
 pub fn local_date_key(dt: DateTime<Utc>) -> String {
     dt.with_timezone(&Local).format("%Y-%m-%d").to_string()
 }
@@ -443,18 +456,18 @@ impl Store {
                 content = std::fs::read_to_string(self.data_dir.join(&path)).unwrap_or_default();
             }
         }
-        Ok(crate::domain::models::Note {
-            tags: self.tags("note_tags", "note_id", &id)?,
-            id,
-            content,
-            is_draft: draft != 0,
-            pinned: pinned != 0,
-            archived_at,
-            editor_mode,
-            mindmap_data,
-            created_at,
-            updated_at,
-        })
+        crate::domain::models::Note::builder()
+            .tags(self.tags("note_tags", "note_id", &id)?)
+            .id(id)
+            .content(content)
+            .is_draft(draft != 0)
+            .pinned(pinned != 0)
+            .archived_at(archived_at)
+            .editor_mode(editor_mode)
+            .mindmap_data(mindmap_data)
+            .created_at(created_at)
+            .updated_at(updated_at)
+            .build()
     }
 }
 

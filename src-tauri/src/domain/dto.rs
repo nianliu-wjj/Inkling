@@ -115,6 +115,10 @@ macro_rules! dto {
             impl [<$name Builder>] {
                 $(
                     #[doc = concat!("设置 `", stringify!($field), "`。")]
+                    // 建造者方法按值消费 self 以支持链式；字段名恰好以 is_ 开头时
+                    // 会触发 wrong_self_convention（它期望 is_* 借用 self），
+                    // 但那条约定针对判定方法，不适用于建造者。
+                    #[allow(clippy::wrong_self_convention)]
                     pub fn $field(mut self, value: $ty) -> Self {
                         self.$field = Some(value);
                         self
