@@ -125,7 +125,8 @@ fn main() {
             ipc::stats_summary,
             ipc::stats_day,
             ipc::export_items,
-            ipc::data_dir
+            ipc::data_dir,
+            ipc::write_file_base64
         ])
         .run(tauri::generate_context!())
         .expect("启动 Inkling 失败");

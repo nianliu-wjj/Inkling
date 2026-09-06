@@ -679,3 +679,50 @@ pub fn export_items(state: State<'_, AppState>, payload: ExportPayload) -> Resul
 pub fn data_dir(state: State<'_, AppState>) -> Result<String, String> {
     Ok(state.lock_store()?.data_dir.to_string_lossy().to_string())
 }
+
+/// 把 base64 内容解码后写到指定绝对路径（思维导图导出使用）。
+///
+/// 前端拿到库导出的 dataURL 后剥掉 `data:*;base64,` 前缀再传入；路径来自系统保存对话框，
+/// 不做目录创建——对话框选出的目录必然存在。先写临时文件再重命名，避免半截文件。
+fn write_base64_to_path(path: &str, base64_content: &str) -> Result<String, String> {
+    use base64::Engine;
+    let bytes = base64::engine::general_purpose::STANDARD
+        .decode(base64_content.trim())
+        .map_err(|e| format!("base64 解码失败: {e}"))?;
+    let target = std::path::PathBuf::from(path);
+    let temp = target.with_extension(format!(
+        "{}.tmp",
+        target.extension().and_then(|e| e.to_str()).unwrap_or("bin")
+    ));
+    std::fs::write(&temp, &bytes).map_err(|e| format!("写入文件失败: {e}"))?;
+    std::fs::rename(&temp, &target).map_err(|e| format!("提交文件失败: {e}"))?;
+    eprintln!("[files] 已写入 {} ({} 字节)", target.display(), bytes.len());
+    Ok(target.to_string_lossy().to_string())
+}
+
+#[tauri::command]
+pub fn write_file_base64(path: String, base64: String) -> Result<String, String> {
+    write_base64_to_path(&path, &base64)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn write_base64_decodes_and_writes() {
+        let dir = std::env::temp_dir().join(format!("inkling-test-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("hello.txt");
+        // "hello" 的 base64
+        let written = write_base64_to_path(path.to_str().unwrap(), "aGVsbG8=").unwrap();
+        assert_eq!(std::fs::read_to_string(&written).unwrap(), "hello");
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn write_base64_rejects_bad_input() {
+        let path = std::env::temp_dir().join("inkling-bad.bin");
+        assert!(write_base64_to_path(path.to_str().unwrap(), "***not base64***").is_err());
+    }
+}

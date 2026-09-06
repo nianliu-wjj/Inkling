@@ -95,6 +95,12 @@ export const api = {
     invoke<string>('export_items', { payload: { refs, format, outputDir: outputDir ?? null } }),
   dataDir: () => invoke<string>('data_dir'),
 
+  /** 文件落盘（思维导图导出）。 */
+  files: {
+    /** 把 base64 内容写到绝对路径，返回写入的路径。 */
+    writeBase64: (path: string, base64: string) => invoke<string>('write_file_base64', { path, base64 }),
+  },
+
   /** 邮件提醒。 */
   mail: {
     /** 发送测试邮件验证 SMTP 配置，失败时错误信息原样抛出给界面。 */
