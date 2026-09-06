@@ -2,6 +2,7 @@
 import MindMap from 'simple-mind-map'
 import 'simple-mind-map/dist/simpleMindMap.esm.css'
 import { nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { parseMindMapData } from '@/windows/MindMap/core/persistence'
 
 const props = withDefaults(
   defineProps<{
@@ -22,22 +23,10 @@ let resizeObserver: ResizeObserver | null = null
 /** 等待容器尺寸就绪的观察器（见 mountWhenSized）。 */
 let sizeWaiter: ResizeObserver | null = null
 
-function createDefaultData(): Record<string, unknown> {
-  return {
-    data: { text: props.placeholder },
-    children: [],
-  }
-}
-
 function parseData(source: string | null): unknown {
-  if (!source?.trim()) return createDefaultData()
-  try {
-    const parsed: unknown = JSON.parse(source)
-    if (parsed && typeof parsed === 'object') return parsed
-  } catch {
-    // 旧数据或手工损坏的数据不阻断编辑器，回退为一个可编辑根节点。
-  }
-  return createDefaultData()
+  // 面板内的简易画布只关心节点树；全量格式里的主题 / 结构由独立导图窗口负责。
+  // 空串、非法 JSON、旧数据都由 parseMindMapData 兜底为一个可编辑根节点。
+  return parseMindMapData(source, props.placeholder).root
 }
 
 function publishData(data: unknown = mindMap?.getData(false)): void {
