@@ -47,11 +47,24 @@ pub fn create_core_windows(app: &AppHandle, silent: bool) -> tauri::Result<()> {
         .or_else(|| app.primary_monitor().ok().flatten())
         .ok_or_else(|| tauri::Error::WindowNotFound)?;
 
+    // 一次性读出建窗需要的偏好设置，避免为每项各锁一次 store。
+    // 感应区与面板共用同一个「唤出位置」，必须在建感应区之前读出。
+    let (position, main_acrylic) = app
+        .state::<AppState>()
+        .lock_store()
+        .ok()
+        .and_then(|store| store.get_settings().ok())
+        // getter 借的是这个临时 Settings，必须在闭包里取走所有权。
+        .map(|settings| (settings.panel_position().clone(), *settings.main_acrylic()))
+        .unwrap_or_else(|| ("top".into(), true));
+
     // hotzone：透明感应区，不可聚焦、不抢焦点，且对鼠标完全穿透。
-    let (hx, hy) = top_center(&monitor, HOTZONE_WIDTH, 0.0);
+    // 位置与朝向跟随「面板唤出位置」：面板从哪条边弹出，就在哪条边感应。
+    let (hx, hy, hw, hh) = hotzone_geometry(&WorkArea::of(&monitor), &position);
+    eprintln!("[hotzone] 创建感应区 position={position} x={hx} y={hy} size={hw}x{hh}");
     let hotzone = WebviewWindowBuilder::new(app, "hotzone", WebviewUrl::App("hotzone.html".into()))
         .title("Inkling Hotzone")
-        .inner_size(HOTZONE_WIDTH, HOTZONE_HEIGHT)
+        .inner_size(hw, hh)
         .position(hx, hy)
         .decorations(false)
         .transparent(true)
@@ -69,15 +82,6 @@ pub fn create_core_windows(app: &AppHandle, silent: bool) -> tauri::Result<()> {
     let _ = hotzone.set_ignore_cursor_events(true);
 
     // panel：预创建常驻隐藏，呼出只做 show + focus。
-    // 一次性读出建窗需要的偏好设置，避免为每项各锁一次 store。
-    let (position, main_acrylic) = app
-        .state::<AppState>()
-        .lock_store()
-        .ok()
-        .and_then(|store| store.get_settings().ok())
-        // getter 借的是这个临时 Settings，必须在闭包里取走所有权。
-        .map(|settings| (settings.panel_position().clone(), *settings.main_acrylic()))
-        .unwrap_or_else(|| ("top".into(), true));
     let (px, py) = panel_position(&monitor, PANEL_WIDTH, PANEL_MAX_HEIGHT, &position);
     let panel = WebviewWindowBuilder::new(app, "panel", WebviewUrl::App("panel.html".into()))
         .title("Inkling Panel")
@@ -280,13 +284,85 @@ pub fn editor_close(app: &AppHandle) -> Result<(), String> {
     Ok(())
 }
 
-/// 计算宽度 `width` 的窗口在某显示器顶部居中的逻辑坐标。
-fn top_center(monitor: &tauri::Monitor, width: f64, top_offset: f64) -> (f64, f64) {
-    let scale = monitor.scale_factor();
-    let work = monitor.work_area();
-    let x_logical = work.position.x as f64 / scale + (work.size.width as f64 / scale - width) / 2.0;
-    let y_logical = work.position.y as f64 / scale + top_offset;
-    (x_logical, y_logical)
+/// 显示器工作区的逻辑像素矩形（已除去任务栏）。
+///
+/// 从 `tauri::Monitor` 抽出来的纯数据：定位算法只依赖这四个数，
+/// 这样几何计算可以脱离真实显示器做单元测试。
+#[derive(Debug, Clone, Copy, PartialEq)]
+struct WorkArea {
+    left: f64,
+    top: f64,
+    width: f64,
+    height: f64,
+}
+
+impl WorkArea {
+    fn of(monitor: &tauri::Monitor) -> Self {
+        let scale = monitor.scale_factor();
+        let work = monitor.work_area();
+        Self {
+            left: work.position.x as f64 / scale,
+            top: work.position.y as f64 / scale,
+            width: work.size.width as f64 / scale,
+            height: work.size.height as f64 / scale,
+        }
+    }
+}
+
+/// 感应区窗口在某条屏幕边上的几何：(x, y, width, height)，逻辑像素。
+///
+/// 感应区必须与面板在**同一条边**：用户在哪条边悬停，面板就从哪条边弹出。
+/// 顶/底用横条（宽 240 × 高 80），左/右用竖条（宽 80 × 高 240），
+/// 都紧贴工作区边缘、沿边居中。未知取值回落顶部，与 `panel_position` 的兜底一致。
+fn hotzone_geometry(work: &WorkArea, position: &str) -> (f64, f64, f64, f64) {
+    let (long, short) = (HOTZONE_WIDTH, HOTZONE_HEIGHT);
+    match position {
+        "bottom" => (
+            work.left + (work.width - long) / 2.0,
+            work.top + work.height - short,
+            long,
+            short,
+        ),
+        "left" => (
+            work.left,
+            work.top + (work.height - long) / 2.0,
+            short,
+            long,
+        ),
+        "right" => (
+            work.left + work.width - short,
+            work.top + (work.height - long) / 2.0,
+            short,
+            long,
+        ),
+        _ => (work.left + (work.width - long) / 2.0, work.top, long, short),
+    }
+}
+
+/// 根据当前偏好把感应区窗口移到对应屏幕边缘（尺寸也随横/竖条切换）。
+///
+/// 与 `reposition_panel` 成对：用户改「面板唤出位置」时两者必须一起动，
+/// 否则又会回到「在顶部悬停、面板从底部弹出」的割裂状态。
+/// `hotzone_watcher` 直接读窗口矩形判定进入/离开，因此移动窗口即等于移动感应范围。
+pub fn reposition_hotzone(app: &AppHandle) -> Result<(), String> {
+    let hotzone = app
+        .get_webview_window("hotzone")
+        .ok_or("感应区窗口未初始化")?;
+    let monitor = cursor_monitor(app).ok_or("未找到可用显示器")?;
+    let position = app
+        .state::<AppState>()
+        .lock_store()?
+        .get_settings()?
+        .panel_position()
+        .clone();
+    let (x, y, width, height) = hotzone_geometry(&WorkArea::of(&monitor), &position);
+    eprintln!("[hotzone] 感应区移动到 {position} 边 x={x} y={y} size={width}x{height}");
+    hotzone
+        .set_size(LogicalSize::new(width, height))
+        .map_err(|e| e.to_string())?;
+    hotzone
+        .set_position(LogicalPosition::new(x, y))
+        .map_err(|e| e.to_string())
 }
 
 /// 计算面板从显示器四边中点唤出的逻辑坐标。
@@ -353,11 +429,20 @@ pub fn reposition_panel(app: &AppHandle) -> Result<(), String> {
 /// 呼出面板：定位到光标所在屏顶部居中，show + focus。
 /// 面板可见期间 hotzone_watcher 会自动停止感应，无需在此屏蔽感应区。
 pub fn panel_show(app: &AppHandle) -> Result<(), String> {
+    eprintln!("[panel] 收到呼出请求");
     let panel = app.get_webview_window("panel").ok_or("面板窗口未初始化")?;
-    reposition_panel(app)?;
+    if let Err(error) = reposition_panel(app) {
+        eprintln!("[panel] 定位面板失败: {error}");
+        return Err(error);
+    }
     let _ = panel.show();
     let _ = panel.unminimize();
     let _ = panel.set_focus();
+    eprintln!(
+        "[panel] 面板已显示 visible={:?} position={:?}",
+        panel.is_visible().ok(),
+        panel.outer_position().ok().map(|p| (p.x, p.y))
+    );
     let _ = app.emit(events::PANEL_SHOWN, ());
     Ok(())
 }
@@ -558,4 +643,49 @@ pub fn reminder_close(app: &AppHandle, todo_id: &str) -> Result<(), String> {
 /// 应用退出。
 pub fn quit_app(app: &AppHandle) {
     app.exit(0);
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// 工作区 (0, 0, 1000, 800)，各边的感应区几何。
+    #[test]
+    fn hotzone_geometry_follows_edge() {
+        let work = WorkArea {
+            left: 0.0,
+            top: 0.0,
+            width: 1000.0,
+            height: 800.0,
+        };
+        // 顶部：横条贴顶居中。
+        assert_eq!(hotzone_geometry(&work, "top"), (380.0, 0.0, 240.0, 80.0));
+        // 底部：横条贴底居中。
+        assert_eq!(
+            hotzone_geometry(&work, "bottom"),
+            (380.0, 720.0, 240.0, 80.0)
+        );
+        // 左侧：竖条贴左垂直居中。
+        assert_eq!(hotzone_geometry(&work, "left"), (0.0, 280.0, 80.0, 240.0));
+        // 右侧：竖条贴右垂直居中。
+        assert_eq!(
+            hotzone_geometry(&work, "right"),
+            (920.0, 280.0, 80.0, 240.0)
+        );
+    }
+
+    /// 未知取值回落到顶部，与 panel_position 的兜底一致。
+    #[test]
+    fn hotzone_geometry_unknown_edge_falls_back_to_top() {
+        let work = WorkArea {
+            left: 100.0,
+            top: 50.0,
+            width: 1000.0,
+            height: 800.0,
+        };
+        assert_eq!(
+            hotzone_geometry(&work, "diagonal"),
+            (480.0, 50.0, 240.0, 80.0)
+        );
+    }
 }

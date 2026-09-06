@@ -171,6 +171,13 @@ impl Store {
                 .pragma_update(None, "user_version", 3)
                 .map_err(db_err)?;
         }
+        if version < 4 {
+            self.with_v4()
+                .map_err(|e| format!("数据库迁移到 v4 失败: {e}"))?;
+            self.db
+                .pragma_update(None, "user_version", 4)
+                .map_err(db_err)?;
+        }
         Ok(())
     }
 
@@ -248,6 +255,27 @@ impl Store {
                 [],
             )
             .map_err(db_err)?;
+        Ok(())
+    }
+
+    /// v4 增量：面板唤出位置回归顶部。
+    ///
+    /// v4 之前 Windows 上的默认值是 `bottom`，而感应区固定在屏幕顶部：
+    /// 用户在顶部悬停、面板却从底部弹出，被当成「无法唤出」。设置页保存时会把
+    /// 这个默认值整体写进库，因此仅改代码默认值救不回存量库。
+    /// 这里把 `bottom` 统一归回 `top`——存量里的 `bottom` 几乎都来自旧默认值而非用户主动选择；
+    /// 若用户确实想要底部，在设置页重新选一次即可，此后不会再被改动（迁移只跑一次）。
+    fn with_v4(&self) -> Result<(), String> {
+        let changed = self
+            .db
+            .execute(
+                "UPDATE settings SET value='top' WHERE key='panel_position' AND value='bottom'",
+                [],
+            )
+            .map_err(db_err)?;
+        if changed > 0 {
+            eprintln!("[data] v4 迁移：面板唤出位置由 bottom 归回 top");
+        }
         Ok(())
     }
 
@@ -502,6 +530,59 @@ mod tests {
         .unwrap();
         db.pragma_update(None, "user_version", 2).unwrap();
         db
+    }
+
+    #[test]
+    fn v4_migration_moves_bottom_panel_back_to_top() {
+        let db = rusqlite::Connection::open_in_memory().unwrap();
+        db.execute_batch(
+            "CREATE TABLE settings (key TEXT PRIMARY KEY, value TEXT NOT NULL);
+             INSERT INTO settings(key, value) VALUES('panel_position', 'bottom');
+             INSERT INTO settings(key, value) VALUES('theme', 'dark');",
+        )
+        .unwrap();
+        let store = Store {
+            db,
+            data_dir: std::path::PathBuf::from("."),
+        };
+        store.with_v4().unwrap();
+
+        let position: String = store
+            .db
+            .query_row(
+                "SELECT value FROM settings WHERE key='panel_position'",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert_eq!(position, "top");
+        // 其他设置项不受影响。
+        let theme: String = store
+            .db
+            .query_row("SELECT value FROM settings WHERE key='theme'", [], |r| {
+                r.get(0)
+            })
+            .unwrap();
+        assert_eq!(theme, "dark");
+
+        // 用户主动选的左右两侧不动。
+        store
+            .db
+            .execute(
+                "UPDATE settings SET value='left' WHERE key='panel_position'",
+                [],
+            )
+            .unwrap();
+        store.with_v4().unwrap();
+        let position: String = store
+            .db
+            .query_row(
+                "SELECT value FROM settings WHERE key='panel_position'",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert_eq!(position, "left");
     }
 
     #[test]

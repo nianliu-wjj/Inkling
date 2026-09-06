@@ -33,11 +33,29 @@ fn run(app: AppHandle) {
             continue;
         }
         inside = now_inside;
+        eprintln!(
+            "[hotzone] 感应区状态翻转 inside={inside} cursor={:?} rect={:?}",
+            app.cursor_position().ok().map(|c| (c.x as i64, c.y as i64)),
+            hotzone_rect(&app)
+        );
         // 只发给 hotzone 窗口，其他窗口无需关心。
         if let Err(error) = app.emit_to("hotzone", events::HOTZONE_HOVER, inside) {
             eprintln!("[hotzone] 通知感应区悬停状态失败: {error}");
         }
     }
+}
+
+/// 感应区窗口的物理像素矩形 (left, top, right, bottom)，仅用于日志。
+fn hotzone_rect(app: &AppHandle) -> Option<(i64, i64, i64, i64)> {
+    let hotzone = app.get_webview_window("hotzone")?;
+    let position = hotzone.outer_position().ok()?;
+    let size = hotzone.outer_size().ok()?;
+    Some((
+        position.x as i64,
+        position.y as i64,
+        position.x as i64 + size.width as i64,
+        position.y as i64 + size.height as i64,
+    ))
 }
 
 /// 光标是否位于感应区窗口矩形内。

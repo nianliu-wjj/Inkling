@@ -101,12 +101,10 @@ fn default_true() -> bool {
 /// 在该平台上永远不可达，编译器据此报 unreachable_code。
 /// `cfg!` 是编译期常量，未命中的分支会被优化掉，且不产生不可达代码。
 pub fn default_panel_position() -> String {
-    if cfg!(target_os = "windows") {
-        // Windows 任务栏在底部，面板从底部唤出更贴近手的落点。
-        "bottom".into()
-    } else {
-        "top".into()
-    }
+    // 需求 2.1「鼠标触顶」：感应区与面板默认都在屏幕顶部中央。
+    // 曾按平台区分（Windows 默认底部），但感应区当时固定在顶部，
+    // 用户在顶部悬停、面板却从底部弹出，被误认为「无法唤出」。
+    "top".into()
 }
 
 crate::dto! {

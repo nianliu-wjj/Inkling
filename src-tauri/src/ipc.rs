@@ -600,7 +600,10 @@ pub fn settings_save(
         let _ = app.autolaunch().disable();
     }
     emit_all(&app, events::SETTINGS_CHANGED, settings);
-    // 面板已打开时立即应用新的唤出方向。
+    // 唤出方向变更：感应区与面板一起移到新的屏幕边缘（面板已打开时立即生效）。
+    if let Err(error) = windows::reposition_hotzone(&app) {
+        eprintln!("[settings] 移动感应区失败: {error}");
+    }
     let _ = windows::reposition_panel(&app);
     Ok(())
 }
