@@ -33,7 +33,7 @@
 | 右键菜单（画布） | 回到根节点，展开 / 收起所有，展开到第 N 级，一键整理布局，适应画布，禅模式，一键去除所有节点自定义样式，复制到剪贴板（SMM / JSON / Markdown / Txt / 图片） |
 | 侧栏 | 节点样式（常态 / 选中态：文字、边框、背景、形状、线条、内边距、渐变、图片布局、标签样式）/ 基础样式（背景色与图片、连线、根节点连线起点、节点内外边距、图标大小、二级及以下节点、边框风格、关联线样式、外框内边距、彩虹线条、字体字号）/ 主题（分组列表 + 预览图 + 覆盖自定义样式确认）/ 结构（14 种布局缩略图）/ 大纲（树形编辑，拖拽排序）/ 设置（性能模式、自由拖拽、富文本、滚轮行为、缩放方向、新建节点行为、实时渲染、滚动条、手绘风格、动量、演示填空、水印全部选项、展开按钮常显、键入自动进入编辑、连线样式继承、拖拽导入、图片文本间隔、内容间隔）/ 快捷键表 / 图标与贴纸 / 公式 / 备注 |
 | 画布层 | 导航工具栏（结构下拉、回到根节点、搜索、缩放、小地图开关、只读切换、演示、全屏查看 / 编辑、鼠标行为切换、快捷键表入口）、小地图、滚动条、搜索与替换、字数 / 节点数统计、富文本浮动工具栏、节点图标浮动栏、图片位置浮动栏、备注内容悬浮展示、图片预览、外框样式面板、标签样式面板、关联线样式面板、大纲全屏编辑、源码编辑（JSON 查看 / 格式化 / 复制 / 应用） |
-| 导入导出 | 导入：`.smm` / `.json` / `.xmind`（多画布选择）/ `.md`（文件或粘贴文本）/ 拖文件到窗口；导出：SMM / JSON / PNG / SVG / PDF / Markdown / XMind / Txt / Excel（含文件名、是否含配置、透明背景、内边距、多页、底部文字、完整背景图等选项） |
+| 导入导出 | 导入：`.smm` / `.json` / `.xmind`（多画布选择）/ `.md`（文件或粘贴文本）/ 拖文件到窗口；导出：SMM / JSON / PNG / SVG / PDF / Markdown / XMind / Txt（含文件名、是否含配置、透明背景、内边距、多页、底部文字、完整背景图等选项） |
 | 演示 | 演示模式（含填空模式开关） |
 | 其他 | 水印（含仅导出显示）、禅模式、暗色画布（由导图主题决定）、拖拽导入遮罩、剪贴板文本智能粘贴（按换行拆分节点确认） |
 
@@ -45,7 +45,7 @@
 | 协同编辑（Cooperate） | 参考端自身已注释掉；需要 WebRTC 信令服务器 |
 | 本地文件目录树 / 新建 / 打开 / 另存为 | 基于浏览器 File System Access API；Inkling 的导图是 SQLite 中的笔记，「打开」由导入覆盖、「另存为」由导出覆盖 |
 | 下载客户端 / 官网 / 版本号菜单项、网页版试用提示、多语言切换 | 与 Inkling 无关；Inkling 只有中文 |
-| FreeMind（.mm）导出 | 0.14.0 库源码 `src/parse` 无 FreeMind 转换器，参考端也只有样式占位；库不提供则不展示该格式 |
+| FreeMind（.mm）与 Excel（.xlsx）导出 | 参考端 `Export.vue` 的 `downTypeList` 计算属性把这两项都过滤掉了，网页版实际不提供；0.14.0 库源码 `src/parse` 也无对应转换器 |
 
 ## 决策记录
 
@@ -80,7 +80,10 @@
 ### D5：窗口级偏好（非文档数据）存哪
 
 **备选**：加进 `Settings`（SQLite）/ **localStorage** / 每张导图各存一份
-**采用**：`localStorage` 键 `inkling.mindmap.localConfig`，与参考端 `localConfig` 同形：`isZenMode / openNodeRichText / useLeftKeySelectionRightKeyDrag / isShowScrollbar / enableDragImport` 等。跨导图共享。
+**采用**：`localStorage` 两个键，与参考端同形：
+- `inkling.mindmap.localConfig`：编辑器行为偏好 `isZenMode / openNodeRichText / useLeftKeySelectionRightKeyDrag / isShowScrollbar / enableDragImport`。
+- `inkling.mindmap.config`：「设置」侧栏里的库实例配置（`enableFreeDrag / mousewheelAction / mousewheelZoomActionReverse / createNewNodeBehavior / openRealtimeRenderOnNodeTextEdit / isUseHandDrawnLikeStyle / isUseMomentum / alwaysShowExpandBtn / enableAutoEnterTextEditWhenKeydown / enableInheritAncestorLineStyle / imgTextMargin / textContentMargin / openPerformance / demonstrateConfig / watermarkConfig`），建实例时展开进 options，改动时 `updateConfig` 即时生效。
+两者跨导图共享。`getData(true)` 只含 `root / layout / theme / view`，**不含**这些配置，与参考端 `storeConfig` 分离存储一致。
 **理由**：这些是「我这台机器上怎么用编辑器」的偏好，不是笔记内容；进 `Settings` 要改 Rust 模型、迁移与设置页，收益为零。
 
 ### D6：保存策略
@@ -115,9 +118,8 @@
 | 依赖 | 用途 |
 |---|---|
 | `simple-mind-map-plugin-themes` | 主题分组列表、预览图与注册 |
-| `xlsx`（SheetJS） | Excel 导出（参考端同款） |
 
-`naive-ui` 已有。`katex`、`quill`、`jszip`、`pdf-lib` 随 `simple-mind-map` 已装。
+`naive-ui` 已有。`katex`、`quill`、`jszip`、`pdf-lib` 随 `simple-mind-map` 已装。不引入 `xlsx`（参考端网页版并不提供 Excel 导出，见「不做」表）。
 
 ### D11：目录与模块边界
 
@@ -200,7 +202,7 @@ chrome/ sidebars/ popups/ dialogs/ ── useMindMap() ── mindMap.execComman
 - `fit: false`、`layout / theme / themeConfig / viewData` 来自持久化数据
 - `nodeTextEditZIndex: 1000`、`nodeNoteTooltipZIndex: 1000`
 - `customNoteContentShow`：show/hide 走 bus → `NoteContentShow.vue`
-- `openRealtimeRenderOnNodeTextEdit`、`enableAutoEnterTextEditWhenKeydown`、`demonstrateConfig.openBlankMode`、`enableFreeDrag`、`mousewheelAction`、`mousewheelZoomActionReverse`、`createNewNodeBehavior`、`isUseHandDrawnLikeStyle`、`isUseMomentum`、`alwaysShowExpandBtn`、`enableInheritAncestorLineStyle`、`imgTextMargin`、`textContentMargin`、`openPerformance`、水印配置：来自设置侧栏，经 `updateConfig` 即时生效并随 `getData(true)` 落库（库把 config 放进 `theme.config` 之外的 `config` 字段时同样透传保存）
+- `openRealtimeRenderOnNodeTextEdit`、`enableAutoEnterTextEditWhenKeydown`、`demonstrateConfig.openBlankMode`、`enableFreeDrag`、`mousewheelAction`、`mousewheelZoomActionReverse`、`createNewNodeBehavior`、`isUseHandDrawnLikeStyle`、`isUseMomentum`、`alwaysShowExpandBtn`、`enableInheritAncestorLineStyle`、`imgTextMargin`、`textContentMargin`、`openPerformance`、水印配置：来自「设置」侧栏，存 `inkling.mindmap.config`（见 D5），建实例时展开进 options，改动经 `updateConfig` 即时生效
 - `iconList: [...库内置, ...贴纸组]`（贴纸组异步加载后 `updateConfig({ iconList })`）
 - `useLeftKeySelectionRightKeyDrag` 来自 localConfig
 - `customHandleClipboardText`：移植参考端 `utils/handleClipboardText.js`
@@ -239,6 +241,5 @@ chrome/ sidebars/ popups/ dialogs/ ── useMindMap() ── mindMap.execComman
 
 ## 未决
 
-无。以下两点已在决策中给出默认值，实施时若库行为与预期不符，按「不展示该功能项 + 记录原因」处理，不阻塞其他部分：
-- FreeMind 导出（D 范围「不做」）。
+无。以下一点已在决策中给出默认值，实施时若库行为与预期不符，按「不展示该功能项 + 记录原因」处理，不阻塞其他部分：
 - `image.js` 的 2.1MB SVG 贴纸（D9 不移植）。
