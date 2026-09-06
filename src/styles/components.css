@@ -59,7 +59,11 @@
   pointer-events: none;
 }
 
+/* 指示器：默认横条形态贴顶居中。入场/静止两种变换用自定义属性表达，
+   各边只需改写这两个属性与定位锚点，动画关键帧不必按边复制四份。 */
 .hotzone-indicator {
+  --hz-rest: translateX(-50%) translateY(-5px) scale(0.94);
+  --hz-in: translateX(-50%) translateY(0) scale(1);
   position: absolute;
   top: 8px;
   left: 50%;
@@ -77,16 +81,60 @@
     inset 0 1px 0 rgba(255, 255, 255, 0.08);
   backdrop-filter: blur(16px) saturate(140%);
   opacity: 0;
-  transform: translateX(-50%) translateY(-5px) scale(0.94);
+  transform: var(--hz-rest);
   pointer-events: none;
   transition:
     opacity 0.2s ease,
     transform 0.2s ease;
 }
 
+/* 底部：贴底居中，入场方向反过来（从下方浮起）。 */
+#hotzone[data-edge='bottom'] .hotzone-indicator {
+  --hz-rest: translateX(-50%) translateY(5px) scale(0.94);
+  top: auto;
+  bottom: 8px;
+}
+
+/* 左/右：竖条形态，垂直居中；文字改竖排，进度条改为纵向增长。 */
+#hotzone[data-edge='left'] .hotzone-indicator,
+#hotzone[data-edge='right'] .hotzone-indicator {
+  --hz-in: translateY(-50%) translateX(0) scale(1);
+  top: 50%;
+  left: 8px;
+  flex-direction: column;
+  width: 34px;
+  height: 126px;
+  padding: 10px 0;
+}
+#hotzone[data-edge='left'] .hotzone-indicator {
+  --hz-rest: translateY(-50%) translateX(-5px) scale(0.94);
+}
+#hotzone[data-edge='right'] .hotzone-indicator {
+  --hz-rest: translateY(-50%) translateX(5px) scale(0.94);
+  left: auto;
+  right: 8px;
+}
+#hotzone[data-edge='left'] .hotzone-indicator-label,
+#hotzone[data-edge='right'] .hotzone-indicator-label {
+  writing-mode: vertical-rl;
+  letter-spacing: 1px;
+}
+#hotzone[data-edge='left'] .hotzone-progress,
+#hotzone[data-edge='right'] .hotzone-progress {
+  width: 3px;
+  height: 38px;
+}
+#hotzone[data-edge='left'] .hotzone-progress-value,
+#hotzone[data-edge='right'] .hotzone-progress-value {
+  width: 100%;
+  height: calc(var(--hz-progress, 0) * 100%);
+  background: linear-gradient(180deg, var(--accent), var(--cyan));
+  transition: height 0.08s linear;
+}
+
 #hotzone.sensing .hotzone-indicator {
   opacity: 1;
-  transform: translateX(-50%) translateY(0) scale(1);
+  transform: var(--hz-in);
   animation: hotzoneIndicatorIn 0.24s ease-out both;
 }
 
@@ -110,6 +158,8 @@
 
 .hotzone-progress-value {
   display: block;
+  /* 进度由 hotzone.ts 以 --hz-progress（0~1）下发；横条按宽度增长。 */
+  width: calc(var(--hz-progress, 0) * 100%);
   height: 100%;
   border-radius: inherit;
   background: linear-gradient(90deg, var(--accent), var(--cyan));
@@ -127,11 +177,11 @@
 @keyframes hotzoneIndicatorIn {
   from {
     opacity: 0;
-    transform: translateX(-50%) translateY(-5px) scale(0.94);
+    transform: var(--hz-rest);
   }
   to {
     opacity: 1;
-    transform: translateX(-50%) translateY(0) scale(1);
+    transform: var(--hz-in);
   }
 }
 
