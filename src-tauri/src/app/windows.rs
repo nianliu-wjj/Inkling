@@ -119,6 +119,10 @@ pub fn create_core_windows(app: &AppHandle, silent: bool) -> tauri::Result<()> {
         );
         create_hotzone_window(app, index, mon, &position)?;
     }
+    // 预置拓扑签名，避免 watcher 首轮对账把「首次记录」误报成「拓扑变化」。
+    if let Ok(mut signature) = MONITOR_SIGNATURE.lock() {
+        *signature = monitor_signature(&monitors);
+    }
 
     // panel：预创建常驻隐藏，呼出只做 show + focus。位置用物理像素落到光标所在屏。
     let panel = WebviewWindowBuilder::new(app, "panel", WebviewUrl::App("panel.html".into()))
