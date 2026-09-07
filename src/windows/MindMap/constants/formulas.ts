@@ -1,0 +1,23 @@
+/** 常用 LaTeX 公式（公式侧栏点选插入）。 */
+export const formulaList: readonly string[] = [
+  'a^2',
+  'a_2',
+  'a^{2+2}',
+  'a_{i,j}',
+  'x_2^3',
+  '\\overbrace{1+2+\\cdots+100}',
+  '\\sum_{k=1}^N k^2',
+  '\\lim_{n \\to \\infty}x_n',
+  '\\int_{-N}^{N} e^x\\, dx',
+  '\\sqrt{3}',
+  '\\sqrt[n]{3}',
+  '\\sin\\theta',
+  '\\log X',
+  '\\log_{10}',
+  '\\log_\\alpha X',
+  '\\lim_{t\\to n}T',
+  '\\frac{1}{2}=0.5',
+  '\\binom{n}{k}',
+  '\\begin{matrix}x & y \\\\z & v\\end{matrix}',
+  '\\begin{cases}3x + 5y +  z \\\\7x - 2y + 4z \\\\-6x + 3y + 2z\\end{cases}',
+]
