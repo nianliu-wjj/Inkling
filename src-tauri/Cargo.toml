@@ -38,6 +38,9 @@ lettre = { version = "0.11", default-features = false, features = [
   "builder",
 ] }
 base64 = "0.22"
+pinyin = "0.10"
+rayon = "1"
+walkdir = "2"
 
 # 仅 Windows：设置 DWM 窗口圆角（Win11）。Mica / Acrylic 由 DWM 在窗口矩形上绘制，
 # CSS 的 clip-path 只能裁 WebView 内容，裁不掉底下这层系统背景，四角仍是方的。
