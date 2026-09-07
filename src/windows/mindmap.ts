@@ -8,5 +8,7 @@
 import { createApp } from 'vue'
 import MindMapApp from './MindMap/MindMapApp.vue'
 import '@/styles'
+import '@/assets/mindmap/icon-font/iconfont.css'
+import '@/styles/mindmap.css'
 
 createApp(MindMapApp).mount('#app')

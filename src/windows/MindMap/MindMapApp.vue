@@ -1,34 +1,39 @@
 <script setup lang="ts">
 import { getCurrentWindow } from '@tauri-apps/api/window'
-import { computed, onMounted, ref, watch } from 'vue'
+import { NConfigProvider, NDialogProvider, dateZhCN, zhCN } from 'naive-ui'
+import type MindMap from 'simple-mind-map'
+import type { MindMapNode } from 'simple-mind-map'
+import { computed, nextTick, onMounted, reactive, ref, shallowRef, watch } from 'vue'
 import ToastHost from '@/components/base/ToastHost.vue'
 import TagList from '@/components/tag/TagList.vue'
 import TagManagerModal from '@/components/tag/TagManagerModal.vue'
 import { useNotes, useSettings } from '@/composables/useData'
-import { applyCachedTheme, useTheme } from '@/composables/useTheme'
 import { applyCachedGlass, useGlass } from '@/composables/useGlass'
+import { applyCachedTheme, useTheme } from '@/composables/useTheme'
 import { useToast } from '@/composables/useToast'
-import MindMapEditor from '@/editor/MindMapEditor.vue'
 import { logger } from '@/service/logger'
 import { api } from '@/service/tauri'
+import { createBus } from './core/bus'
+import { toggleRichText, toggleScrollbar } from './core/createMindMap'
+import { loadLocalConfig, loadMapConfig, saveLocalConfig, saveMapConfig } from './core/localConfig'
+import { buildThemeOverrides, naiveDark } from './core/naiveTheme'
+import { type MindMapFullData, parseMindMapData, serializeMindMapData } from './core/persistence'
+import { createUiState } from './core/store'
+import { provideMindMapContext } from './core/useMindMap'
+import MindMapStage from './MindMapStage.vue'
 
 /**
- * 思维导图窗口。
+ * 思维导图窗口壳。
  *
- * 独立顶层窗口，一个笔记一个（窗口 label 形如 `mindmap-<id>`，新建用 `mindmap-new`）。
- * 它不是主窗口的子窗口，因此关闭主窗口不影响它，缩放最大化也互不干扰。
+ * 独立顶层窗口，一个笔记一个（label 形如 `mindmap-<id>`，新建用 `mindmap-new`）。
+ * 顶部是 Inkling 操作条（标题 / 未保存标记 / 标签 / 关闭 / 保存），下方是铺满的画布区，
+ * 编辑 UI（工具栏 / 侧栏 / 浮层 / 对话框）由后续阶段挂进 `.mm-stage`。
  *
- * 画布铺满整个窗口——这也顺带解决了导图放在弹窗里时的老问题：
- * MindMapEditor 带 flex: 1，在高度不定的弹窗里会被无限拉伸成一块空白板。
- *
- * 打开参数（目标笔记 id，空串表示新建）在挂载时按窗口 label 向后端拉取；
- * 不走 URL 查询串，因为 `WebviewUrl::App` 收的是相对路径，`?` 会被转义掉。
+ * 本组件在根部用 provide 注入 { mindMap, bus, ui, localConfig, mapConfig }，
+ * 并负责：库事件 → bus、持久化（全量格式）、自动保存、本机配置落盘与同步到库。
  */
-
-// 启动瞬间先用缓存的主题与玻璃质感上色，避免默认深色闪一下再跳变。
 applyCachedTheme()
 applyCachedGlass()
-
 document.documentElement.dataset.window = 'mindmap'
 
 const label = getCurrentWindow().label
@@ -39,19 +44,42 @@ const { applyTheme } = useTheme()
 const { applyGlass } = useGlass()
 const { toast } = useToast()
 
-/** 目标笔记 id；空串表示新建，保存后由后端返回的 id 填入。 */
+// —— 共享上下文 ——
+const bus = createBus()
+const ui = createUiState()
+const localConfig = reactive(loadLocalConfig())
+const mapConfig = reactive(loadMapConfig())
+const mindMap = shallowRef<MindMap | null>(null)
+provideMindMapContext({ mindMap, bus, ui, localConfig, mapConfig })
+
+// —— 窗口状态 ——
 const noteId = ref('')
-/** 参数是否已拉取完成——未完成时不渲染画布，避免先建一个空导图再切数据。 */
-const ready = ref(false)
+/** 打开参数是否已拉取完成。 */
+const payloadReady = ref(false)
 const mindmapData = ref<string | null>(null)
 const tags = ref<string[]>([])
 const showTagManager = ref(false)
-/** 是否有未保存的改动，用于标题栏提示与关闭前拦截。 */
 const dirty = ref(false)
+const themeOverrides = ref(buildThemeOverrides())
+
+const isNew = computed(() => !noteId.value)
+const title = computed(() => (isNew.value ? '新建思维导图' : '编辑思维导图'))
+const note = computed(() => notes.value.find((item) => item.id === noteId.value) ?? null)
+/**
+ * 何时可以创建画布：参数已就绪，且——新建导图立即可建，编辑既有导图必须等目标笔记从
+ * 列表异步加载出来。否则会先用空的「中心主题」建实例，等真实数据到达时画布已经建好、
+ * 不再更新，用户看到的是一张空导图（这正是首次实现时踩到的坑）。
+ */
+const canRender = computed(() => payloadReady.value && (isNew.value || note.value !== null))
+/** 初始全量数据：编辑既有导图取其存储数据，新建则为空根节点。画布只在 canRender 后渲染一次。 */
+const initialData = computed<MindMapFullData>(() => parseMindMapData(note.value?.mindmap_data ?? null))
 
 watch(
   () => settings.value.theme,
-  (theme) => applyTheme(theme),
+  (theme) => {
+    applyTheme(theme)
+    void nextTick(() => (themeOverrides.value = buildThemeOverrides()))
+  },
   { immediate: true },
 )
 watch(
@@ -60,25 +88,64 @@ watch(
   { immediate: true },
 )
 
-const isNew = computed(() => !noteId.value)
-const title = computed(() => (isNew.value ? '新建思维导图' : '编辑思维导图'))
+// 本机配置改动：落盘 + 同步到库
+watch(localConfig, (next) => saveLocalConfig({ ...next }), { deep: true })
+watch(
+  () => localConfig.openNodeRichText,
+  (v) => mindMap.value && toggleRichText(mindMap.value, v),
+)
+watch(
+  () => localConfig.isShowScrollbar,
+  (v) => mindMap.value && toggleScrollbar(mindMap.value, v),
+)
+watch(
+  () => localConfig.useLeftKeySelectionRightKeyDrag,
+  (v) => mindMap.value?.updateConfig({ useLeftKeySelectionRightKeyDrag: v }),
+)
+watch(
+  () => localConfig.isZenMode,
+  (v) => {
+    ui.isZenMode = v
+  },
+  { immediate: true },
+)
+watch(
+  mapConfig,
+  (next) => {
+    saveMapConfig({ ...next })
+    mindMap.value?.updateConfig({ ...next })
+  },
+  { deep: true },
+)
 
-/** 从最新列表里取目标笔记，保证拿到的是当前数据而非打开时的快照。 */
-const note = computed(() => notes.value.find((item) => item.id === noteId.value) ?? null)
+// —— 自动保存（spec D6）——
+let autosaveTimer: ReturnType<typeof setTimeout> | null = null
 
-function onDataChange(value: string): void {
-  mindmapData.value = value
-  dirty.value = true
+/** view_data_change 只改视图位置：仍保存（视图是全量数据一部分），但不标记「未保存」打扰用户。 */
+function markDirtyAndAutosave(viewOnly = false): void {
+  const instance = mindMap.value
+  if (!instance) return
+  mindmapData.value = serializeMindMapData(instance.getData(true) as MindMapFullData)
+  if (!viewOnly) dirty.value = true
+  if (!noteId.value) return // 新建导图首次必须手动保存，否则每开一次就静默产生空笔记
+  if (autosaveTimer) clearTimeout(autosaveTimer)
+  autosaveTimer = setTimeout(() => {
+    autosaveTimer = null
+    void save(true)
+  }, 1500)
 }
 
-async function save(): Promise<void> {
+async function save(silent = false): Promise<void> {
+  const instance = mindMap.value
+  if (instance) {
+    mindmapData.value = serializeMindMapData(instance.getData(true) as MindMapFullData)
+  }
   if (!mindmapData.value) {
-    toast('请先编辑思维导图内容')
+    if (!silent) toast('请先编辑思维导图内容')
     return
   }
   try {
     const saved = await api.notes.save({
-      // 新建时不带 id，后端插入新记录并回传 id，后续保存复用它。
       id: noteId.value || undefined,
       content: note.value?.content ?? '',
       tags: [...tags.value],
@@ -88,16 +155,18 @@ async function save(): Promise<void> {
     })
     noteId.value = saved.id
     dirty.value = false
-    toast('已保存')
-    logger.info('mindmap', `保存思维导图 id=${saved.id}`)
+    if (silent) logger.info('mindmap', `自动保存 id=${saved.id}`)
+    else {
+      toast('已保存')
+      logger.info('mindmap', `保存思维导图 id=${saved.id}`)
+    }
   } catch (error) {
     logger.error('mindmap', '保存思维导图失败', error)
-    toast('保存失败')
+    if (!silent) toast('保存失败')
   }
 }
 
 async function close(): Promise<void> {
-  // 有未保存改动时先确认，避免一次误点丢掉整张导图。
   if (dirty.value && !window.confirm('思维导图尚未保存，确认关闭？')) return
   try {
     await api.windows.mindmapClose(label)
@@ -112,7 +181,40 @@ function saveTags(next: string[]): void {
   showTagManager.value = false
 }
 
-/** ⌃/⌘+S 保存，与其他编辑面板一致。 */
+/** 画布实例创建完成：绑定库事件到 bus 与保存链路。 */
+function onCreated(instance: MindMap): void {
+  mindMap.value = instance
+  bus.on('data_change', () => markDirtyAndAutosave())
+  bus.on('view_data_change', () => markDirtyAndAutosave(true))
+  bus.on('setData', (data) => {
+    const full = data as Partial<MindMapFullData>
+    if (full.root) instance.setFullData(full)
+    else instance.setData(data)
+    instance.view.reset()
+    markDirtyAndAutosave()
+  })
+  bus.on('execCommand', (...args) => instance.execCommand(...(args as [string, ...unknown[]])))
+  bus.on('export', async (...args) => {
+    try {
+      await instance.export(...(args as [string, boolean, string]))
+    } catch (error) {
+      logger.error('mindmap', '导出失败', error)
+    }
+  })
+  bus.on('startPainter', () => instance.painter?.startPainter())
+  bus.on('createAssociativeLine', () => instance.associativeLine?.createLineFromActiveNode())
+  bus.on('startTextEdit', () => instance.renderer.startTextEdit())
+  bus.on('endTextEdit', () => instance.renderer.endTextEdit())
+  bus.on('node_active', (_node, list) => {
+    ui.activeNodes = [...((list as MindMapNode[]) ?? [])]
+  })
+  bus.on('mode_change', (mode) => {
+    ui.isReadonly = mode === 'readonly'
+  })
+  bus.on('toast', (text) => toast(String(text)))
+  instance.keyCommand.addShortcut('Control+s', () => void save())
+}
+
 function onKeydown(event: KeyboardEvent): void {
   if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 's') {
     event.preventDefault()
@@ -122,18 +224,16 @@ function onKeydown(event: KeyboardEvent): void {
 
 onMounted(() => {
   window.addEventListener('keydown', onKeydown)
-
   void api.windows
     .mindmapPayload(label)
     .then((id) => {
       noteId.value = id ?? ''
-      ready.value = true
+      payloadReady.value = true
       logger.info('mindmap', `打开思维导图 label=${label} id=${noteId.value || '(新建)'}`)
     })
     .catch((error) => {
       logger.error('mindmap', '获取打开参数失败', error)
-      // 拿不到参数时按新建处理，至少窗口是可用的。
-      ready.value = true
+      payloadReady.value = true
     })
 })
 
@@ -146,30 +246,36 @@ watch(note, (value) => {
 </script>
 
 <template>
-  <div class="mindmap-window">
-    <header class="mindmap-bar">
-      <span class="mindmap-title">🧠 {{ title }}<em v-if="dirty" class="mindmap-dirty">未保存</em></span>
-      <div class="mindmap-actions">
-        <div class="tag-preview" title="点击管理标签">
-          <TagList :tags="tags" :max="3" @open="showTagManager = true" />
+  <NConfigProvider :theme="naiveDark" :theme-overrides="themeOverrides" :locale="zhCN" :date-locale="dateZhCN">
+    <NDialogProvider>
+      <div class="mindmap-window" :class="{ zen: ui.isZenMode }">
+        <header class="mindmap-bar">
+          <span class="mindmap-title">🧠 {{ title }}<em v-if="dirty" class="mindmap-dirty">未保存</em></span>
+          <div class="mindmap-actions">
+            <div class="tag-preview" title="点击管理标签">
+              <TagList :tags="tags" :max="3" @open="showTagManager = true" />
+            </div>
+            <button type="button" class="btn" @click="close">关闭</button>
+            <button type="button" class="btn primary" @click="save()">保存 ⌃S</button>
+          </div>
+        </header>
+
+        <div class="mm-stage">
+          <MindMapStage v-if="canRender" :data="initialData" @created="onCreated" />
+          <!-- 后续阶段在此挂 Toolbar / NavigatorToolbar / SidebarTrigger / 各侧栏 / 各浮层 / 各对话框 -->
         </div>
-        <button type="button" class="btn" @click="close">关闭</button>
-        <button type="button" class="btn primary" @click="save">保存 ⌃S</button>
+
+        <TagManagerModal
+          v-if="showTagManager"
+          :tags="tags"
+          :max-length="5"
+          subtitle="当前思维导图的标签"
+          @save="saveTags"
+          @close="showTagManager = false"
+        />
+
+        <ToastHost />
       </div>
-    </header>
-
-    <!-- 画布铺满窗口余下空间；参数未就绪时不渲染，避免先建空导图再换数据 -->
-    <MindMapEditor v-if="ready" :model-value="mindmapData" placeholder="中心主题" @update:model-value="onDataChange" />
-
-    <TagManagerModal
-      v-if="showTagManager"
-      :tags="tags"
-      :max-length="5"
-      subtitle="当前思维导图的标签"
-      @save="saveTags"
-      @close="showTagManager = false"
-    />
-
-    <ToastHost />
-  </div>
+    </NDialogProvider>
+  </NConfigProvider>
 </template>

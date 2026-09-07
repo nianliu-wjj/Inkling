@@ -1,0 +1,82 @@
+/**
+ * 思维导图窗口专用样式（只由 mindmap.ts 引入，不进其他窗口）。
+ *
+ * 窗口壳（.mindmap-window / .mindmap-bar / .mindmap-title / .mindmap-actions）原在
+ * window-fit.css，随全功能改造迁到此处；新增画布舞台与编辑 UI 浮层的通用外观。
+ */
+
+/* ═══ 窗口壳 ═══ */
+.mindmap-window {
+  display: flex;
+  height: 100vh;
+  flex-direction: column;
+  padding: 10px 12px 12px;
+  gap: 8px;
+}
+/* 操作条：标题在左，标签与按钮在右。 */
+.mindmap-bar {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 10px;
+}
+.mindmap-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--text);
+}
+/* 未保存标记：不用弹窗打扰，只在标题旁给一个静态提示。 */
+.mindmap-dirty {
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: rgba(var(--accent-rgb), 0.14);
+  color: var(--accent);
+  font-size: 10.5px;
+  font-style: normal;
+  font-weight: 500;
+}
+.mindmap-actions {
+  display: flex;
+  margin-left: auto;
+  align-items: center;
+  gap: 8px;
+}
+/* 禅模式：隐藏一切 chrome，只留画布。 */
+.mindmap-window.zen .mindmap-bar {
+  display: none;
+}
+
+/* ═══ 画布舞台 ═══ */
+/* 舞台占满剩余高度并作为所有编辑 UI 浮层的定位上下文。
+   min-height: 0 必须——否则 flex 子项不肯收缩，画布溢出窗口底部。 */
+.mm-stage {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  border-radius: 8px;
+  overflow: hidden;
+  background: rgba(var(--wsa), 0.04);
+}
+/* 画布铺满舞台。 */
+.mm-canvas {
+  position: absolute;
+  inset: 0;
+}
+/* 全局 tokens 关闭了 user-select，节点文本编辑需放开，否则双击节点无法输入。 */
+.mm-canvas :deep([contenteditable='true']),
+.mm-canvas .smm-richtext-node-wrap {
+  user-select: text;
+  -webkit-user-select: text;
+}
+
+/* ═══ 编辑 UI 浮层通用外观（工具栏 / 侧栏 / 菜单 / 面板复用）═══ */
+.mm-panel {
+  background: var(--menu-bg);
+  border: 1px solid rgba(var(--wsa), 0.14);
+  border-radius: 10px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(20px);
+}

@@ -80,50 +80,7 @@
   overflow: hidden;
   background: var(--body-bg);
 }
-.mindmap-window {
-  display: flex;
-  height: 100vh;
-  flex-direction: column;
-  padding: 10px 12px 12px;
-  gap: 8px;
-}
-/* 操作条：标题在左，标签与按钮在右。 */
-.mindmap-bar {
-  display: flex;
-  flex: none;
-  align-items: center;
-  gap: 10px;
-}
-.mindmap-title {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 13.5px;
-  font-weight: 600;
-  color: var(--text);
-}
-/* 未保存标记：不用弹窗打扰，只在标题旁给一个静态提示。 */
-.mindmap-dirty {
-  padding: 1px 6px;
-  border-radius: 999px;
-  background: rgba(var(--accent-rgb), 0.14);
-  color: var(--accent);
-  font-size: 10.5px;
-  font-style: normal;
-  font-weight: 500;
-}
-.mindmap-actions {
-  display: flex;
-  margin-left: auto;
-  align-items: center;
-  gap: 8px;
-}
-/* 画布占满剩余高度。min-height: 0 是必须的——否则 flex 子项不肯收缩，
-   画布会溢出窗口底部。 */
-.mindmap-window .mindmap-editor {
-  flex: 1;
-  min-height: 0;
-}
+/* 思维导图窗口壳样式已迁往 src/styles/mindmap.css（只由 mindmap.ts 引入）。 */
 
 /* ═══ 独立编辑窗口：全屏压暗遮罩 + 居中对话框 ═══
  * 窗口铺满显示器工作区且以 transparent 创建，若不把 body 背景清成透明，

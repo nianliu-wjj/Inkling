@@ -72,10 +72,6 @@ export function createMindMap(params: CreateMindMapParams): MindMap {
     el,
     data: data.root,
     fit: false,
-    layout: data.layout,
-    theme: data.theme?.template,
-    themeConfig: data.theme?.config,
-    viewData: data.view,
     nodeTextEditZIndex: 1000,
     nodeNoteTooltipZIndex: 1000,
     customNoteContentShow: {
@@ -90,7 +86,6 @@ export function createMindMap(params: CreateMindMapParams): MindMap {
     defaultNodeImage: brokenImage,
     initRootNodePosition: ['center', 'center'],
     handleIsSplitByWrapOnPasteCreateNewNode: () => params.confirm('是否按换行自动分割节点？'),
-    // 节点链接（#uid）在导图内跳转，普通链接交给系统浏览器（由 MindMapApp 注入 openUrl）。
     errorHandler: (code: string, error: unknown) => {
       logger.error('mindmap', `库错误 ${code}`, error)
       if (code === 'export_error') params.onExportError()
@@ -111,6 +106,14 @@ export function createMindMap(params: CreateMindMapParams): MindMap {
     // 参考端语义：resolve(false) 表示允许删除（用户已确认），resolve(true) 表示阻止。
     beforeDeleteNodeImg: () => params.confirm('是否确认删除该节点图片？').then((ok) => !ok),
   }
+  // 主题 / 结构 / 视图仅在持久化数据里确有其值时注入。
+  // 关键：绝不能以 `themeConfig: undefined` 显式覆盖库默认值——那会让 initTheme 的
+  // deepmerge 对 undefined 执行 Object.keys 而抛「Cannot convert undefined or null to object」，
+  // 旧格式（仅 root）笔记因此打不开。省略该键则库沿用默认 {}。
+  if (data.layout) options.layout = data.layout
+  if (data.theme?.template) options.theme = data.theme.template
+  if (data.theme?.config) options.themeConfig = data.theme.config
+  if (data.view) options.viewData = data.view
   logger.info('mindmap', `创建实例 layout=${data.layout ?? '(默认)'} theme=${data.theme?.template ?? '(默认)'}`)
   const mindMap = new MindMap(options)
   FORWARDED_EVENTS.forEach((event) => mindMap.on(event, (...args: unknown[]) => bus.emit(event, ...args)))
