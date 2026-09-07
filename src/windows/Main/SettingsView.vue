@@ -6,6 +6,7 @@ import { useGlass } from '@/composables/useGlass'
 import { useTheme } from '@/composables/useTheme'
 import { glassLevels } from '@/constants/glass'
 import { builtinPlugins, resolvePlugins, serializePlugins } from '@/panel-plugins'
+import { builtinIslandPlugins, resolveIslandPlugins, serializeIslandPlugins } from '@/island-plugins'
 import { themes } from '@/constants/themes'
 import { logger } from '@/service/logger'
 import { api } from '@/service/tauri'
@@ -156,6 +157,56 @@ function togglePlugin(id: string, enabled: boolean): void {
   const ordered = builtinPlugins.filter((plugin) => next.has(plugin.id))
   logger.info('settings', `面板插件启用列表 = ${serializePlugins(ordered)}`)
   void patch({ panel_plugins: serializePlugins(ordered) })
+}
+
+/** 灵动岛尺寸等数值项的允许范围（与 Rust 侧 island_clamp 一致，前端先钳一遍避免来回抖动）。 */
+const ISLAND_LIMITS = {
+  width: { min: 200, max: 800 },
+  height: { min: 28, max: 72 },
+  opacity: { min: 0.3, max: 1 },
+  cycle: { min: 2, max: 30 },
+} as const
+
+function clampNumber(value: number, range: { min: number; max: number }, fallback: number): number {
+  if (!Number.isFinite(value)) return fallback
+  return Math.min(range.max, Math.max(range.min, value))
+}
+
+/** 灵动岛数值设置：解析输入、钳制范围后保存。 */
+function patchIslandNumber(
+  key: 'island_width' | 'island_height' | 'island_opacity' | 'island_cycle_seconds',
+  raw: string,
+): void {
+  const range =
+    key === 'island_width'
+      ? ISLAND_LIMITS.width
+      : key === 'island_height'
+        ? ISLAND_LIMITS.height
+        : key === 'island_opacity'
+          ? ISLAND_LIMITS.opacity
+          : ISLAND_LIMITS.cycle
+  const value = clampNumber(Number(raw), range, settings.value[key])
+  logger.info('settings', `灵动岛 ${key} = ${value}`)
+  void patch({ [key]: value } as Partial<Settings>)
+}
+
+/** 当前启用的灵动岛插件 id 集合。 */
+const enabledIslandPluginIds = computed(
+  () => new Set(resolveIslandPlugins(settings.value.island_plugins).map((plugin) => plugin.id)),
+)
+
+/** 启用 / 禁用某个灵动岛插件；与面板插件同理，至少保留一个。 */
+function toggleIslandPlugin(id: string, enabled: boolean): void {
+  const next = new Set(enabledIslandPluginIds.value)
+  if (enabled) next.add(id)
+  else next.delete(id)
+  if (next.size === 0) {
+    toast('至少需要启用一个灵动岛插件')
+    return
+  }
+  const ordered = builtinIslandPlugins.filter((plugin) => next.has(plugin.id))
+  logger.info('settings', `灵动岛插件启用列表 = ${serializeIslandPlugins(ordered)}`)
+  void patch({ island_plugins: serializeIslandPlugins(ordered) })
 }
 
 /**
@@ -312,6 +363,77 @@ async function openDataDir(): Promise<void> {
           type="checkbox"
           :checked="enabledPluginIds.has(plugin.id)"
           @change="togglePlugin(plugin.id, ($event.target as HTMLInputElement).checked)"
+        />
+      </label>
+
+      <div class="setting-section-title">灵动岛</div>
+      <p class="setting-hint">
+        主屏顶部居中的胶囊，轮播当日待办；悬停查看详情，左键点击唤出面板到待办页。
+        开启<strong>鼠标穿透</strong>后点击会直接穿到桌面，悬停与点击改由后端光标探测。
+      </p>
+      <label class="setting-row">
+        <span>显示灵动岛</span>
+        <input
+          type="checkbox"
+          :checked="settings.island_enabled"
+          @change="patch({ island_enabled: ($event.target as HTMLInputElement).checked })"
+        />
+      </label>
+      <label class="setting-row">
+        <span>宽度（{{ ISLAND_LIMITS.width.min }}–{{ ISLAND_LIMITS.width.max }}）</span>
+        <input
+          type="number"
+          :min="ISLAND_LIMITS.width.min"
+          :max="ISLAND_LIMITS.width.max"
+          :value="settings.island_width"
+          @change="patchIslandNumber('island_width', ($event.target as HTMLInputElement).value)"
+        />
+      </label>
+      <label class="setting-row">
+        <span>高度（{{ ISLAND_LIMITS.height.min }}–{{ ISLAND_LIMITS.height.max }}）</span>
+        <input
+          type="number"
+          :min="ISLAND_LIMITS.height.min"
+          :max="ISLAND_LIMITS.height.max"
+          :value="settings.island_height"
+          @change="patchIslandNumber('island_height', ($event.target as HTMLInputElement).value)"
+        />
+      </label>
+      <label class="setting-row">
+        <span>背景不透明度 {{ Math.round(settings.island_opacity * 100) }}%</span>
+        <input
+          type="range"
+          :min="ISLAND_LIMITS.opacity.min"
+          :max="ISLAND_LIMITS.opacity.max"
+          step="0.05"
+          :value="settings.island_opacity"
+          @change="patchIslandNumber('island_opacity', ($event.target as HTMLInputElement).value)"
+        />
+      </label>
+      <label class="setting-row">
+        <span>鼠标穿透（零干扰）</span>
+        <input
+          type="checkbox"
+          :checked="settings.island_click_through"
+          @change="patch({ island_click_through: ($event.target as HTMLInputElement).checked })"
+        />
+      </label>
+      <label class="setting-row">
+        <span>轮播间隔（秒，{{ ISLAND_LIMITS.cycle.min }}–{{ ISLAND_LIMITS.cycle.max }}）</span>
+        <input
+          type="number"
+          :min="ISLAND_LIMITS.cycle.min"
+          :max="ISLAND_LIMITS.cycle.max"
+          :value="settings.island_cycle_seconds"
+          @change="patchIslandNumber('island_cycle_seconds', ($event.target as HTMLInputElement).value)"
+        />
+      </label>
+      <label v-for="plugin in builtinIslandPlugins" :key="plugin.id" class="setting-row">
+        <span>🧩 {{ plugin.label }}</span>
+        <input
+          type="checkbox"
+          :checked="enabledIslandPluginIds.has(plugin.id)"
+          @change="toggleIslandPlugin(plugin.id, ($event.target as HTMLInputElement).checked)"
         />
       </label>
 
