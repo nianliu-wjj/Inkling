@@ -2,7 +2,7 @@
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
   "description": "Inkling 全部窗口权限",
-  "windows": ["main", "panel", "hotzone", "editor", "mindmap-*", "pinned-*", "reminder-*"],
+  "windows": ["main", "panel", "hotzone", "hotzone-*", "editor", "mindmap-*", "pinned-*", "reminder-*"],
   "permissions": [
     "core:default",
     "core:window:allow-start-dragging",

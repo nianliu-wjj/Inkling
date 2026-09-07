@@ -17,6 +17,12 @@ pub struct AppState {
     /// 用 Map 而非单值：导图窗口可以同时开多个（每个笔记一个），
     /// 单值会被后开的窗口覆盖掉先开的那个。
     pub mindmap_payloads: Mutex<std::collections::HashMap<String, String>>,
+    /// 各感应区窗口的**物理像素**矩形 (left, top, right, bottom)，label → rect。
+    ///
+    /// 由建窗 / 重定位时写入，hotzone_watcher 每轮读取。不回读窗口的 outer_position：
+    /// 混合 DPI（主屏 1.5×、外接屏 1.0×）下 tao 回报的位置会在两种缩放间跳变，
+    /// 用它判定进入/离开会闪烁；自己算出来的物理矩形与 cursor_position 同坐标系，稳定。
+    pub hotzone_rects: Mutex<std::collections::HashMap<String, (f64, f64, f64, f64)>>,
 }
 
 impl AppState {
@@ -26,7 +32,28 @@ impl AppState {
             echo: Mutex::new(None),
             editor_payload: Mutex::new(None),
             mindmap_payloads: Mutex::new(std::collections::HashMap::new()),
+            hotzone_rects: Mutex::new(std::collections::HashMap::new()),
         }
+    }
+
+    pub fn set_hotzone_rect(&self, label: String, rect: (f64, f64, f64, f64)) {
+        if let Ok(mut map) = self.hotzone_rects.lock() {
+            map.insert(label, rect);
+        }
+    }
+
+    /// 显示器拔掉后对应感应区窗口已关闭，同步移除其矩形，避免 watcher 继续对幽灵窗口发事件。
+    pub fn remove_hotzone_rect(&self, label: &str) {
+        if let Ok(mut map) = self.hotzone_rects.lock() {
+            map.remove(label);
+        }
+    }
+
+    pub fn hotzone_rects(&self) -> Vec<(String, (f64, f64, f64, f64))> {
+        self.hotzone_rects
+            .lock()
+            .map(|map| map.iter().map(|(k, v)| (k.clone(), *v)).collect())
+            .unwrap_or_default()
     }
 
     pub fn lock_store(&self) -> Result<std::sync::MutexGuard<'_, Store>, String> {

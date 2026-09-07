@@ -57,6 +57,9 @@ function stopSensing(): void {
   setProgress(0)
 }
 
+/** 本轮悬停是否已经呼出过面板：防止同一轮内重复 invoke。 */
+let fired = false
+
 function updateSensing(timestamp: number): void {
   if (!zone.classList.contains('sensing')) return
   const elapsed = timestamp - hoverStartedAt
@@ -64,6 +67,8 @@ function updateSensing(timestamp: number): void {
   if (elapsed >= HOVER_DELAY_MS) {
     animationFrame = null
     zone.classList.remove('sensing')
+    if (fired) return
+    fired = true
     logger.info('hotzone', '悬停达到 3 秒阈值，呼出面板')
     void invoke('panel_show').catch((error) => logger.error('hotzone', '呼出面板失败', error))
     return
@@ -72,7 +77,9 @@ function updateSensing(timestamp: number): void {
 }
 
 function startSensing(): void {
-  if (zone.classList.contains('sensing')) return
+  // 先清掉可能残留的上一轮帧循环，保证任何时刻只有一条 rAF 链在跑。
+  stopSensing()
+  fired = false
   hoverStartedAt = performance.now()
   zone.classList.add('sensing')
   animationFrame = requestAnimationFrame(updateSensing)
