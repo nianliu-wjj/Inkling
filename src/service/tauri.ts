@@ -13,6 +13,24 @@ import type {
   TodoInput,
 } from '@/typings/domain'
 
+/** 启动器命中项（对应 Rust services::launcher::model::Hit）。 */
+export interface LauncherHit {
+  id: number
+  kind: 'app' | 'uwp' | 'file' | 'folder' | 'command'
+  name: string
+  path: string
+  score: number
+  matched_keyword: string
+}
+
+/** 启动器索引状态。 */
+export interface LauncherStatus {
+  count: number
+  generation: number
+  created_at: number
+  rebuilding: boolean
+}
+
 export const api = {
   windows: {
     panelShow: () => invoke<void>('panel_show'),
@@ -50,6 +68,23 @@ export const api = {
   island: {
     /** 悬停展开 / 收起（只改窗口高度）。 */
     expand: (expanded: boolean) => invoke<void>('island_expand', { expanded }),
+  },
+
+  /** 启动器搜索。 */
+  launcher: {
+    /** 搜索，返回 Top-K 命中。 */
+    search: (query: string) => invoke<LauncherHit[]>('launcher_search', { query }),
+    /** 启动候选。mode：open / admin / reveal；query 用于记录查询亲和度。 */
+    launch: (id: number, mode: 'open' | 'admin' | 'reveal', query: string) =>
+      invoke<void>('launcher_launch', { id, mode, query }),
+    /** 立即重建索引（后台）。 */
+    rebuild: () => invoke<void>('launcher_rebuild'),
+    /** 索引状态。 */
+    status: () => invoke<LauncherStatus>('launcher_status'),
+    /** 隐藏搜索窗口。 */
+    hide: () => invoke<void>('launcher_hide'),
+    /** 改绑启动器全局快捷键。 */
+    rebindShortcut: (combo: string) => invoke<string>('rebind_launcher_shortcut', { combo }),
   },
   shortcut: {
     rebind: (combo: string) => invoke<string>('rebind_shortcut', { combo }),

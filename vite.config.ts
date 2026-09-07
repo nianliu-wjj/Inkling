@@ -16,6 +16,7 @@ export default defineConfig({
         pinned: fileURLToPath(new URL('./pinned.html', import.meta.url)),
         reminder: fileURLToPath(new URL('./reminder.html', import.meta.url)),
         island: fileURLToPath(new URL('./island.html', import.meta.url)),
+        launcher: fileURLToPath(new URL('./launcher.html', import.meta.url)),
       },
     },
   },
