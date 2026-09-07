@@ -1,0 +1,158 @@
+/**
+ * 灵动岛窗口样式（只由 island.ts 引入）。
+ *
+ * 窗口本身透明；胶囊是 .island 元素。背景不透明度由 --island-alpha 控制（设置项），
+ * 文字始终不透明。收起态是 999px 圆角的单行胶囊，展开态放宽圆角显示详情。
+ */
+:root[data-window='island'],
+:root[data-window='island'] body,
+:root[data-window='island'] #app {
+  background: transparent !important;
+  overflow: hidden;
+}
+
+.island {
+  --island-alpha: 0.85;
+  box-sizing: border-box;
+  width: 100vw;
+  height: 100vh;
+  padding: 0 14px;
+  display: flex;
+  align-items: center;
+  border-radius: 999px;
+  border: 1px solid rgba(var(--wsa), 0.18);
+  /* 与 --menu-bg 同色系但可调 alpha：取深色底 + 设置的不透明度 */
+  background: rgba(24, 26, 40, var(--island-alpha));
+  box-shadow:
+    0 6px 20px rgba(0, 0, 0, 0.28),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  backdrop-filter: blur(18px) saturate(140%);
+  color: var(--text);
+  font-size: 12.5px;
+  user-select: none;
+  transition:
+    border-radius 0.2s ease,
+    background 0.2s ease,
+    transform 0.12s ease;
+}
+.island.clicked {
+  transform: scale(0.98);
+}
+.island.expanded {
+  align-items: flex-start;
+  padding: 10px 16px;
+  border-radius: 18px;
+}
+
+/* ═══ 收起态 ═══ */
+.island-line {
+  position: relative;
+  flex: 1;
+  height: 100%;
+  overflow: hidden;
+}
+.island-row {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.island-dot {
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+.island-title {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.island-meta {
+  flex: none;
+  color: var(--text-dim);
+  font-variant-numeric: tabular-nums;
+}
+.island-count {
+  flex: none;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: rgba(var(--wsa), 0.1);
+  color: var(--text-dim);
+  font-size: 10.5px;
+}
+.island-empty .island-title {
+  color: var(--text-dim);
+}
+
+/* 条目切换：旧条目上滚出、新条目自下滚入（240ms）。 */
+.island-roll-enter-active,
+.island-roll-leave-active {
+  transition:
+    transform 0.24s ease,
+    opacity 0.24s ease;
+}
+.island-roll-enter-from {
+  transform: translateY(100%);
+  opacity: 0;
+}
+.island-roll-leave-to {
+  transform: translateY(-100%);
+  opacity: 0;
+}
+
+/* ═══ 展开态 ═══ */
+.island-expanded {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: 100%;
+  min-width: 0;
+}
+.island-detail {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+.island-detail-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.4;
+}
+.island-overdue {
+  padding: 0 6px;
+  border-radius: 999px;
+  background: rgba(255, 95, 87, 0.18);
+  color: var(--red);
+  font-size: 10.5px;
+  font-weight: 500;
+}
+.island-detail-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  color: var(--text-dim);
+  font-size: 11.5px;
+}
+.island-detail-remark {
+  color: var(--text-dim);
+  font-size: 11.5px;
+  line-height: 1.5;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+.island-hint {
+  margin-top: auto;
+  color: var(--text-dim);
+  font-size: 10.5px;
+  opacity: 0.8;
+}

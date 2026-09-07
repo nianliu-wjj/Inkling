@@ -43,6 +43,13 @@ export const api = {
     pinClose: (label: string) => invoke<void>('pin_close', { label }),
     pinSetEditing: (label: string, expanded: boolean) => invoke<void>('pin_set_editing', { label, expanded }),
     reminderClose: (todoId: string) => invoke<void>('reminder_close', { todoId }),
+    /** 面板显示后取走「本次应切到的插件页」（灵动岛点击写入），无则 null。 */
+    panelTakePage: () => invoke<string | null>('panel_take_page'),
+  },
+  /** 灵动岛。 */
+  island: {
+    /** 悬停展开 / 收起（只改窗口高度）。 */
+    expand: (expanded: boolean) => invoke<void>('island_expand', { expanded }),
   },
   shortcut: {
     rebind: (combo: string) => invoke<string>('rebind_shortcut', { combo }),

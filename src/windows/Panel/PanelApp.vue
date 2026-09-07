@@ -79,6 +79,17 @@ const PANEL_HEIGHT_PADDING = 12
 /** 当前启用的插件，顺序即展示顺序与快捷键序号。 */
 const plugins = computed(() => resolvePlugins(settings.value.panel_plugins))
 
+/** 切到指定插件页；页不存在或未启用时忽略（不让面板落到空白）。 */
+function navigateTo(page: string | null | undefined): void {
+  if (!page) return
+  if (!plugins.value.some((plugin) => plugin.id === page)) {
+    logger.warn('panel', `请求切到未启用的插件页 ${page}，忽略`)
+    return
+  }
+  logger.info('panel', `切到插件页 ${page}`)
+  activeId.value = page
+}
+
 /**
  * 保证 activeId 始终指向一个启用中的插件。
  *
@@ -320,10 +331,18 @@ onMounted(() => {
   playEnter()
 
   // 后端每次显示面板都会广播，据此重播入场动画并复位到笔记态。
+  // 灵动岛点击等「带页呼出」把目标页存在后端，此时取走并切页（隐藏期间的事件会丢，所以主动拉）。
   void onAppEvent(AppEvents.panelShown, () => {
     clearCollapseTimer()
     playEnter()
+    void api.windows
+      .panelTakePage()
+      .then((page) => navigateTo(page))
+      .catch((error) => logger.error('panel', '读取待切换页失败', error))
   })
+
+  // 面板已可见时其他窗口请求切页（灵动岛点击、后续插件），直接响应。
+  void onAppEvent<string>(AppEvents.panelNavigate, (page) => navigateTo(page))
 
   // 独立编辑窗口关闭 → 解除保护；若此时鼠标已不在面板上，按策略重新计时。
   void onAppEvent(AppEvents.editorClosed, () => {

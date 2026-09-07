@@ -15,6 +15,7 @@ export default defineConfig({
         mindmap: fileURLToPath(new URL('./mindmap.html', import.meta.url)),
         pinned: fileURLToPath(new URL('./pinned.html', import.meta.url)),
         reminder: fileURLToPath(new URL('./reminder.html', import.meta.url)),
+        island: fileURLToPath(new URL('./island.html', import.meta.url)),
       },
     },
   },
