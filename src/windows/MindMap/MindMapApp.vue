@@ -20,6 +20,7 @@ import { buildThemeOverrides, naiveDark } from './core/naiveTheme'
 import { type MindMapFullData, parseMindMapData, serializeMindMapData } from './core/persistence'
 import { createUiState } from './core/store'
 import { provideMindMapContext } from './core/useMindMap'
+import Toolbar from './chrome/Toolbar.vue'
 import MindMapStage from './MindMapStage.vue'
 
 /**
@@ -262,7 +263,11 @@ watch(note, (value) => {
 
         <div class="mm-stage">
           <MindMapStage v-if="canRender" :data="initialData" @created="onCreated" />
-          <!-- 后续阶段在此挂 Toolbar / NavigatorToolbar / SidebarTrigger / 各侧栏 / 各浮层 / 各对话框 -->
+          <!-- 编辑 UI：仅在实例就绪后渲染，避免组件里 requireMindMap 抛错 -->
+          <template v-if="mindMap">
+            <Toolbar />
+          </template>
+          <!-- 后续阶段在此挂 NavigatorToolbar / SidebarTrigger / 各侧栏 / 各浮层 / 各对话框 -->
         </div>
 
         <TagManagerModal

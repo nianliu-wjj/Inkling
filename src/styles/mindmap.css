@@ -80,3 +80,72 @@
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
   backdrop-filter: blur(20px);
 }
+
+/* ═══ 顶部工具栏 ═══ */
+/* 浮于画布顶部居中，横向排布；小屏时自动换行。 */
+.mm-toolbar {
+  position: absolute;
+  top: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  max-width: calc(100% - 24px);
+  padding: 5px 8px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+.mm-toolbar-group {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex-wrap: wrap;
+}
+.mm-toolbar-sep {
+  width: 1px;
+  align-self: stretch;
+  margin: 2px 4px;
+  background: rgba(var(--wsa), 0.14);
+}
+/* 单个工具按钮：图标在上、文字在下，hover 提亮，禁用降透明。 */
+.mm-tool-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  min-width: 46px;
+  padding: 5px 6px;
+  border: none;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--text);
+  cursor: pointer;
+  transition: background 0.14s;
+}
+.mm-tool-btn .iconfont {
+  font-size: 16px;
+  line-height: 1;
+}
+.mm-tool-label {
+  font-size: 10.5px;
+  color: var(--text-dim);
+  white-space: nowrap;
+}
+.mm-tool-btn:hover:not(:disabled) {
+  background: rgba(var(--wsa), 0.12);
+}
+.mm-tool-btn:hover:not(:disabled) .mm-tool-label {
+  color: var(--text);
+}
+.mm-tool-btn.active {
+  background: rgba(var(--accent-rgb), 0.22);
+}
+.mm-tool-btn.active .mm-tool-label {
+  color: var(--accent);
+}
+.mm-tool-btn:disabled {
+  opacity: 0.32;
+  cursor: not-allowed;
+}
