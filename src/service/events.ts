@@ -24,6 +24,12 @@ export const AppEvents = {
   hotzoneHover: 'inkling://hotzone-hover',
   /** 编辑窗口已关闭（广播）：面板据此恢复失焦收起计时。 */
   editorClosed: 'inkling://editor-closed',
+  /** 光标进入 / 离开灵动岛，payload 为 boolean；穿透模式下由后端轮询探测。 */
+  islandHover: 'inkling://island-hover',
+  /** 灵动岛被左键点击（穿透模式下由后端左键边沿探测）。 */
+  islandClick: 'inkling://island-click',
+  /** 请求面板切换到某个插件页，payload 为插件 id。 */
+  panelNavigate: 'inkling://panel-navigate',
 } as const
 
 export type AppEvent = (typeof AppEvents)[keyof typeof AppEvents]

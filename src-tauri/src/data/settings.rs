@@ -75,6 +75,37 @@ impl Store {
             })
             .smtp_from(values.get("smtp_from").cloned().unwrap_or_default())
             .smtp_to(values.get("smtp_to").cloned().unwrap_or_default())
+            .island_enabled(flag(&values, "island_enabled", *defaults.island_enabled()))
+            .island_width(
+                values
+                    .get("island_width")
+                    .and_then(|x| x.parse().ok())
+                    .unwrap_or(*defaults.island_width()),
+            )
+            .island_height(
+                values
+                    .get("island_height")
+                    .and_then(|x| x.parse().ok())
+                    .unwrap_or(*defaults.island_height()),
+            )
+            .island_opacity(
+                values
+                    .get("island_opacity")
+                    .and_then(|x| x.parse().ok())
+                    .unwrap_or(*defaults.island_opacity()),
+            )
+            .island_click_through(flag(
+                &values,
+                "island_click_through",
+                *defaults.island_click_through(),
+            ))
+            .island_cycle_seconds(
+                values
+                    .get("island_cycle_seconds")
+                    .and_then(|x| x.parse().ok())
+                    .unwrap_or(*defaults.island_cycle_seconds()),
+            )
+            .island_plugins(pick(&values, "island_plugins", defaults.island_plugins()))
             .build()
     }
 
@@ -111,6 +142,19 @@ impl Store {
             ("smtp_password", password),
             ("smtp_from", settings.smtp_from().clone()),
             ("smtp_to", settings.smtp_to().clone()),
+            ("island_enabled", settings.island_enabled().to_string()),
+            ("island_width", settings.island_width().to_string()),
+            ("island_height", settings.island_height().to_string()),
+            ("island_opacity", settings.island_opacity().to_string()),
+            (
+                "island_click_through",
+                settings.island_click_through().to_string(),
+            ),
+            (
+                "island_cycle_seconds",
+                settings.island_cycle_seconds().to_string(),
+            ),
+            ("island_plugins", settings.island_plugins().clone()),
         ] {
             self.db
                 .execute(

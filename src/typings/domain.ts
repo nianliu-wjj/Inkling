@@ -117,6 +117,20 @@ export interface Settings {
   smtp_password: string
   smtp_from: string
   smtp_to: string
+  /** 灵动岛：是否显示。 */
+  island_enabled: boolean
+  /** 灵动岛宽度（逻辑像素，200–800）。 */
+  island_width: number
+  /** 灵动岛高度（逻辑像素，28–72）。 */
+  island_height: number
+  /** 灵动岛背景不透明度（0.3–1.0）。 */
+  island_opacity: number
+  /** 灵动岛鼠标穿透（零干扰）。 */
+  island_click_through: boolean
+  /** 灵动岛轮播间隔秒数（2–30）。 */
+  island_cycle_seconds: number
+  /** 启用的灵动岛插件 id 有序列表（逗号分隔）。 */
+  island_plugins: string
 }
 
 export interface ActivityDay {

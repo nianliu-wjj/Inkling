@@ -33,6 +33,13 @@ const DEFAULT_SETTINGS: Settings = {
   smtp_password: '',
   smtp_from: '',
   smtp_to: '',
+  island_enabled: true,
+  island_width: 360,
+  island_height: 36,
+  island_opacity: 0.85,
+  island_click_through: false,
+  island_cycle_seconds: 4,
+  island_plugins: 'today-todos',
 }
 
 const notes = ref<Note[]>([])

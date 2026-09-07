@@ -100,6 +100,31 @@ fn default_true() -> bool {
 /// 用 `cfg!` 宏而非 `#[cfg]` 属性块：属性块里写 `return` 会让后面的兜底表达式
 /// 在该平台上永远不可达，编译器据此报 unreachable_code。
 /// `cfg!` 是编译期常量，未命中的分支会被优化掉，且不产生不可达代码。
+/// 灵动岛默认宽度（逻辑像素）。
+fn default_island_width() -> i64 {
+    360
+}
+
+/// 灵动岛默认高度（逻辑像素）。
+fn default_island_height() -> i64 {
+    36
+}
+
+/// 灵动岛默认不透明度。
+fn default_island_opacity() -> f64 {
+    0.85
+}
+
+/// 灵动岛默认轮播间隔（秒）。
+fn default_island_cycle_seconds() -> i64 {
+    4
+}
+
+/// 灵动岛默认插件列表：只有「当日待办」。
+fn default_island_plugins() -> String {
+    "today-todos".into()
+}
+
 pub fn default_panel_position() -> String {
     // 需求 2.1「鼠标触顶」：感应区与面板默认都在屏幕顶部中央。
     // 曾按平台区分（Windows 默认底部），但感应区当时固定在顶部，
@@ -150,6 +175,27 @@ crate::dto! {
         smtp_from: String,
         #[serde(default)]
         smtp_to: String,
+        /// 灵动岛：是否显示（主屏顶部胶囊）。
+        #[serde(default = "default_true")]
+        island_enabled: bool,
+        /// 灵动岛宽度（逻辑像素，200–800）。
+        #[serde(default = "default_island_width")]
+        island_width: i64,
+        /// 灵动岛高度（逻辑像素，28–72）。
+        #[serde(default = "default_island_height")]
+        island_height: i64,
+        /// 灵动岛背景不透明度（0.3–1.0）。
+        #[serde(default = "default_island_opacity")]
+        island_opacity: f64,
+        /// 灵动岛鼠标穿透（零干扰）：开启后悬停/点击由 Rust 光标轮询探测。
+        #[serde(default)]
+        island_click_through: bool,
+        /// 灵动岛轮播间隔秒数（2–30）。
+        #[serde(default = "default_island_cycle_seconds")]
+        island_cycle_seconds: i64,
+        /// 启用的灵动岛插件 id 有序列表（逗号分隔）；为空则用全部内置插件。
+        #[serde(default = "default_island_plugins")]
+        island_plugins: String,
     }
 }
 
@@ -173,6 +219,13 @@ impl Default for Settings {
             smtp_password: String::new(),
             smtp_from: String::new(),
             smtp_to: String::new(),
+            island_enabled: true,
+            island_width: default_island_width(),
+            island_height: default_island_height(),
+            island_opacity: default_island_opacity(),
+            island_click_through: false,
+            island_cycle_seconds: default_island_cycle_seconds(),
+            island_plugins: default_island_plugins(),
         }
     }
 }
