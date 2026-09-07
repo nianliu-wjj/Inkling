@@ -1007,6 +1007,61 @@ pub fn quit_app(app: &AppHandle) {
     app.exit(0);
 }
 
+// ═══════════════════════════════════════════════════════════════════════
+// 启动器搜索窗口（spec: docs/superpowers/specs/2026-09-08-launcher-search-design.md）
+// ═══════════════════════════════════════════════════════════════════════
+
+pub const LAUNCHER_LABEL: &str = "launcher";
+const LAUNCHER_WIDTH: f64 = 640.0;
+/// 输入框高度 + 9 条结果 × 每条 44 + 上下留白。
+const LAUNCHER_HEIGHT: f64 = 56.0 + 9.0 * 44.0 + 12.0;
+
+/// 呼出启动器：光标所在屏水平居中、垂直偏上（顶部 22%），物理像素落位后 show + focus。
+///
+/// 与面板不同，启动器需要键盘输入，因此**要抢焦点**（focused / set_focus）。
+pub fn launcher_show(app: &AppHandle) -> Result<(), String> {
+    let monitor = cursor_monitor(app).ok_or("未找到可用显示器")?;
+    let work = WorkArea::of(&monitor);
+    let x = work.left + (work.width - LAUNCHER_WIDTH * work.scale) / 2.0;
+    let y = work.top + work.height * 0.22;
+
+    let window = match app.get_webview_window(LAUNCHER_LABEL) {
+        Some(window) => window,
+        None => {
+            WebviewWindowBuilder::new(app, LAUNCHER_LABEL, WebviewUrl::App("launcher.html".into()))
+                .title("Inkling Launcher")
+                .inner_size(LAUNCHER_WIDTH, LAUNCHER_HEIGHT)
+                .decorations(false)
+                .transparent(true)
+                .always_on_top(true)
+                .skip_taskbar(true)
+                .resizable(false)
+                .shadow(false)
+                .visible(false)
+                .build()
+                .map_err(|e| format!("创建启动器窗口失败: {e}"))?
+        }
+    };
+    let _ = window.set_skip_taskbar(true);
+    let _ = window.set_size(PhysicalSize::new(
+        (LAUNCHER_WIDTH * work.scale).round() as u32,
+        (LAUNCHER_HEIGHT * work.scale).round() as u32,
+    ));
+    let _ = window.set_position(PhysicalPosition::new(x.round() as i32, y.round() as i32));
+    let _ = window.show();
+    let _ = window.set_focus();
+    eprintln!("[launcher] 呼出搜索窗口 pos=({}, {})", x.round(), y.round());
+    Ok(())
+}
+
+/// 隐藏启动器（失焦或 Esc）。
+pub fn launcher_hide(app: &AppHandle) -> Result<(), String> {
+    if let Some(window) = app.get_webview_window(LAUNCHER_LABEL) {
+        let _ = window.hide();
+    }
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

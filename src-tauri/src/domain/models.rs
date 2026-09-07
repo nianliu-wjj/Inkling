@@ -125,6 +125,11 @@ fn default_island_plugins() -> String {
     "today-todos".into()
 }
 
+/// 启动器默认全局快捷键。
+fn default_launcher_shortcut() -> String {
+    "Alt+Space".into()
+}
+
 pub fn default_panel_position() -> String {
     // 需求 2.1「鼠标触顶」：感应区与面板默认都在屏幕顶部中央。
     // 曾按平台区分（Windows 默认底部），但感应区当时固定在顶部，
@@ -196,6 +201,12 @@ crate::dto! {
         /// 启用的灵动岛插件 id 有序列表（逗号分隔）；为空则用全部内置插件。
         #[serde(default = "default_island_plugins")]
         island_plugins: String,
+        /// 启动器全局快捷键。
+        #[serde(default = "default_launcher_shortcut")]
+        launcher_shortcut: String,
+        /// 启动器文件扫描根目录（JSON 数组字符串）；为空则用默认用户目录。
+        #[serde(default)]
+        launcher_roots: String,
     }
 }
 
@@ -226,6 +237,8 @@ impl Default for Settings {
             island_click_through: false,
             island_cycle_seconds: default_island_cycle_seconds(),
             island_plugins: default_island_plugins(),
+            launcher_shortcut: default_launcher_shortcut(),
+            launcher_roots: String::new(),
         }
     }
 }

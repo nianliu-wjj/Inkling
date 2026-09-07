@@ -624,6 +624,77 @@ pub fn panel_take_page(state: State<'_, AppState>) -> Option<String> {
     state.take_pending_panel_page()
 }
 
+// ═══ 启动器搜索 ═══
+
+/// 搜索：返回 Top-K 命中。
+#[tauri::command]
+pub fn launcher_search(
+    state: State<'_, crate::services::launcher::LauncherState>,
+    query: String,
+) -> Vec<crate::services::launcher::model::Hit> {
+    state.search(&query)
+}
+
+/// 启动某个候选。`mode`：open / admin / reveal。`query` 用于记录查询亲和度。
+#[tauri::command]
+pub fn launcher_launch(
+    app: AppHandle,
+    state: State<'_, crate::services::launcher::LauncherState>,
+    id: u32,
+    mode: String,
+    query: String,
+) -> Result<(), String> {
+    use crate::services::launcher::launch::{launch, LaunchMode};
+    use crate::services::launcher::model::Kind;
+    let candidate = state.candidate(id).ok_or("候选不存在（索引可能已更新）")?;
+    // 内置命令直接在此执行。
+    if candidate.kind == Kind::Command {
+        match candidate.path.as_str() {
+            "cmd:settings" => {
+                windows::show_main(&app, "settings")?;
+            }
+            "cmd:rebuild" => crate::services::launcher::rebuild_async(app.clone()),
+            "cmd:quit" => windows::quit_app(&app),
+            other => return Err(format!("未知命令 {other}")),
+        }
+        let _ = windows::launcher_hide(&app);
+        return Ok(());
+    }
+    let launch_mode = LaunchMode::parse(&mode).ok_or("未知启动方式")?;
+    launch(&candidate, launch_mode)?;
+    state.record_launch(&candidate.path, &query);
+    // 普通启动后收起启动器；打开所在文件夹保留窗口方便继续操作。
+    if launch_mode != LaunchMode::Reveal {
+        let _ = windows::launcher_hide(&app);
+    }
+    Ok(())
+}
+
+/// 立即重建索引（后台线程）。
+#[tauri::command]
+pub fn launcher_rebuild(app: AppHandle) {
+    crate::services::launcher::rebuild_async(app);
+}
+
+/// 索引状态（条目数 / 代际 / 生成时间 / 是否正在重建）。
+#[tauri::command]
+pub fn launcher_status(
+    state: State<'_, crate::services::launcher::LauncherState>,
+) -> crate::services::launcher::LauncherStatus {
+    state.status()
+}
+
+#[tauri::command]
+pub fn launcher_hide(app: AppHandle) -> Result<(), String> {
+    windows::launcher_hide(&app)
+}
+
+/// 改绑启动器全局快捷键。
+#[tauri::command]
+pub fn rebind_launcher_shortcut(app: AppHandle, combo: String) -> Result<String, String> {
+    crate::app::shortcut::rebind_launcher(&app, &combo)
+}
+
 #[tauri::command]
 pub fn stats_heatmap(
     state: State<'_, AppState>,

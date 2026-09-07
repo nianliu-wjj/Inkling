@@ -106,6 +106,12 @@ impl Store {
                     .unwrap_or(*defaults.island_cycle_seconds()),
             )
             .island_plugins(pick(&values, "island_plugins", defaults.island_plugins()))
+            .launcher_shortcut(pick(
+                &values,
+                "launcher_shortcut",
+                defaults.launcher_shortcut(),
+            ))
+            .launcher_roots(values.get("launcher_roots").cloned().unwrap_or_default())
             .build()
     }
 
@@ -155,6 +161,8 @@ impl Store {
                 settings.island_cycle_seconds().to_string(),
             ),
             ("island_plugins", settings.island_plugins().clone()),
+            ("launcher_shortcut", settings.launcher_shortcut().clone()),
+            ("launcher_roots", settings.launcher_roots().clone()),
         ] {
             self.db
                 .execute(

@@ -131,6 +131,10 @@ export interface Settings {
   island_cycle_seconds: number
   /** 启用的灵动岛插件 id 有序列表（逗号分隔）。 */
   island_plugins: string
+  /** 启动器全局快捷键。 */
+  launcher_shortcut: string
+  /** 启动器文件扫描根目录（JSON 数组字符串）。 */
+  launcher_roots: string
 }
 
 export interface ActivityDay {

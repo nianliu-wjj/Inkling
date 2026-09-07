@@ -34,7 +34,13 @@ fn main() {
                 .map_err(|e| format!("获取应用数据目录失败: {e}"))?;
             let store = data::Store::open(data_dir).map_err(std::io::Error::other)?;
             let settings = store.get_settings().map_err(std::io::Error::other)?;
+            let launcher_dir = app_handle
+                .path()
+                .app_data_dir()
+                .map(|dir| dir.join("launcher"))
+                .unwrap_or_else(|_| std::path::PathBuf::from("launcher"));
             app_handle.manage(app::state::AppState::with_store(store));
+            app_handle.manage(services::launcher::LauncherState::new(launcher_dir));
             let app = app_handle.handle().clone();
 
             app::windows::create_core_windows(&app, silent).map_err(std::io::Error::other)?;
@@ -52,6 +58,7 @@ fn main() {
             services::reminder::start(app.clone());
             services::hotzone_watcher::start(app.clone());
             services::mailer::start(app.clone());
+            services::launcher::start(app.clone());
             // 启动时按保留策略清理一次过期剪贴板。
             let handle_for_cleanup = app.clone();
             std::thread::spawn(move || {
@@ -132,7 +139,13 @@ fn main() {
             ipc::data_dir,
             ipc::write_file_base64,
             ipc::island_expand,
-            ipc::panel_take_page
+            ipc::panel_take_page,
+            ipc::launcher_search,
+            ipc::launcher_launch,
+            ipc::launcher_rebuild,
+            ipc::launcher_status,
+            ipc::launcher_hide,
+            ipc::rebind_launcher_shortcut
         ])
         .run(tauri::generate_context!())
         .expect("启动 Inkling 失败");

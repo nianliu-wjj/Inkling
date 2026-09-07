@@ -40,6 +40,8 @@ const DEFAULT_SETTINGS: Settings = {
   island_click_through: false,
   island_cycle_seconds: 4,
   island_plugins: 'today-todos',
+  launcher_shortcut: 'Alt+Space',
+  launcher_roots: '',
 }
 
 const notes = ref<Note[]>([])
