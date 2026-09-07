@@ -23,6 +23,12 @@ pub struct AppState {
     /// 混合 DPI（主屏 1.5×、外接屏 1.0×）下 tao 回报的位置会在两种缩放间跳变，
     /// 用它判定进入/离开会闪烁；自己算出来的物理矩形与 cursor_position 同坐标系，稳定。
     pub hotzone_rects: Mutex<std::collections::HashMap<String, (f64, f64, f64, f64)>>,
+    /// 灵动岛窗口的物理像素矩形 (left, top, right, bottom)；未显示时为 None。
+    pub island_rect: Mutex<Option<(f64, f64, f64, f64)>>,
+    /// 面板下一次显示时应切到的插件页（灵动岛点击写入，面板 panel-shown 后取走）。
+    ///
+    /// 不直接向隐藏的面板 emit：WebView2 在窗口 hide 后被挂起，此时投递的事件会丢。
+    pub pending_panel_page: Mutex<Option<String>>,
 }
 
 impl AppState {
@@ -33,7 +39,33 @@ impl AppState {
             editor_payload: Mutex::new(None),
             mindmap_payloads: Mutex::new(std::collections::HashMap::new()),
             hotzone_rects: Mutex::new(std::collections::HashMap::new()),
+            island_rect: Mutex::new(None),
+            pending_panel_page: Mutex::new(None),
         }
+    }
+
+    pub fn set_island_rect(&self, rect: Option<(f64, f64, f64, f64)>) {
+        if let Ok(mut slot) = self.island_rect.lock() {
+            *slot = rect;
+        }
+    }
+
+    pub fn island_rect(&self) -> Option<(f64, f64, f64, f64)> {
+        self.island_rect.lock().ok().and_then(|slot| *slot)
+    }
+
+    pub fn set_pending_panel_page(&self, page: Option<String>) {
+        if let Ok(mut slot) = self.pending_panel_page.lock() {
+            *slot = page;
+        }
+    }
+
+    /// 取走并清空待切换的面板页。
+    pub fn take_pending_panel_page(&self) -> Option<String> {
+        self.pending_panel_page
+            .lock()
+            .ok()
+            .and_then(|mut slot| slot.take())
     }
 
     pub fn set_hotzone_rect(&self, label: String, rect: (f64, f64, f64, f64)) {

@@ -515,6 +515,195 @@ pub fn reconcile_hotzones(app: &AppHandle) {
     }
 }
 
+// ═══════════════════════════════════════════════════════════════════════
+// 灵动岛（spec: docs/superpowers/specs/2026-09-08-dynamic-island-design.md）
+// ═══════════════════════════════════════════════════════════════════════
+
+/// 灵动岛窗口 label。
+pub const ISLAND_LABEL: &str = "island";
+const ISLAND_MIN_WIDTH: f64 = 200.0;
+const ISLAND_MAX_WIDTH: f64 = 800.0;
+const ISLAND_MIN_HEIGHT: f64 = 28.0;
+const ISLAND_MAX_HEIGHT: f64 = 72.0;
+/// 悬停展开详情时的高度下限（逻辑像素）。
+const ISLAND_EXPANDED_HEIGHT: f64 = 120.0;
+/// 灵动岛与感应区之间的间距（逻辑像素）：两者矩形不重叠，悬停灵动岛不会误触发 3 秒唤出计时。
+const ISLAND_GAP: f64 = 4.0;
+
+/// 已 clamp 的灵动岛参数。
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct IslandParams {
+    pub width: f64,
+    pub height: f64,
+    pub opacity: f64,
+    pub cycle_seconds: i64,
+}
+
+/// 把设置值钳到允许范围（越界时记日志，按边界值生效）。
+pub fn island_clamp(width: i64, height: i64, opacity: f64, cycle_seconds: i64) -> IslandParams {
+    let w = (width as f64).clamp(ISLAND_MIN_WIDTH, ISLAND_MAX_WIDTH);
+    let h = (height as f64).clamp(ISLAND_MIN_HEIGHT, ISLAND_MAX_HEIGHT);
+    let o = if opacity.is_finite() {
+        opacity.clamp(0.3, 1.0)
+    } else {
+        0.85
+    };
+    let c = cycle_seconds.clamp(2, 30);
+    if w != width as f64 || h != height as f64 || o != opacity || c != cycle_seconds {
+        eprintln!(
+            "[island] 设置越界已钳制 width={width}→{w} height={height}→{h} opacity={opacity}→{o} cycle={cycle_seconds}→{c}"
+        );
+    }
+    IslandParams {
+        width: w,
+        height: h,
+        opacity: o,
+        cycle_seconds: c,
+    }
+}
+
+/// 灵动岛几何：(x, y, w, h) 物理像素。水平居中；纵向紧贴感应区下方（感应区高 80 + 间距 4）。
+fn island_geometry(work: &WorkArea, width: f64, height: f64) -> (f64, f64, f64, f64) {
+    let w = width * work.scale;
+    let h = height * work.scale;
+    (
+        work.left + (work.width - w) / 2.0,
+        work.top + (HOTZONE_HEIGHT + ISLAND_GAP) * work.scale,
+        w,
+        h,
+    )
+}
+
+/// 灵动岛所在屏：主屏（需求：只在主屏显示），拿不到时回退光标所在屏。
+fn island_monitor(app: &AppHandle) -> Option<tauri::Monitor> {
+    app.primary_monitor()
+        .ok()
+        .flatten()
+        .or_else(|| cursor_monitor(app))
+}
+
+/// 从设置读出灵动岛开关、穿透与钳制后的参数。
+fn island_settings(app: &AppHandle) -> Result<(bool, bool, IslandParams), String> {
+    let settings = app.state::<AppState>().lock_store()?.get_settings()?;
+    Ok((
+        *settings.island_enabled(),
+        *settings.island_click_through(),
+        island_clamp(
+            *settings.island_width(),
+            *settings.island_height(),
+            *settings.island_opacity(),
+            *settings.island_cycle_seconds(),
+        ),
+    ))
+}
+
+/// 把灵动岛窗口摆到物理矩形上并记账。
+fn place_island(
+    app: &AppHandle,
+    window: &tauri::WebviewWindow,
+    rect: (f64, f64, f64, f64),
+) -> Result<(), String> {
+    let (x, y, w, h) = rect;
+    window
+        .set_size(PhysicalSize::new(w.round() as u32, h.round() as u32))
+        .map_err(|e| e.to_string())?;
+    window
+        .set_position(PhysicalPosition::new(x.round() as i32, y.round() as i32))
+        .map_err(|e| e.to_string())?;
+    app.state::<AppState>()
+        .set_island_rect(Some((x, y, x + w, y + h)));
+    Ok(())
+}
+
+/// 创建灵动岛窗口（设置为关闭时不建）。
+///
+/// 与感应区一样：透明、置顶、不进任务栏、不抢焦点；穿透与否按设置。
+/// 圆角由前端 CSS 胶囊背景实现——DWM 圆角对透明窗口不起作用。
+pub fn create_island(app: &AppHandle) -> Result<(), String> {
+    let (enabled, click_through, params) = island_settings(app)?;
+    if !enabled {
+        eprintln!("[island] 设置为关闭，跳过创建");
+        return Ok(());
+    }
+    if app.get_webview_window(ISLAND_LABEL).is_some() {
+        return Ok(());
+    }
+    let monitor = island_monitor(app).ok_or("未找到主显示器，跳过灵动岛")?;
+    let rect = island_geometry(&WorkArea::of(&monitor), params.width, params.height);
+    eprintln!("[island] 创建灵动岛 rect={rect:?} click_through={click_through} params={params:?}");
+    let window =
+        WebviewWindowBuilder::new(app, ISLAND_LABEL, WebviewUrl::App("island.html".into()))
+            .title("Inkling Island")
+            .inner_size(params.width, params.height)
+            .decorations(false)
+            .transparent(true)
+            .always_on_top(true)
+            .skip_taskbar(true)
+            .focused(false)
+            .resizable(false)
+            .shadow(false)
+            .visible(false)
+            .build()
+            .map_err(|e| format!("创建灵动岛窗口失败: {e}"))?;
+    let _ = window.set_skip_taskbar(true);
+    let _ = window.set_ignore_cursor_events(click_through);
+    place_island(app, &window, rect)?;
+    let _ = window.show();
+    Ok(())
+}
+
+/// 设置变更后重新应用：显隐、尺寸、位置、穿透。
+pub fn island_apply(app: &AppHandle) -> Result<(), String> {
+    let (enabled, click_through, params) = island_settings(app)?;
+    let existing = app.get_webview_window(ISLAND_LABEL);
+    match (enabled, existing) {
+        (false, Some(window)) => {
+            eprintln!("[island] 设置关闭，销毁灵动岛");
+            let _ = window.close();
+            app.state::<AppState>().set_island_rect(None);
+            Ok(())
+        }
+        (false, None) => Ok(()),
+        (true, None) => create_island(app),
+        (true, Some(window)) => {
+            let monitor = island_monitor(app).ok_or("未找到主显示器")?;
+            let _ = window.set_ignore_cursor_events(click_through);
+            let rect = island_geometry(&WorkArea::of(&monitor), params.width, params.height);
+            eprintln!("[island] 应用新设置 rect={rect:?} click_through={click_through}");
+            place_island(app, &window, rect)
+        }
+    }
+}
+
+/// 悬停展开 / 收起：只改高度，顶部位置不变。
+pub fn island_expand(app: &AppHandle, expanded: bool) -> Result<(), String> {
+    let window = app
+        .get_webview_window(ISLAND_LABEL)
+        .ok_or("灵动岛窗口不存在")?;
+    let (_, _, params) = island_settings(app)?;
+    let monitor = island_monitor(app).ok_or("未找到主显示器")?;
+    let height = if expanded {
+        params.height.max(ISLAND_EXPANDED_HEIGHT)
+    } else {
+        params.height
+    };
+    let rect = island_geometry(&WorkArea::of(&monitor), params.width, height);
+    place_island(app, &window, rect)
+}
+
+/// 呼出面板并要求它切到指定插件页（灵动岛点击使用）。
+///
+/// 目标页先存进 AppState，再 show 面板；面板在 panel-shown 事件后主动来取。
+/// 顺带广播一次 PANEL_NAVIGATE，面板若已可见能立即响应。
+pub fn panel_show_page(app: &AppHandle, page: &str) -> Result<(), String> {
+    eprintln!("[panel] 带页呼出 page={page}");
+    app.state::<AppState>()
+        .set_pending_panel_page(Some(page.to_string()));
+    panel_show(app)?;
+    let _ = app.emit(events::PANEL_NAVIGATE, page.to_string());
+    Ok(())
+}
+
 /// 面板从显示器四边中点唤出的左上角坐标（**物理像素**）。
 /// `width` / `height` 为面板逻辑尺寸，按该屏缩放换算；边距逻辑 6px。
 fn panel_position(work: &WorkArea, width: f64, height: f64, position: &str) -> (f64, f64) {
@@ -867,6 +1056,40 @@ mod tests {
         assert_eq!(
             panel_position(&w, 480.0, 600.0, "bottom"),
             (920.0, 1528.0 - 900.0 - 9.0)
+        );
+    }
+
+    /// 灵动岛参数钳制：四个维度越界都按边界生效，非法透明度回默认。
+    #[test]
+    fn island_clamp_bounds() {
+        let p = island_clamp(100, 10, 2.0, 0);
+        assert_eq!(
+            (p.width, p.height, p.opacity, p.cycle_seconds),
+            (200.0, 28.0, 1.0, 2)
+        );
+        let p = island_clamp(9000, 999, 0.1, 999);
+        assert_eq!(
+            (p.width, p.height, p.opacity, p.cycle_seconds),
+            (800.0, 72.0, 0.3, 30)
+        );
+        let p = island_clamp(360, 36, f64::NAN, 4);
+        assert_eq!(p.opacity, 0.85);
+        let p = island_clamp(360, 36, 0.85, 4);
+        assert_eq!(
+            (p.width, p.height, p.opacity, p.cycle_seconds),
+            (360.0, 36.0, 0.85, 4)
+        );
+    }
+
+    /// 灵动岛几何：居中，纵向落在感应区（80）+ 间距（4）之下；1.5 倍缩放全部按物理像素放大。
+    #[test]
+    fn island_geometry_sits_below_hotzone() {
+        let w = work(0.0, 0.0, 1000.0, 800.0, 1.0);
+        assert_eq!(island_geometry(&w, 360.0, 36.0), (320.0, 84.0, 360.0, 36.0));
+        let w = work(0.0, 0.0, 2560.0, 1528.0, 1.5);
+        assert_eq!(
+            island_geometry(&w, 360.0, 36.0),
+            (1010.0, 126.0, 540.0, 54.0)
         );
     }
 }

@@ -605,7 +605,23 @@ pub fn settings_save(
         eprintln!("[settings] 移动感应区失败: {error}");
     }
     let _ = windows::reposition_panel(&app);
+    // 灵动岛：显隐 / 尺寸 / 穿透随设置即时生效。
+    if let Err(error) = windows::island_apply(&app) {
+        eprintln!("[settings] 应用灵动岛设置失败: {error}");
+    }
     Ok(())
+}
+
+/// 灵动岛悬停展开 / 收起（前端在悬停状态变化时调用）。
+#[tauri::command]
+pub fn island_expand(app: AppHandle, expanded: bool) -> Result<(), String> {
+    windows::island_expand(&app, expanded)
+}
+
+/// 面板显示后取走「本次应切到的插件页」（灵动岛点击写入）；没有则返回 None。
+#[tauri::command]
+pub fn panel_take_page(state: State<'_, AppState>) -> Option<String> {
+    state.take_pending_panel_page()
 }
 
 #[tauri::command]

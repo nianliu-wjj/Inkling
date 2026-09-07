@@ -35,6 +35,9 @@ pub fn start(app: AppHandle) {
 fn run(app: AppHandle) {
     // 每个感应区窗口 label → 上一次是否在区内。
     let mut inside_map: HashMap<String, bool> = HashMap::new();
+    // 灵动岛：上一次是否在区内、上一次左键是否按下（用于边沿检测）。
+    let mut island_inside = false;
+    let mut left_was_down = false;
     // 显示器热插拔对账的节拍：每 25 轮（约 2 秒）检查一次拓扑是否变化。
     let mut tick: u32 = 0;
     loop {
@@ -70,7 +73,49 @@ fn run(app: AppHandle) {
                 eprintln!("[hotzone] 通知 {label} 悬停状态失败: {error}");
             }
         }
+
+        // 灵动岛：悬停翻转 + 左键按下边沿。穿透模式下窗口自身收不到鼠标事件，
+        // 这里是唯一的事件来源；非穿透模式下前端同样只认这一来源，两种模式行为一致。
+        let island_rect = app.state::<AppState>().island_rect();
+        let now_inside = match (island_rect, cursor) {
+            (Some(rect), Some(c)) => !panel_visible && point_in_rect(c.x, c.y, rect),
+            _ => false,
+        };
+        if now_inside != island_inside {
+            island_inside = now_inside;
+            eprintln!("[island] 悬停状态翻转 inside={now_inside}");
+            if let Err(error) = app.emit_to(
+                crate::app::windows::ISLAND_LABEL,
+                events::ISLAND_HOVER,
+                now_inside,
+            ) {
+                eprintln!("[island] 通知悬停状态失败: {error}");
+            }
+        }
+        let left_down = left_button_down();
+        if now_inside && left_down && !left_was_down {
+            eprintln!("[island] 左键点击，呼出面板并切到待办页");
+            if let Err(error) = crate::app::windows::panel_show_page(&app, "todo") {
+                eprintln!("[island] 呼出面板失败: {error}");
+            }
+            let _ = app.emit_to(crate::app::windows::ISLAND_LABEL, events::ISLAND_CLICK, ());
+        }
+        left_was_down = left_down;
     }
+}
+
+/// 左键当前是否按下（全局，不依赖窗口焦点）。
+#[cfg(target_os = "windows")]
+fn left_button_down() -> bool {
+    use windows_sys::Win32::UI::Input::KeyboardAndMouse::{GetAsyncKeyState, VK_LBUTTON};
+    // SAFETY: GetAsyncKeyState 无内存参数，任何线程可调。最高位表示按键当前按下。
+    let state = unsafe { GetAsyncKeyState(VK_LBUTTON as i32) };
+    (state as u16) & 0x8000 != 0
+}
+
+#[cfg(not(target_os = "windows"))]
+fn left_button_down() -> bool {
+    false
 }
 
 /// 点是否落在矩形 (left, top, right, bottom) 内（物理像素，与 cursor_position 同坐标系）。

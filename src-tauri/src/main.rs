@@ -38,6 +38,10 @@ fn main() {
             let app = app_handle.handle().clone();
 
             app::windows::create_core_windows(&app, silent).map_err(std::io::Error::other)?;
+            // 灵动岛建窗失败不影响其他窗口，只记日志。
+            if let Err(error) = app::windows::create_island(&app) {
+                eprintln!("[island] 创建失败: {error}");
+            }
             app::tray::build_tray(&app).map_err(std::io::Error::other)?;
             app::shortcut::register_startup(&app).map_err(std::io::Error::other)?;
             if *settings.start_on_boot() {
@@ -126,7 +130,9 @@ fn main() {
             ipc::stats_day,
             ipc::export_items,
             ipc::data_dir,
-            ipc::write_file_base64
+            ipc::write_file_base64,
+            ipc::island_expand,
+            ipc::panel_take_page
         ])
         .run(tauri::generate_context!())
         .expect("启动 Inkling 失败");

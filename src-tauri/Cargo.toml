@@ -42,7 +42,11 @@ base64 = "0.22"
 # 仅 Windows：设置 DWM 窗口圆角（Win11）。Mica / Acrylic 由 DWM 在窗口矩形上绘制，
 # CSS 的 clip-path 只能裁 WebView 内容，裁不掉底下这层系统背景，四角仍是方的。
 [target.'cfg(windows)'.dependencies]
-windows-sys = { version = "0.59", features = ["Win32_Foundation", "Win32_Graphics_Dwm"] }
+windows-sys = { version = "0.59", features = [
+  "Win32_Foundation",
+  "Win32_Graphics_Dwm",
+  "Win32_UI_Input_KeyboardAndMouse",
+] }
 
 [features]
 default = ["custom-protocol"]
