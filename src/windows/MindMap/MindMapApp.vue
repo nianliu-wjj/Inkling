@@ -22,6 +22,7 @@ import { createUiState } from './core/store'
 import { provideMindMapContext } from './core/useMindMap'
 import Toolbar from './chrome/Toolbar.vue'
 import SidebarTrigger from './chrome/SidebarTrigger.vue'
+import ContextMenu from './popups/ContextMenu.vue'
 import MindMapStage from './MindMapStage.vue'
 
 /**
@@ -268,6 +269,7 @@ watch(note, (value) => {
           <template v-if="mindMap">
             <Toolbar v-if="!ui.isZenMode" />
             <SidebarTrigger v-if="!ui.isZenMode" />
+            <ContextMenu />
           </template>
           <!-- 后续阶段在此挂 NavigatorToolbar / 各侧栏 / 各浮层 / 各对话框 -->
         </div>

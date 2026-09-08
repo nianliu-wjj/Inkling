@@ -156,7 +156,8 @@ declare module 'simple-mind-map/src/utils/index.js' {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   type Any = any
   export function mergerIconList(list: Any[]): Any[]
-  export function imgToDataUrl(src: string): Promise<string>
+  /** isBlob 为 true 时返回 Blob，否则返回 dataURL 字符串。 */
+  export function imgToDataUrl(src: string, isBlob?: boolean): Promise<string | Blob>
   export function isMobile(): boolean
   export function readBlob(blob: Blob): Promise<string>
   export function getTextFromHtml(html: string): string
