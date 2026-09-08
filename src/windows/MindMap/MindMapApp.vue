@@ -27,6 +27,10 @@ import ContextMenu from './popups/ContextMenu.vue'
 import ShortcutSidebar from './sidebars/ShortcutSidebar.vue'
 import StructureSidebar from './sidebars/StructureSidebar.vue'
 import ThemeSidebar from './sidebars/ThemeSidebar.vue'
+import SettingSidebar from './sidebars/SettingSidebar.vue'
+import IconSidebar from './sidebars/IconSidebar.vue'
+import FormulaSidebar from './sidebars/FormulaSidebar.vue'
+import NoteSidebar from './sidebars/NoteSidebar.vue'
 import ImportDialog from './dialogs/ImportDialog.vue'
 import ExportDialog from './dialogs/ExportDialog.vue'
 import NodeImageDialog from './dialogs/NodeImageDialog.vue'
@@ -284,6 +288,10 @@ watch(note, (value) => {
             <ShortcutSidebar />
             <StructureSidebar />
             <ThemeSidebar />
+            <SettingSidebar />
+            <IconSidebar />
+            <FormulaSidebar />
+            <NoteSidebar />
             <ImportDialog />
             <ExportDialog />
             <NodeImageDialog />

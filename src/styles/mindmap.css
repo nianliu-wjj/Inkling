@@ -589,3 +589,91 @@
   color: var(--text-dim);
   font-size: 11px;
 }
+
+/* ═══ 设置 / 图标 / 公式 / 备注侧栏 ═══ */
+.mm-setting-group {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text);
+  margin: 12px 0 6px;
+}
+.mm-setting-group:first-child {
+  margin-top: 0;
+}
+/* 透明度滑杆：range 输入在本项目 tokens 下无默认外观，统一重置。 */
+.mm-setting-range {
+  width: 160px;
+  accent-color: var(--accent);
+}
+
+/* 图标 / 贴纸网格 */
+.mm-icon-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.mm-icon-grid {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 6px;
+}
+.mm-icon-item {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  aspect-ratio: 1;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  cursor: pointer;
+  padding: 2px;
+  overflow: hidden;
+}
+.mm-icon-item img,
+.mm-icon-item svg {
+  max-width: 100%;
+  max-height: 100%;
+}
+.mm-icon-item:hover {
+  background: rgba(var(--wsa), 0.12);
+}
+.mm-icon-item.active {
+  border-color: var(--accent);
+  outline: 1px solid var(--accent);
+}
+
+/* 公式侧栏 */
+.mm-formula-input {
+  min-height: 80px;
+  margin-bottom: 8px;
+}
+.mm-formula-list {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+}
+.mm-formula-item {
+  font-size: 11px;
+  padding: 4px 6px;
+  border: 1px solid rgba(var(--wsa), 0.14);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-dim);
+  cursor: pointer;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.mm-formula-item:hover:not(:disabled) {
+  color: var(--text);
+  border-color: var(--accent);
+}
+.mm-formula-item:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* 备注侧栏：比对话框留更多行。 */
+.mm-note-area {
+  min-height: 260px;
+}
