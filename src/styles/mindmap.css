@@ -406,3 +406,125 @@
   font-family: inherit;
   font-size: 11px;
 }
+
+/* ═══ 对话框（导入 / 导出 / 节点图片·超链接·备注·标签）═══ */
+.mm-dialog {
+  width: 420px;
+  max-width: 90vw;
+  padding: 16px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.mm-dialog-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+}
+.mm-dialog-hint {
+  margin: 0;
+  font-size: 11.5px;
+  color: var(--text-dim);
+  line-height: 1.5;
+}
+.mm-dialog-input,
+.mm-dialog-num {
+  background: rgba(var(--wsa), 0.08);
+  border: 1px solid rgba(var(--wsa), 0.14);
+  border-radius: 8px;
+  padding: 6px 10px;
+  color: var(--text);
+  font-size: 13px;
+  outline: none;
+}
+.mm-dialog-input {
+  flex: 1;
+  min-width: 0;
+  max-width: 240px;
+}
+.mm-dialog-num {
+  width: 90px;
+}
+.mm-dialog-input:focus,
+.mm-dialog-num:focus {
+  border-color: var(--accent);
+}
+.mm-dialog-textarea {
+  width: 100%;
+  min-height: 120px;
+  resize: vertical;
+  background: rgba(var(--wsa), 0.08);
+  border: 1px solid rgba(var(--wsa), 0.14);
+  border-radius: 8px;
+  padding: 8px 10px;
+  color: var(--text);
+  font-size: 13px;
+  outline: none;
+  user-select: text;
+}
+.mm-dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 4px;
+}
+.mm-export-formats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.mm-export-format {
+  padding: 5px 12px;
+  border: 1px solid rgba(var(--wsa), 0.14);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text);
+  cursor: pointer;
+  font-size: 12.5px;
+}
+.mm-export-format.active {
+  background: rgba(var(--accent-rgb), 0.22);
+  border-color: rgba(var(--accent-rgb), 0.5);
+  color: var(--accent);
+}
+.mm-image-preview {
+  display: flex;
+  justify-content: center;
+  max-height: 180px;
+  overflow: hidden;
+  border-radius: 8px;
+  background: rgba(var(--wsa), 0.06);
+}
+.mm-image-preview img {
+  max-height: 180px;
+  object-fit: contain;
+}
+.mm-tag-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  min-height: 24px;
+  align-items: center;
+}
+.mm-tag-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: 6px;
+  background: rgba(126, 224, 255, 0.15);
+  color: var(--cyan);
+  font-size: 12px;
+}
+.mm-tag-del {
+  border: none;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  font-size: 10px;
+  padding: 0;
+  opacity: 0.7;
+}
+.mm-tag-del:hover {
+  opacity: 1;
+}

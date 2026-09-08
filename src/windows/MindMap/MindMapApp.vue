@@ -25,6 +25,12 @@ import SidebarTrigger from './chrome/SidebarTrigger.vue'
 import Count from './chrome/Count.vue'
 import ContextMenu from './popups/ContextMenu.vue'
 import ShortcutSidebar from './sidebars/ShortcutSidebar.vue'
+import ImportDialog from './dialogs/ImportDialog.vue'
+import ExportDialog from './dialogs/ExportDialog.vue'
+import NodeImageDialog from './dialogs/NodeImageDialog.vue'
+import NodeHyperlinkDialog from './dialogs/NodeHyperlinkDialog.vue'
+import NodeNoteDialog from './dialogs/NodeNoteDialog.vue'
+import NodeTagDialog from './dialogs/NodeTagDialog.vue'
 import MindMapStage from './MindMapStage.vue'
 
 /**
@@ -274,6 +280,12 @@ watch(note, (value) => {
             <Count v-if="!ui.isZenMode" />
             <ContextMenu />
             <ShortcutSidebar />
+            <ImportDialog />
+            <ExportDialog />
+            <NodeImageDialog />
+            <NodeHyperlinkDialog />
+            <NodeNoteDialog />
+            <NodeTagDialog />
           </template>
           <!-- 后续阶段在此挂 NavigatorToolbar / 各侧栏 / 各浮层 / 各对话框 -->
         </div>
