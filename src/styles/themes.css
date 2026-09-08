@@ -1,5 +1,5 @@
 /* ═══════════════════════════════════════════════════════════════════════
- * Inkling 多主题层：29 套 [data-theme] 覆盖（默认 dark 在 tokens.css）
+ * Inkling 多主题层：30 套 [data-theme] 覆盖（默认 dark 在 tokens.css）
  * 来源：doc/styles.css:938-1100 与 1132-1872
  * 切换方式：document.documentElement.dataset.theme = <name>；
  *          dark 主题不设该属性（见 src/composables/useTheme.ts）
@@ -1080,4 +1080,41 @@
   --trend-clip: #7a6a1a;
   --trend-todo: #4a7c59;
   --select-arrow: url("data:image/svg+xml,%3Csvg width='10' height='6' viewBox='0 0 10 6' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1l4 4 4-4' stroke='rgba(40,40,45,.55)' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E");
+}
+
+/* 棕褐（参考 images/4.jpg：暖棕褐背景 · 米白文字 · 暗红点缀 · 半透明磨砂） */
+:root[data-theme='sepia'] {
+  --scheme: dark;
+  --wsa: 240, 228, 212;
+  --body-bg: linear-gradient(135deg, #3a2f26 0%, #2c241d 100%);
+  --glass-bg: rgba(58, 47, 38, 0.62);
+  --glass-border: rgba(176, 74, 66, 0.26);
+  --glass-shadow: 0 12px 40px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(240, 228, 212, 0.08);
+  --menubar-bg: rgba(44, 36, 29, 0.8);
+  --menu-bg: rgba(44, 36, 29, 0.95);
+  --tip-bg: rgba(44, 36, 29, 0.97);
+  --confirm-bg: rgba(44, 36, 29, 0.96);
+  --toggle-bg: rgb(44, 36, 29);
+  --option-bg: rgb(44, 36, 29);
+  --accent: #b04a42;
+  --accent-rgb: 176, 74, 66;
+  --hm-base: 176, 74, 66;
+  --text: rgba(240, 228, 212, 0.93);
+  --text-dim: rgba(240, 228, 212, 0.55);
+  --text-strong: rgba(240, 228, 212, 0.82);
+  --gold: #d6a35c;
+  --red-soft: #d97a6e;
+  --red: #b04a42;
+  --cyan: #a5b3a8;
+  --blue-soft: #b8a488;
+  --green: #a3b083;
+  --pink: #cf9aa0;
+  --code-green: #a3b083;
+  --c-note: 176, 74, 66;
+  --c-clip: 214, 163, 92;
+  --c-todo: 163, 176, 131;
+  --trend-note: #d97a6e;
+  --trend-clip: #d6a35c;
+  --trend-todo: #a3b083;
+  --select-arrow: url("data:image/svg+xml,%3Csvg width='10' height='6' viewBox='0 0 10 6' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1l4 4 4-4' stroke='rgba(240,228,212,.55)' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E");
 }

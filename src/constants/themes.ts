@@ -1,11 +1,12 @@
 /**
  * 主题清单。
  *
- * 30 套主题：默认 `dark` 定义在 styles/tokens.css 的 :root，
- * 其余 29 套定义在 styles/themes.css 的 :root[data-theme="..."]。
+ * 31 套主题：默认 `dark` 定义在 styles/tokens.css 的 :root，
+ * 其余 30 套定义在 styles/themes.css 的 :root[data-theme="..."]。
  * 色点用于偏好设置页的主题下拉预览（样式 .theme-dots）。
  *
- * 数据来源：doc/app.js:1276-1306 的 THEMES 常量，保持逐字一致。
+ * 数据来源：doc/app.js:1276-1306 的 THEMES 常量，保持逐字一致；
+ * `sepia`（棕褐）为本项目按 images/4.jpg 新增，不在原型 THEMES 内。
  */
 
 /** 单套主题的展示信息。 */
@@ -49,6 +50,7 @@ export const themes: readonly ThemeOption[] = [
   { key: 'pastel', label: '粉彩', dots: ['#fdf0f7', '#9d7bd8', '#6bbf95', '#d67ba0'] },
   { key: 'sunset', label: '日落', dots: ['#1f1030', '#fb923c', '#fde047', '#f472b6'] },
   { key: 'wireframe', label: '线框', dots: ['#f8f8f6', '#52525b', '#4a7c59', '#c04440'] },
+  { key: 'sepia', label: '棕褐', dots: ['#332a20', '#b04a42', '#d6a35c', '#a3b083'] },
 ] as const
 
 /** 默认主题标识。 */
