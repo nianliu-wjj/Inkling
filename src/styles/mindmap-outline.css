@@ -1,0 +1,100 @@
+/* ═══ 大纲侧栏（OutlineSidebar / OutlineTree）专用样式 ═══
+   参考端 style/outlineTree.less 的功能移植：行悬停 / 当前项高亮 / 展开箭头 / 叶子圆点。
+   全部走 Inkling 令牌（--text / --accent / --wsa），由 mindmap.ts 引入。 */
+
+.mm-outline-toolbar {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 8px;
+}
+
+.mm-outline-tree {
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--text);
+}
+
+.mm-outline-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 4px;
+  padding: 3px 6px;
+  border-radius: 6px;
+  border-top: 2px solid transparent;
+  border-bottom: 2px solid transparent;
+  cursor: default;
+}
+.mm-outline-row:hover {
+  background: rgba(var(--wsa), 0.06);
+}
+.mm-outline-row.current {
+  background: rgba(var(--accent-rgb), 0.16);
+}
+
+/* 拖拽落点提示：上/下同级插入用横线，内部（成为子节点）用整行描边。 */
+.mm-outline-row.drop-before {
+  border-top-color: var(--accent);
+}
+.mm-outline-row.drop-after {
+  border-bottom-color: var(--accent);
+}
+.mm-outline-row.drop-inner {
+  background: rgba(var(--accent-rgb), 0.22);
+  outline: 1px dashed var(--accent);
+}
+
+/* 展开 / 收起箭头 */
+.mm-outline-arrow {
+  flex: none;
+  width: 16px;
+  height: 20px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  color: var(--text-dim);
+  font-size: 9px;
+  cursor: pointer;
+  transition: transform var(--dur-fast, 150ms) var(--ease-out, ease);
+}
+.mm-outline-arrow.expanded {
+  transform: rotate(90deg);
+}
+
+/* 叶子节点：占位小圆点（对齐参考端 is-leaf 圆点） */
+.mm-outline-dot {
+  flex: none;
+  width: 16px;
+  height: 20px;
+  position: relative;
+}
+.mm-outline-dot::after {
+  content: '';
+  position: absolute;
+  left: 6px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: var(--text-dim);
+}
+
+/* 节点可编辑文本 */
+.mm-outline-edit {
+  flex: 1;
+  min-width: 0;
+  outline: none;
+  white-space: normal;
+  word-break: break-word;
+  padding: 1px 2px;
+  border-radius: 4px;
+}
+.mm-outline-edit.root {
+  font-weight: 700;
+}
+.mm-outline-edit:focus {
+  background: rgba(var(--wsa), 0.1);
+  box-shadow: inset 0 0 0 1px var(--accent);
+}
