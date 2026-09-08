@@ -27,6 +27,7 @@ import ContextMenu from './popups/ContextMenu.vue'
 import ShortcutSidebar from './sidebars/ShortcutSidebar.vue'
 import StructureSidebar from './sidebars/StructureSidebar.vue'
 import ThemeSidebar from './sidebars/ThemeSidebar.vue'
+import BaseStyleSidebar from './sidebars/BaseStyleSidebar.vue'
 import SettingSidebar from './sidebars/SettingSidebar.vue'
 import IconSidebar from './sidebars/IconSidebar.vue'
 import FormulaSidebar from './sidebars/FormulaSidebar.vue'
@@ -288,6 +289,7 @@ watch(note, (value) => {
             <ShortcutSidebar />
             <StructureSidebar />
             <ThemeSidebar />
+            <BaseStyleSidebar />
             <SettingSidebar />
             <IconSidebar />
             <FormulaSidebar />

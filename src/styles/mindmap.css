@@ -677,3 +677,109 @@
 .mm-note-area {
   min-height: 260px;
 }
+/* ═══ 基础样式侧栏（BaseStyleSidebar）专用样式 ═══
+   仅放本侧栏特有、既有 mm-* 类覆盖不到的部分；控制器负责合并进 mindmap.css。 */
+
+/* 分组标题 */
+.mm-bs-group {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text);
+  margin: 14px 0 6px;
+}
+.mm-bs-group:first-child {
+  margin-top: 0;
+}
+
+/* 背景图：操作按钮与预览 */
+.mm-bs-bg-actions {
+  display: flex;
+  gap: 8px;
+  margin: 8px 0;
+}
+.mm-bs-bg-preview {
+  border: 1px solid rgba(var(--wsa), 0.14);
+  border-radius: 8px;
+  overflow: hidden;
+  margin-bottom: 8px;
+  background: rgba(var(--wsa), 0.08);
+}
+.mm-bs-bg-preview img {
+  display: block;
+  width: 100%;
+  height: 80px;
+  object-fit: cover;
+}
+
+/* 彩虹线条：当前条（可点开配色选择）与配色选项 */
+.mm-bs-rainbow {
+  margin-bottom: 4px;
+}
+.mm-bs-rainbow-cur {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 28px;
+  border: 1px solid rgba(var(--wsa), 0.14);
+  border-radius: 6px;
+  font-size: 12px;
+  color: var(--text-dim);
+  cursor: pointer;
+  list-style: none;
+}
+.mm-bs-rainbow-cur::-webkit-details-marker {
+  display: none;
+}
+.mm-bs-rainbow-options {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 6px;
+}
+.mm-bs-rainbow-option {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 26px;
+  border-radius: 5px;
+  font-size: 12px;
+  color: var(--text-dim);
+  cursor: pointer;
+}
+.mm-bs-rainbow-option:hover {
+  background: rgba(var(--wsa), 0.08);
+}
+.mm-bs-colors-bar {
+  display: flex;
+  width: 100%;
+  height: 100%;
+  align-items: center;
+}
+.mm-bs-color-item {
+  flex: 1;
+  height: 15px;
+}
+
+/* 关联线虚线样式：小示意 SVG 横排 */
+.mm-bs-dasharray {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  justify-content: flex-end;
+}
+.mm-bs-dasharray-item {
+  border: 1px solid rgba(var(--wsa), 0.14);
+  border-radius: 4px;
+  cursor: pointer;
+  background: transparent;
+  padding: 0;
+}
+.mm-bs-dasharray-item line {
+  stroke: var(--text-dim);
+}
+.mm-bs-dasharray-item.active {
+  border-color: var(--accent);
+}
+.mm-bs-dasharray-item.active line {
+  stroke: var(--accent);
+}
