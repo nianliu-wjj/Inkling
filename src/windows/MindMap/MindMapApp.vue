@@ -28,6 +28,7 @@ import ShortcutSidebar from './sidebars/ShortcutSidebar.vue'
 import StructureSidebar from './sidebars/StructureSidebar.vue'
 import ThemeSidebar from './sidebars/ThemeSidebar.vue'
 import BaseStyleSidebar from './sidebars/BaseStyleSidebar.vue'
+import NodeStyleSidebar from './sidebars/NodeStyleSidebar.vue'
 import SettingSidebar from './sidebars/SettingSidebar.vue'
 import IconSidebar from './sidebars/IconSidebar.vue'
 import FormulaSidebar from './sidebars/FormulaSidebar.vue'
@@ -290,6 +291,7 @@ watch(note, (value) => {
             <StructureSidebar />
             <ThemeSidebar />
             <BaseStyleSidebar />
+            <NodeStyleSidebar />
             <SettingSidebar />
             <IconSidebar />
             <FormulaSidebar />

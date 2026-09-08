@@ -783,3 +783,137 @@
 .mm-bs-dasharray-item.active line {
   stroke: var(--accent);
 }
+/* ═══ 节点样式侧栏（NodeStyleSidebar）专用样式 ═══
+   仅放本侧栏特有、既有 mm-* 类覆盖不到的部分；控制器负责合并进 mindmap.css。 */
+
+/* 分组标题（与基础样式侧栏 mm-bs-group 同一视觉层级） */
+.mm-ns-group {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text);
+  margin: 14px 0 6px;
+}
+.mm-ns-group:first-child {
+  margin-top: 0;
+}
+
+/* 小按钮组（加粗/斜体/划线、图片与标签布局等） */
+.mm-ns-seg {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  justify-content: flex-end;
+}
+.mm-ns-seg-btn {
+  min-width: 28px;
+  height: 24px;
+  padding: 0 8px;
+  border: 1px solid rgba(var(--wsa), 0.15);
+  border-radius: 5px;
+  background: rgba(var(--wsa), 0.08);
+  color: var(--text);
+  font-size: 12px;
+  line-height: 1;
+  cursor: pointer;
+}
+.mm-ns-seg-btn:hover {
+  background: rgba(var(--wsa), 0.18);
+}
+.mm-ns-seg-btn.active {
+  background: rgba(var(--accent-rgb), 0.18);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.mm-ns-seg-italic {
+  font-style: italic;
+  font-weight: 600;
+}
+
+/* 虚线样式示意图块（边框 / 线条共用） */
+.mm-ns-tiles {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  justify-content: flex-end;
+}
+.mm-ns-tile {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 22px;
+  padding: 0;
+  border: 1px solid rgba(var(--wsa), 0.15);
+  border-radius: 4px;
+  background: transparent;
+  cursor: pointer;
+}
+.mm-ns-tile:hover {
+  background: rgba(var(--wsa), 0.1);
+}
+.mm-ns-tile line {
+  stroke: var(--text-dim);
+}
+.mm-ns-tile.active {
+  border-color: var(--accent);
+}
+.mm-ns-tile.active line {
+  stroke: var(--accent);
+}
+
+/* 形状选择栅格 */
+.mm-ns-shape-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+}
+.mm-ns-shape-item {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 34px;
+  padding: 0;
+  border: 1px solid rgba(var(--wsa), 0.15);
+  border-radius: 6px;
+  background: transparent;
+  cursor: pointer;
+}
+.mm-ns-shape-item:hover {
+  background: rgba(var(--wsa), 0.1);
+}
+.mm-ns-shape-item svg {
+  width: 52px;
+  height: 21px;
+}
+.mm-ns-shape-item path {
+  stroke: var(--text-dim);
+}
+.mm-ns-shape-item.active {
+  border-color: var(--accent);
+}
+.mm-ns-shape-item.active path {
+  stroke: var(--accent);
+}
+
+/* 内边距滑块占满控件区 */
+.mm-ns-slider {
+  width: 100%;
+}
+
+/* 无选中节点提示（参考端 tipBox） */
+.mm-ns-tip {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  padding: 60px 0;
+  color: var(--text-dim);
+}
+.mm-ns-tip-icon {
+  font-size: 88px;
+  color: rgba(var(--wsa), 0.2);
+}
+.mm-ns-tip-text {
+  font-size: 12.5px;
+}
