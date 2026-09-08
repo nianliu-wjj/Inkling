@@ -191,4 +191,14 @@ declare module 'simple-mind-map-plugin-themes/themeImgMap' {
   export default themeImgMap
 }
 
+declare module 'simple-mind-map-plugin-themes/src/dark/index' {
+  const darkList: Array<{ name: string; value: string; theme: unknown }>
+  export default darkList
+}
+
+declare module 'simple-mind-map-plugin-themes/src/light/index' {
+  const lightList: Array<{ name: string; value: string; theme: unknown }>
+  export default lightList
+}
+
 declare module 'simple-mind-map/dist/simpleMindMap.esm.css'

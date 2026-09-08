@@ -25,6 +25,8 @@ import SidebarTrigger from './chrome/SidebarTrigger.vue'
 import Count from './chrome/Count.vue'
 import ContextMenu from './popups/ContextMenu.vue'
 import ShortcutSidebar from './sidebars/ShortcutSidebar.vue'
+import StructureSidebar from './sidebars/StructureSidebar.vue'
+import ThemeSidebar from './sidebars/ThemeSidebar.vue'
 import ImportDialog from './dialogs/ImportDialog.vue'
 import ExportDialog from './dialogs/ExportDialog.vue'
 import NodeImageDialog from './dialogs/NodeImageDialog.vue'
@@ -280,6 +282,8 @@ watch(note, (value) => {
             <Count v-if="!ui.isZenMode" />
             <ContextMenu />
             <ShortcutSidebar />
+            <StructureSidebar />
+            <ThemeSidebar />
             <ImportDialog />
             <ExportDialog />
             <NodeImageDialog />

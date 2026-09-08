@@ -528,3 +528,64 @@
 .mm-tag-del:hover {
   opacity: 1;
 }
+
+/* ═══ 结构 / 主题侧栏 ═══ */
+.mm-struct-group,
+.mm-theme-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.mm-struct-groupname {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text);
+  margin-top: 4px;
+}
+.mm-struct-grid,
+.mm-theme-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+}
+.mm-struct-item,
+.mm-theme-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 4px;
+  border: 1px solid rgba(var(--wsa), 0.14);
+  border-radius: 8px;
+  background: transparent;
+  cursor: pointer;
+  overflow: hidden;
+}
+.mm-struct-item img,
+.mm-theme-item img {
+  width: 100%;
+  height: 56px;
+  object-fit: cover;
+  border-radius: 5px;
+  background: #fff;
+}
+.mm-struct-item.active,
+.mm-theme-item.active {
+  border-color: var(--accent);
+  outline: 1px solid var(--accent);
+}
+.mm-theme-name {
+  font-size: 11px;
+  color: var(--text-dim);
+}
+.mm-theme-noimg {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 56px;
+  border-radius: 5px;
+  background: rgba(var(--wsa), 0.1);
+  color: var(--text-dim);
+  font-size: 11px;
+}
