@@ -109,6 +109,8 @@ export function createMindMap(params: CreateMindMapParams): MindMap {
       }
     },
     expandBtnNumHandler: (num: number) => (num >= 100 ? '…' : num),
+    // 超链接点击：交给 MindMapApp 统一处理（`#uid` 跳转到目标节点，否则用系统默认程序打开外链）。
+    customHyperlinkJump: (link: string) => bus.emit('hyperlinkJump', link),
     // 参考端语义：resolve(false) 表示允许删除（用户已确认），resolve(true) 表示阻止。
     beforeDeleteNodeImg: () => params.confirm('是否确认删除该节点图片？').then((ok) => !ok),
   }

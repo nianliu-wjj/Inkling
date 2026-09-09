@@ -3,7 +3,7 @@ import { getCurrentWindow } from '@tauri-apps/api/window'
 import { NConfigProvider, NDialogProvider, dateZhCN, zhCN } from 'naive-ui'
 import type MindMap from 'simple-mind-map'
 import type { MindMapNode } from 'simple-mind-map'
-import { computed, nextTick, onMounted, reactive, ref, shallowRef, watch } from 'vue'
+import { computed, nextTick, onMounted, onUnmounted, reactive, ref, shallowRef, watch } from 'vue'
 import ToastHost from '@/components/base/ToastHost.vue'
 import TagList from '@/components/tag/TagList.vue'
 import TagManagerModal from '@/components/tag/TagManagerModal.vue'
@@ -54,6 +54,8 @@ import NodeNoteDialog from './dialogs/NodeNoteDialog.vue'
 import NodeTagDialog from './dialogs/NodeTagDialog.vue'
 import OutlineEditDialog from './dialogs/OutlineEditDialog.vue'
 import SourceCodeDialog from './dialogs/SourceCodeDialog.vue'
+import NodeLinkDialog from './dialogs/NodeLinkDialog.vue'
+import { setupAttachmentPicker } from './dialogs/AttachmentPicker'
 import MindMapStage from './MindMapStage.vue'
 
 /**
@@ -154,6 +156,8 @@ watch(
 
 // —— 自动保存（spec D6）——
 let autosaveTimer: ReturnType<typeof setTimeout> | null = null
+/** 附件选择器的清理函数（onCreated 里安装，窗口卸载时调用）。 */
+let detachAttachmentPicker: (() => void) | null = null
 
 /** view_data_change 只改视图位置：仍保存（视图是全量数据一部分），但不标记「未保存」打扰用户。 */
 function markDirtyAndAutosave(viewOnly = false): void {
@@ -246,6 +250,14 @@ function onCreated(instance: MindMap): void {
     ui.isReadonly = mode === 'readonly'
   })
   bus.on('toast', (text) => toast(String(text)))
+  // 超链接跳转：`#uid` 定位到目标节点，否则用系统默认程序打开外链。
+  bus.on('hyperlinkJump', (link) => {
+    const value = String(link)
+    if (value.startsWith('#')) instance.execCommand('GO_TARGET_NODE', value.slice(1))
+    else void api.system.openUrl(value)
+  })
+  // 附件选择 / 打开 / 删除（非组件，返回清理函数在窗口卸载时调用）。
+  detachAttachmentPicker = setupAttachmentPicker({ mindMap, bus, ui, localConfig, mapConfig })
   instance.keyCommand.addShortcut('Control+s', () => void save())
 }
 
@@ -276,6 +288,12 @@ watch(note, (value) => {
   if (!value || dirty.value) return
   mindmapData.value = value.mindmap_data
   tags.value = [...value.tags]
+})
+
+onUnmounted(() => {
+  window.removeEventListener('keydown', onKeydown)
+  detachAttachmentPicker?.()
+  if (autosaveTimer) clearTimeout(autosaveTimer)
 })
 </script>
 
@@ -332,6 +350,7 @@ watch(note, (value) => {
             <NodeTagDialog />
             <OutlineEditDialog />
             <SourceCodeDialog />
+            <NodeLinkDialog />
           </template>
           <!-- 后续阶段在此挂 NavigatorToolbar / 各侧栏 / 各浮层 / 各对话框 -->
         </div>

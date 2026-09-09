@@ -123,6 +123,20 @@ const nodeButtons: Btn[] = [
     run: () => bus.emit('showNodeLink'),
   },
   {
+    key: 'linkNode',
+    icon: 'iconlianjie',
+    label: '链接节点',
+    disabled: () => !hasActive(),
+    run: () => bus.emit('showNodeLinkToNode', ui.activeNodes[0]),
+  },
+  {
+    key: 'attachment',
+    icon: 'iconfujian',
+    label: '附件',
+    disabled: () => !hasActive(),
+    run: () => bus.emit('selectAttachment', ui.activeNodes),
+  },
+  {
     key: 'note',
     icon: 'iconbiaoqian',
     label: '备注',
