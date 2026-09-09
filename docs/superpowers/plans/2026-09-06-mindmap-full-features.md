@@ -1393,4 +1393,45 @@ export async function saveDataUrl(dataUrl: string, fileName: string, ext: string
 
 ## 验收记录
 
-（Task 35 填写）
+**验收日期**：2026-09-09　**分支**：feature/tauri-vue
+
+### 自动化校验（全绿）
+
+| 项 | 结果 |
+|---|---|
+| `npx vue-tsc --noEmit` | ✅ 0 错误 |
+| `npx prettier --check "src/**/*.{vue,ts,css}"` | ✅ All matched files use Prettier code style |
+| `npx vite build` | ✅ built（mindmap chunk 正常打包；仅有 chunk >500KB 的信息级提示，非错误） |
+| `cargo test` | ✅ 63 passed / 0 failed |
+
+### 功能实现对照（对齐 spec「范围 · 做」；实机 GUI 交互项待用户在 `tauri dev` 中验收）
+
+| 分区 | 实现 | 备注 |
+|---|---|---|
+| 窗口壳 / 持久化 / 自动保存 | ✅ Task 1-7 | 全量数据格式 + 旧格式兼容 |
+| 侧栏壳 / 触发条 / 表单件 | ✅ Task 8 | |
+| 工具栏 / 节点按钮 | ✅ Task 9（+链接节点/附件入口 Task 33） | |
+| 右键菜单 | ✅ Task 10 | |
+| 快捷键侧栏 / 字数节点统计 | ✅ Task 11 | |
+| 导入 / 导出 / 图片·超链接·备注·标签对话框 | ✅ Task 12-14 | |
+| 结构 / 主题侧栏 | ✅ Task 15-16 | 含 31 套主题（新增棕褐） |
+| 基础样式侧栏 | ✅ Task 17 | 内置背景图列表按 spec 不做 |
+| 节点样式侧栏 | ✅ Task 18 | 选中态死页签按裁决砍除 |
+| 设置（含水印）/ 图标 / 公式 / 备注侧栏 | ✅ Task 19/21-23 | |
+| 大纲侧栏（自实现递归树）| ✅ Task 20 | |
+| 导航栏 / 缩放 / 鼠标 / 全屏 / 演示 | ✅ Task 24 | 结构下拉按裁决不加（在结构侧栏） |
+| 小地图 | ✅ Task 25 | |
+| 滚动条 | ✅ Task 26 | |
+| 搜索与替换 | ✅ Task 27 | |
+| 富文本浮动工具栏 | ✅ Task 28 | |
+| 图标浮动栏 / 图片位置浮动栏 | ✅ Task 29 | |
+| 备注悬浮 / 图片预览 | ✅ Task 30 | |
+| 外框 / 标签 / 关联线样式面板 | ✅ Task 31 | 关联线按参考端实际 API（无箭头方向项） |
+| 大纲全屏编辑 / 源码编辑 | ✅ Task 32 | 源码编辑用 textarea，未引入需联网拉取的 @codemirror/lang-json |
+| 节点链接 / 附件 | ✅ Task 33 | |
+| 拖拽导入 / 禅模式 / 清理 | ✅ Task 34 | |
+
+### 说明
+
+- 本环境无显示器，实机 GUI 交互（节点拖拽、演示投屏、全屏等）留待用户在 `pnpm tauri:dev` 中逐项确认；代码路径均已实现并通过静态校验与构建。
+- 未做项均为 spec 明确排除（AI / 协同 / 浏览器本地文件目录树 / 内置背景图服务端列表 / 贴纸 image.js）。
