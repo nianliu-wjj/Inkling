@@ -1462,3 +1462,148 @@
   font-size: 18px;
   cursor: pointer;
 }
+/* ═══ 外框 / 标签 / 关联线样式面板 专用样式 ═══
+   参考端 NodeOuterFrame / NodeTagStyle / AssociativeLineStyle 样式移植，走 Inkling 令牌；
+   Teleport 到 body 故用 fixed。由控制器合并进 mindmap.css。 */
+
+/* 通用：三个浮动面板外观 */
+.mm-tagpanel,
+.mm-linepanel,
+.mm-framepanel {
+  position: fixed;
+  z-index: 2000;
+  padding: 12px;
+  border-radius: 8px;
+}
+.mm-tagpanel {
+  width: 260px;
+}
+.mm-linepanel,
+.mm-framepanel {
+  width: 280px;
+}
+
+.mm-linepanel-title,
+.mm-framepanel-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text);
+  margin: 8px 0 6px;
+}
+.mm-linepanel-title:first-child,
+.mm-framepanel-title:first-child {
+  margin-top: 0;
+}
+
+/* 标签面板 */
+.mm-tagpanel-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+.mm-tagpanel-row .mm-dialog-input {
+  flex: 1;
+  min-width: 0;
+}
+.mm-tagpanel-del,
+.mm-framepanel-foot .btn,
+.mm-linepanel-foot .btn {
+  white-space: nowrap;
+}
+.mm-tagpanel-del {
+  background: transparent;
+  border: none;
+  color: var(--text-dim);
+  cursor: pointer;
+  font-size: 12px;
+}
+.mm-tagpanel-del:hover {
+  color: var(--red, #eb5555);
+}
+.mm-tagpanel-colors,
+.mm-rtt-colors {
+  display: grid;
+  grid-template-columns: repeat(9, 1fr);
+  gap: 4px;
+}
+.mm-tagpanel-color {
+  width: 16px;
+  height: 16px;
+  border-radius: 4px;
+  border: 1px solid rgba(var(--wsa), 0.2);
+  cursor: pointer;
+  padding: 0;
+}
+.mm-tagpanel-color.active {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+.mm-tagpanel-color.transparent {
+  background:
+    linear-gradient(45deg, #ccc 25%, transparent 25%, transparent 75%, #ccc 75%) 0 0 / 8px 8px,
+    #fff;
+}
+
+/* 关联线 / 外框面板：两列表单网格 */
+.mm-linepanel-grid,
+.mm-framepanel-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px 10px;
+}
+.mm-linepanel-grid label,
+.mm-framepanel-grid label {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--text-dim);
+}
+.mm-linepanel-grid select,
+.mm-framepanel-grid select,
+.mm-linepanel-grid input,
+.mm-framepanel-grid input {
+  max-width: 96px;
+  background: rgba(var(--wsa), 0.08);
+  border: 1px solid rgba(var(--wsa), 0.14);
+  border-radius: 6px;
+  color: var(--text);
+  font-size: 12px;
+  font-family: inherit;
+  outline: none;
+  padding: 3px 6px;
+}
+.mm-linepanel-grid input[type='color'],
+.mm-framepanel-grid input[type='color'] {
+  width: 40px;
+  height: 24px;
+  padding: 0;
+  cursor: pointer;
+}
+.mm-framepanel-toggles {
+  display: flex;
+  gap: 6px;
+}
+.mm-framepanel-toggles button {
+  width: 28px;
+  height: 24px;
+  border: 1px solid rgba(var(--wsa), 0.14);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text);
+  cursor: pointer;
+}
+.mm-framepanel-toggles button.active {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
+.mm-linepanel-foot,
+.mm-framepanel-foot {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 12px;
+}

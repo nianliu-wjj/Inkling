@@ -48,7 +48,9 @@ export const FORWARDED_EVENTS = [
   'theme_change',
   'outer_frame_active',
   'outer_frame_delete',
+  'outer_frame_deactivate',
   'associative_line_click',
+  'associative_line_deactivate',
   'node_tag_click',
 ] as const
 

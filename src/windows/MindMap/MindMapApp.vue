@@ -33,6 +33,9 @@ import NodeIconToolbar from './popups/NodeIconToolbar.vue'
 import NodeImgPlacementToolbar from './popups/NodeImgPlacementToolbar.vue'
 import NoteContentShow from './popups/NoteContentShow.vue'
 import NodeImgPreview from './popups/NodeImgPreview.vue'
+import OuterFramePanel from './popups/OuterFramePanel.vue'
+import TagStylePanel from './popups/TagStylePanel.vue'
+import AssociativeLineStylePanel from './popups/AssociativeLineStylePanel.vue'
 import ShortcutSidebar from './sidebars/ShortcutSidebar.vue'
 import StructureSidebar from './sidebars/StructureSidebar.vue'
 import ThemeSidebar from './sidebars/ThemeSidebar.vue'
@@ -306,6 +309,9 @@ watch(note, (value) => {
             <NodeImgPlacementToolbar />
             <NoteContentShow />
             <NodeImgPreview />
+            <OuterFramePanel />
+            <TagStylePanel />
+            <AssociativeLineStylePanel />
             <ShortcutSidebar />
             <StructureSidebar />
             <ThemeSidebar />
