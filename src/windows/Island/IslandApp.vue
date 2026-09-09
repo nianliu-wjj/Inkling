@@ -75,11 +75,35 @@ watch(
 )
 
 // —— 悬停 / 点击（后端推送）——
+
+/** 折叠 / 展开时的胶囊视觉高度（与 Rust ISLAND 高度口径一致：折叠取设置值，展开取 max(高, 120)）。 */
+const collapsedHeight = computed(() => Math.min(72, Math.max(28, settings.value.island_height || 36)))
+const expandedHeight = computed(() => Math.max(collapsedHeight.value, 120))
+/** 胶囊高度 CSS 过渡时长（与 island.css 的 0.32s 一致），收起时据此延后缩窗。 */
+const EXPAND_MS = 320
+
+/** 展开序号：async 期间用于「后来者优先」，避免快速进出导致窗口尺寸错乱。 */
+let expandSeq = 0
+
+/**
+ * 切换展开态。为消除窗口 set_size 的瞬时跳变：
+ * - 展开：先把窗口撑到展开高（透明空间落在胶囊下方，不可见），再置 expanded → 胶囊用 CSS 平滑生长、详情淡入；
+ * - 收起：先置 expanded=false → 胶囊 CSS 收缩，待动画结束再缩窗（此前窗口保持高位，胶囊下方是透明区）。
+ */
 async function setExpanded(next: boolean): Promise<void> {
   if (expanded.value === next) return
-  expanded.value = next
+  const seq = ++expandSeq
   try {
-    await api.island.expand(next)
+    if (next) {
+      await api.island.expand(true)
+      if (seq !== expandSeq) return
+      expanded.value = true
+    } else {
+      expanded.value = false
+      await new Promise((resolve) => setTimeout(resolve, EXPAND_MS))
+      if (seq !== expandSeq) return
+      await api.island.expand(false)
+    }
   } catch (error) {
     logger.error('island', '切换展开状态失败', error)
   }
@@ -107,7 +131,11 @@ const alpha = computed(() => Math.min(1, Math.max(0.3, settings.value.island_opa
 </script>
 
 <template>
-  <div class="island" :class="{ expanded, clicked, empty: !current }" :style="{ '--island-alpha': alpha }">
+  <div
+    class="island"
+    :class="{ expanded, clicked, empty: !current }"
+    :style="{ '--island-alpha': alpha, '--cap-h': (expanded ? expandedHeight : collapsedHeight) + 'px' }"
+  >
     <!-- 收起态：单行胶囊，条目切换时向上滚动 -->
     <div v-if="!expanded" class="island-line">
       <Transition name="island-roll" mode="out-in">
@@ -123,13 +151,15 @@ const alpha = computed(() => Math.min(1, Math.max(0.3, settings.value.island_opa
       </Transition>
     </div>
 
-    <!-- 展开态：当前条目的详情组件 -->
-    <div v-else class="island-expanded">
-      <component v-if="current?.detail" :is="current.detail" :item="current" />
-      <div v-else class="island-detail">
-        <div class="island-detail-title">{{ current?.title ?? emptyText }}</div>
+    <!-- 展开态：当前条目的详情组件（随胶囊生长淡入） -->
+    <Transition name="island-fade">
+      <div v-if="expanded" class="island-expanded">
+        <component :is="current.detail" v-if="current?.detail" :item="current" />
+        <div v-else class="island-detail">
+          <div class="island-detail-title">{{ current?.title ?? emptyText }}</div>
+        </div>
+        <div class="island-hint">左键点击打开待办面板</div>
       </div>
-      <div class="island-hint">左键点击打开待办面板</div>
-    </div>
+    </Transition>
   </div>
 </template>
