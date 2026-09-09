@@ -63,7 +63,6 @@
    两层半径不一致时，14px 与 8px 之间会露出一圈毛玻璃月牙。
    面板本身就是一个窗口，跟随系统窗口圆角也更贴 Windows 11 的观感。 */
 #panel {
-  min-height: 100px;
   border-radius: 8px;
   clip-path: inset(0 round 8px);
 }

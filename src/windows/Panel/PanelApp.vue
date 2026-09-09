@@ -71,7 +71,7 @@ let mutationObserver: MutationObserver | null = null
 let reportFrame: number | null = null
 
 /** 面板高度范围，与 Rust 侧 windows.rs 的 PANEL_MIN/MAX_HEIGHT 保持一致。 */
-const PANEL_MIN_HEIGHT = 120
+const PANEL_MIN_HEIGHT = 90
 const PANEL_MAX_HEIGHT = 600
 /** 内容高度之外预留给窗口的余量（面板阴影与边框）。 */
 const PANEL_HEIGHT_PADDING = 12

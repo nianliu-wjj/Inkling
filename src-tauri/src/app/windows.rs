@@ -12,7 +12,7 @@ use super::state::AppState;
 use crate::events;
 
 pub const PANEL_WIDTH: f64 = 480.0;
-pub const PANEL_MIN_HEIGHT: f64 = 120.0;
+pub const PANEL_MIN_HEIGHT: f64 = 90.0;
 pub const PANEL_MAX_HEIGHT: f64 = 600.0;
 const HOTZONE_WIDTH: f64 = 240.0;
 const HOTZONE_HEIGHT: f64 = 80.0;
