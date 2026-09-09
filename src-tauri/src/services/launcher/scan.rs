@@ -12,6 +12,7 @@ use walkdir::WalkDir;
 
 use super::keyword;
 use super::model::{Candidate, Kind};
+use super::{drives, exclude, index_db};
 
 /// 索引条目上限：防止把整盘加进来拖垮内存（单条约 250B → 上限约 50MB）。
 pub const MAX_CANDIDATES: usize = 200_000;
@@ -319,9 +320,101 @@ fn scan_files(
     count
 }
 
+/// 扫描单个根目录树写入文件索引（供全盘入口与单测复用）。返回写入条数。
+/// 目录名命中排除集则整棵跳过；文件不单独判断（由父目录过滤）。批量 2000 行一提交。
+pub fn scan_dir_into_index(
+    root: &Path,
+    index: &mut index_db::FileIndex,
+    extra: &[String],
+) -> usize {
+    let mut batch: Vec<index_db::FileRow> = Vec::with_capacity(2048);
+    let mut total = 0usize;
+    let walker = WalkDir::new(root).into_iter().filter_entry(|e| {
+        if e.file_type().is_dir() {
+            e.depth() == 0
+                || e.file_name()
+                    .to_str()
+                    .map(|n| !exclude::is_excluded_dir(n, extra))
+                    .unwrap_or(false)
+        } else {
+            true
+        }
+    });
+    for entry in walker.filter_map(|e| e.ok()) {
+        if entry.depth() == 0 {
+            continue;
+        }
+        let name = match entry.file_name().to_str() {
+            Some(n) => n.to_string(),
+            None => continue,
+        };
+        let kind = if entry.file_type().is_dir() {
+            Kind::Folder
+        } else {
+            Kind::File
+        };
+        batch.push(index_db::FileRow {
+            keywords: keyword::generate(&name),
+            name,
+            path: entry.path().to_string_lossy().replace('\\', "/"),
+            kind,
+        });
+        if batch.len() >= 2000 {
+            let _ = index.upsert_batch(&batch);
+            total += batch.len();
+            batch.clear();
+        }
+    }
+    if !batch.is_empty() {
+        let _ = index.upsert_batch(&batch);
+        total += batch.len();
+    }
+    total
+}
+
+/// 全盘扫描所有固定磁盘写入索引（开新代 → 逐盘扫 → 清理消失项）。返回总条目数。
+pub fn scan_files_to_index(index: &mut index_db::FileIndex, extra_excludes: &[String]) -> usize {
+    index.begin_generation();
+    let mut total = 0usize;
+    for root in drives::fixed_drive_roots() {
+        eprintln!("[launcher] 全盘索引开始扫描 {}", root.display());
+        total += scan_dir_into_index(&root, index, extra_excludes);
+    }
+    let removed = index.prune_stale().unwrap_or(0);
+    eprintln!("[launcher] 全盘索引完成 共 {total} 条，清理消失 {removed} 条");
+    total
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn scan_dir_tree_into_index_respects_excludes() {
+        use super::super::index_db::FileIndex;
+        let base = std::env::temp_dir().join(format!("inkling-scanidx-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&base);
+        std::fs::create_dir_all(base.join("keep")).unwrap();
+        std::fs::create_dir_all(base.join("node_modules")).unwrap();
+        std::fs::write(base.join("keep/报告.txt"), b"x").unwrap();
+        std::fs::write(base.join("node_modules/junk.js"), b"x").unwrap();
+
+        let dbfile = base.join("i.db");
+        let mut idx = FileIndex::open(&dbfile).unwrap();
+        idx.begin_generation();
+        let n = scan_dir_into_index(&base, &mut idx, &[]);
+        idx.prune_stale().unwrap();
+
+        assert!(n >= 2); // keep 目录 + 报告.txt
+        assert!(idx
+            .query("baogao", 50)
+            .unwrap()
+            .iter()
+            .any(|r| r.name.contains("报告")));
+        // node_modules 被排除
+        assert!(idx.query("junk", 50).unwrap().is_empty());
+        std::fs::remove_dir_all(&base).ok();
+    }
 
     #[test]
     fn parse_roots_defaults_and_json() {
