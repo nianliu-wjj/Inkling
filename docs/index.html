@@ -1,10 +1,10 @@
 <!DOCTYPE html>
-<html lang="zh-CN">
+<html lang="zh-CN" data-theme="typewriter">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Inkling · 念头捕手 — 交互原型</title>
-  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="styles.css?v=2.5">
 </head>
 <body>
   <!-- ═══════════ 模拟桌面环境 ═══════════ -->
@@ -21,7 +21,7 @@
       <div class="menubar-right">
         <span class="menu-item" id="clock">--:--</span>
         <!-- Inkling 托盘图标（左键=历史归档 / 右键=菜单） -->
-        <span class="menu-item tray-icon" id="trayIcon" role="button" tabindex="0" aria-label="Inkling 托盘图标：左键打开主窗口，右键打开菜单" title="Inkling（左键: 历史归档 / 右键: 菜单）">✒️</span>
+        <span class="menu-item tray-icon" id="trayIcon" role="button" tabindex="0" aria-label="Inkling 托盘图标：左键打开主窗口，右键打开菜单" title="Inkling（左键: 历史归档 / 右键: 菜单）"><span class="ix">✒️</span></span>
       </div>
     </div>
 
@@ -61,7 +61,7 @@
     <div id="demoBar">
       <span class="demo-label">原型演示：</span>
       <button class="btn tiny" id="demoTogglePanel">⌃⇧Space 呼出面板</button>
-      <button class="btn tiny" id="demoLauncher">🚀 启动台（Alt+Space）</button>
+      <button class="btn tiny" id="demoLauncher"><span class="ix">🚀</span> 启动台（Alt+Space）</button>
       <button class="btn tiny" id="demoReminder">模拟待办提醒</button>
       <button class="btn tiny" id="demoReset">重置演示</button>
     </div>
@@ -87,7 +87,7 @@
         <button class="nav-dot dot-clip" data-mode="clipboard" role="tab" aria-selected="false" aria-label="粘贴板模式" title="粘贴板 (⌃2)"></button>
         <button class="nav-dot dot-todo" data-mode="todo" role="tab" aria-selected="false" aria-label="待办模式" title="待办 (⌃3)"></button>
       </div>
-      <button class="btn ghost tiny hidden" id="zenToggle" title="Zen 专注模式：全屏沉浸编辑（Esc 退出）">🧘 Zen</button>
+      <button class="btn ghost tiny hidden" id="zenToggle" title="Zen 专注模式：全屏沉浸编辑（Esc 退出）"><span class="ix">🧘</span> Zen</button>
       <span class="panel-hint">Esc 收起</span>
     </div>
 
@@ -99,7 +99,7 @@
         <div class="editor-actions">
           <!-- 右下角标签区：chips 或置灰「无标签」，点击弹标签管理窗 -->
           <div class="tag-preview" id="tagPreview" title="点击管理标签"></div>
-          <button class="btn ghost hidden" id="zenExit" title="退出 Zen 专注模式（Esc）">🧘 退出 Zen</button>
+          <button class="btn ghost hidden" id="zenExit" title="退出 Zen 专注模式（Esc）"><span class="ix">🧘</span> 退出 Zen</button>
           <button class="btn primary" id="btnArchive">归档念头 ↵</button>
         </div>
       </div>
@@ -121,7 +121,7 @@
           <option value="medium">🟡 中</option>
           <option value="low">🟢 低</option>
         </select>
-        <button class="btn tiny" id="todoDueBtn" title="新增待办事项（可设置完成时间）">📅</button>
+        <button class="btn tiny" id="todoDueBtn" title="新增待办事项（可设置完成时间）"><span class="ix">📅</span></button>
       </div>
       <div class="todo-panel-hint">搜索 / 优先级过滤当日待办 · 逾期事项自动置顶 · 点击优先级徽章可调整 · 点击 📅 新增待办</div>
       <ul class="todo-list" id="todoList"></ul>
@@ -138,16 +138,17 @@
       <!-- 左侧边栏：页签 + 当月热力图 + 底部（左：偏好设置 / 右：统计）；支持折叠为图标窄栏、拖动调宽 -->
       <aside class="archive-side" id="archiveSide">
         <div class="side-nav" role="tablist" aria-label="数据视图切换">
-          <div class="side-item active" data-view="notes" role="tab" tabindex="0" aria-selected="true"><span class="si-icon">📝</span><span class="si-label">笔记</span><span class="si-count" id="countNotes"></span></div>
-          <div class="side-item" data-view="clips" role="tab" tabindex="0" aria-selected="false"><span class="si-icon">📋</span><span class="si-label">粘贴板</span><span class="si-count" id="countClips"></span></div>
-          <div class="side-item" data-view="todos" role="tab" tabindex="0" aria-selected="false"><span class="si-icon">✅</span><span class="si-label">待办</span><span class="si-count" id="countTodos"></span></div>
-          <div class="side-item" data-view="plugins" role="tab" tabindex="0" aria-selected="false"><span class="si-icon">🧩</span><span class="si-label">插件</span></div>
+          <div class="side-item active" data-view="notes" role="tab" tabindex="0" aria-selected="true"><span class="si-icon"><span class="ix">📝</span></span><span class="si-label">笔记</span><span class="si-count" id="countNotes"></span></div>
+          <div class="side-item" data-view="clips" role="tab" tabindex="0" aria-selected="false"><span class="si-icon"><span class="ix">📋</span></span><span class="si-label">粘贴板</span><span class="si-count" id="countClips"></span></div>
+          <div class="side-item" data-view="todos" role="tab" tabindex="0" aria-selected="false"><span class="si-icon"><span class="ix">✅</span></span><span class="si-label">待办</span><span class="si-count" id="countTodos"></span></div>
+          <div class="side-item" data-view="launcher" role="tab" tabindex="0" aria-selected="false"><span class="si-icon"><span class="ix">🚀</span></span><span class="si-label">启动台</span></div>
+          <div class="side-item" data-view="island" role="tab" tabindex="0" aria-selected="false"><span class="si-icon"><span class="ix">🏝️</span></span><span class="si-label">灵动岛</span></div>
         </div>
         <!-- 当月热力图：悬浮看当日明细，点击查询该日全部 pin -->
         <div class="mini-heat" id="miniHeat"></div>
         <div class="side-foot">
-          <button class="icon-btn side-btn" id="sideSettings" title="偏好设置">⚙️</button>
-          <button class="icon-btn side-btn" id="sideStats" title="统计数据">📊</button>
+          <button class="icon-btn side-btn" id="sideSettings" title="偏好设置"><span class="ix">⚙️</span></button>
+          <button class="icon-btn side-btn" id="sideStats" title="统计数据"><span class="ix">📊</span></button>
         </div>
       </aside>
       <div class="side-resizer" id="sideResizer" title="拖动调整宽度（拖过阈值自动折叠）">
@@ -158,7 +159,7 @@
         <div class="archive-page" id="archive-notes">
           <div class="note-arch-bar">
             <input class="search-input" id="noteArchiveSearch" placeholder="🔍 搜索笔记…（正文、标签与思维导图节点）">
-            <button class="btn tiny" id="noteArchNewMindmap" title="新建思维导图（保存后作为笔记卡片入列表）">🧠 思维导图</button>
+            <button class="btn tiny" id="noteArchNewMindmap" title="新建思维导图（保存后作为笔记卡片入列表）"><span class="ix">🧠</span> 思维导图</button>
           </div>
           <div id="noteArchList"></div>
         </div>
@@ -180,6 +181,57 @@
           </div>
           <ul class="todo-list todo-arch-list" id="archiveTodoList"></ul>
         </div>
+        <!-- 启动台独立页：与 Alt+Space 浮窗共用数据源，页面内可直接试用并配置检索范围 -->
+        <div class="archive-page hidden" id="archive-launcher">
+          <div class="page-title">🚀 启动台</div>
+          <div class="stats-legend">键盘优先的全局启动器：Alt+Space 呼出浮窗；支持拼音/模糊匹配应用、命令、笔记、待办与浏览器历史，= 开头直接计算；历史命中项回车或双击即用默认浏览器打开</div>
+          <div class="launcher-page-hero">
+            <div class="launcher-input-row">
+              <span class="launcher-ico">🚀</span>
+              <input id="launcherPageInput" placeholder="在此试用：搜索应用 / 命令 / 笔记 / 待办 / 历史，= 开头计算" spellcheck="false" autocomplete="off">
+            </div>
+            <div class="launcher-list" id="launcherPageList"></div>
+            <div class="launcher-footer" id="launcherPageFooter"></div>
+          </div>
+          <div class="page-title page-sub-title">⚙️ 启动台设置</div>
+          <div class="settings-body">
+            <div class="setting-row"><span>全局呼出快捷键</span><kbd>⌥ Space</kbd> <button class="btn tiny" id="launcherHotkeyRecord">重新录制</button></div>
+            <label class="setting-row"><span>检索范围：应用与命令</span><input type="checkbox" id="lpScopeApps" checked></label>
+            <label class="setting-row"><span>检索范围：笔记</span><input type="checkbox" id="lpScopeNotes" checked></label>
+            <label class="setting-row"><span>检索范围：待办</span><input type="checkbox" id="lpScopeTodos" checked></label>
+            <label class="setting-row"><span>计算器（= 开头）</span><input type="checkbox" id="lpScopeCalc" checked></label>
+            <label class="setting-row"><span>检索范围：浏览器历史</span><input type="checkbox" id="lpScopeHistory" checked></label>
+            <label class="setting-row"><span>历史保留天数</span><input type="number" id="lpHistoryRetention" value="100" min="1" max="365"> 天</label>
+            <div class="setting-row"><span>已记录历史地址</span><span id="lpHistoryCount">—</span></div>
+            <div class="setting-row"><span>浮窗启动台</span><button class="btn tiny" id="openLauncherFromPage">呼出浮窗启动台</button></div>
+          </div>
+        </div>
+        <!-- 灵动岛独立页：实时预览 + 与偏好设置联动的参数配置 -->
+        <div class="archive-page hidden" id="archive-island">
+          <div class="page-title">🏝️ 灵动岛</div>
+          <div class="stats-legend">Windows 桌面顶部中央胶囊：滚动播放当日待办，提醒事件岛内呈现，悬停展开主面板，可拖拽右下角手柄调整尺寸</div>
+          <div class="island-preview-wrap">
+            <div class="island-preview" id="islandPreview"></div>
+            <div class="island-preview-hint">预览与屏幕顶部胶囊同源渲染（展示当前播放的第一条）；实际胶囊位于屏幕顶部中央</div>
+            <div class="island-page-stat" id="islandPageStat"></div>
+          </div>
+          <div class="page-title page-sub-title">⚙️ 灵动岛设置</div>
+          <div class="settings-body">
+            <label class="setting-row"><span>启用灵动岛</span><input type="checkbox" id="islandPageEnabled" checked></label>
+            <label class="setting-row"><span>滚动停留时间</span><input type="number" id="islandPageStay" value="3" min="1" max="10"> 秒</label>
+            <label class="setting-row"><span>播放范围</span>
+              <select id="islandPageScope">
+                <option value="today" selected>仅当天待办（默认）</option>
+                <option value="all">全部未完成待办</option>
+              </select>
+            </label>
+            <label class="setting-row"><span>透明度</span><input type="range" id="islandPageOpacity" min="30" max="100" value="100"></label>
+            <label class="setting-row"><span>点击穿透（点击落到下层应用，悬停仍有效）</span><input type="checkbox" id="islandPagePassClick"></label>
+            <label class="setting-row"><span>悬停穿透（悬停不展开面板、不暂停轮播）</span><input type="checkbox" id="islandPagePassHover"></label>
+            <label class="setting-row"><span>流光边框（参考 NetSpeed-Dynamic）</span><input type="checkbox" id="islandPageGlow"></label>
+            <label class="setting-row"><span>全屏自动隐藏</span><input type="checkbox" id="islandPageAutoHide" checked></label>
+          </div>
+        </div>
         <div class="archive-page hidden" id="archive-settings">
           <div class="page-title">⚙️ 偏好设置</div>
           <div class="settings-body">
@@ -197,6 +249,8 @@
               </select>
             </label>
             <label class="setting-row"><span>灵动岛透明度</span><input type="range" id="settingIslandOpacity" min="30" max="100" value="100"></label>
+            <label class="setting-row"><span>灵动岛点击穿透（点击落到下层应用，悬停仍有效）</span><input type="checkbox" id="settingIslandPassClick"></label>
+            <label class="setting-row"><span>灵动岛悬停穿透（悬停不展开面板、不暂停轮播）</span><input type="checkbox" id="settingIslandPassHover"></label>
             <label class="setting-row"><span>灵动岛流光边框（参考 NetSpeed-Dynamic）</span><input type="checkbox" id="settingIslandGlow"></label>
             <label class="setting-row"><span>灵动岛全屏自动隐藏</span><input type="checkbox" id="settingIslandAutoHide" checked></label>
             <label class="setting-row"><span>粘贴板保留天数</span><input type="number" id="settingClipRetention" value="30" min="1" max="365"> 天</label>
@@ -218,12 +272,6 @@
             </div>
           </div>
         </div>
-        <!-- 插件管理：内置功能以插件卡片形式启停与配置（灵动岛 / 呼出面板及三态子插件 / 思维导图 / 启动台） -->
-        <div class="archive-page hidden" id="archive-plugins">
-          <div class="page-title">🧩 插件管理</div>
-          <div class="stats-legend">内置功能以插件形态注册，支持启停与独立配置；停用后对应入口即刻隐藏/失效</div>
-          <div id="pluginList"></div>
-        </div>
         <div class="archive-page hidden" id="archive-stats">
           <div class="page-title">📊 使用统计</div>
           <div class="stats-legend">每日活跃度热力图（悬浮查看当日明细 · 红框 = 存在逾期待办）</div>
@@ -237,9 +285,9 @@
             <span class="day-date" id="dayDetailDateLabel">—</span>
             <div class="day-filters" id="dayFilters" role="group" aria-label="按类别筛选当日记录">
               <span class="day-filter active" data-filter="all" role="button" tabindex="0" aria-pressed="true">全部</span>
-              <span class="day-filter f-note" data-filter="note" role="button" tabindex="0" aria-pressed="false">📝 笔记</span>
-              <span class="day-filter f-clip" data-filter="clip" role="button" tabindex="0" aria-pressed="false">📋 粘贴板</span>
-              <span class="day-filter f-todo" data-filter="todo" role="button" tabindex="0" aria-pressed="false">✅ 待办</span>
+              <span class="day-filter f-note" data-filter="note" role="button" tabindex="0" aria-pressed="false"><span class="ix">📝</span> 笔记</span>
+              <span class="day-filter f-clip" data-filter="clip" role="button" tabindex="0" aria-pressed="false"><span class="ix">📋</span> 粘贴板</span>
+              <span class="day-filter f-todo" data-filter="todo" role="button" tabindex="0" aria-pressed="false"><span class="ix">✅</span> 待办</span>
             </div>
             <input class="search-input day-search" id="dayDetailSearch" placeholder="🔍 在该日记录中搜索…">
           </div>
@@ -302,15 +350,10 @@
         <button class="mm-tool-btn" id="mmSave" title="保存到 Inkling 笔记"><span class="mm-ico">💾</span><span class="mm-txt">保存</span></button>
         <button class="mm-tool-btn" id="mmNew" title="新建导图"><span class="mm-ico">📄</span><span class="mm-txt">新建</span></button>
         <button class="mm-tool-btn" id="mmImport" title="导入 JSON 导图"><span class="mm-ico">📥</span><span class="mm-txt">导入</span></button>
-        <!-- 导出 = 单向渲染产物，与上方「保存格式」分离（需求 2.9） -->
+        <!-- 导出 = 单向渲染产物，与上方「保存格式」分离（需求 2.9）。
+             格式选择移至对话框：点击「导出」→弹出对话框选定格式/路径/文件名→同名处理→执行。 -->
         <div class="mm-export-group">
-          <button class="mm-tool-btn" id="mmExport" title="按所选格式导出（产物不可再编辑）"><span class="mm-ico">📤</span><span class="mm-txt">导出</span></button>
-          <select class="mm-export-select" id="mmExportFormat" title="导出格式">
-            <option value="json" selected>JSON</option>
-            <option value="png">PNG</option>
-            <option value="svg">SVG</option>
-            <option value="pdf">PDF</option>
-          </select>
+          <button class="mm-tool-btn" id="mmExport" title="导出思维导图（选择格式、存储路径与文件名）"><span class="mm-ico">📤</span><span class="mm-txt">导出</span></button>
         </div>
         <button class="mm-tool-btn" id="mmCancel" title="取消放弃修改"><span class="mm-ico">✕</span><span class="mm-txt">取消</span></button>
       </div>
@@ -397,7 +440,7 @@
   <div id="launcherWindow" class="glass hidden">
     <div class="launcher-input-row">
       <span class="launcher-ico">🚀</span>
-      <input id="launcherInput" placeholder="搜索应用 / 命令 / 笔记 / 待办 / 剪贴板… 支持拼音，= 开头计算" spellcheck="false" autocomplete="off">
+      <input id="launcherInput" placeholder="搜索应用 / 命令 / 笔记 / 待办 / 浏览器历史… 支持拼音，= 开头计算" spellcheck="false" autocomplete="off">
     </div>
     <div class="launcher-list" id="launcherList"></div>
     <div class="launcher-footer" id="launcherFooter"></div>
@@ -405,7 +448,7 @@
 
   <!-- ═══════════ pinned 置顶浮窗（右下角） ═══════════ -->
   <div id="pinnedWindow" class="glass hidden">
-    <div class="pinned-header"><span>📌 置顶</span><span class="pinned-close" id="pinnedClose">✕</span></div>
+    <div class="pinned-header"><span><span class="ix">📌</span> 置顶</span><span class="pinned-close" id="pinnedClose">✕</span></div>
     <div class="pinned-body" id="pinnedContent">双击可展开编辑…</div>
     <div class="pinned-footer">
       <span>透明度</span>
@@ -454,52 +497,63 @@
     </div>
   </div>
 
-  <!-- ═══════════ 待办编辑弹窗（创建/子任务/提醒/编辑 共用） ═══════════ -->
+  <!-- ═══════════ 待办编辑面板（锚定卡片右侧弹出，带箭头指向卡片；编辑=完整编辑，完成/提醒/标签/备注=聚焦单项，新增子任务同位） ═══════════ -->
   <div id="todoEditorOverlay" class="hidden">
-    <div id="todoEditorModal" class="glass">
+    <div id="todoEditorPanel" class="glass" data-mode="">
+      <div class="te-caret"></div>
       <div class="clip-editor-header">
-        <span class="clip-editor-title" id="todoEditorTitle">✏️ 编辑待办</span>
+        <span class="clip-editor-title" id="todoEditorTitle"><span class="ix">✏️</span> 编辑待办</span>
         <button class="icon-btn" id="todoEditorClose" title="关闭（Esc）">
           <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M1 1l10 10M11 1L1 11" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
         </button>
       </div>
-      <input id="todoEditorText" class="search-input" placeholder="待办内容…">
-      <!-- 标签（参考笔记标签设计：≤3 个，每个 ≤10 字，✕ 抖动二次确认删除） -->
-      <div class="te-tags-row" id="teTagsRow">
-        <span class="te-label">标签</span>
-        <div class="te-tags" id="todoEditorTags"></div>
-      </div>
-      <input id="todoEditorTagInput" class="search-input te-tag-input" placeholder="输入标签回车添加（最多 3 个 · 每个 10 字）" maxlength="10">
-      <!-- 备注（最多 200 字，带字数计数） -->
-      <div class="te-remark-wrap">
-        <span class="te-label">备注</span>
-        <textarea id="todoEditorRemark" maxlength="200" rows="2" placeholder="补充说明…（选填，最多 200 字）"></textarea>
-        <span class="te-remark-count" id="todoEditorRemarkCount">0/200</span>
-      </div>
-      <div class="todo-editor-grid">
-        <label class="te-field">完成日期
-          <input type="date" id="todoEditorDate">
-        </label>
-        <label class="te-field">完成时间
-          <input type="time" id="todoEditorDueTime">
-        </label>
-      </div>
-      <div class="todo-editor-grid">
-        <label class="te-field">提醒日期（选填）
-          <input type="date" id="todoEditorRemindDate">
-        </label>
-        <label class="te-field">提醒时间（选填）
-          <input type="time" id="todoEditorRemindTime">
-        </label>
-      </div>
-      <div class="todo-editor-grid">
-        <label class="te-field" id="todoEditorPrioWrap">优先级
-          <select id="todoEditorPrio">
-            <option value="high">🔴 高</option>
-            <option value="medium" selected>🟡 中</option>
-            <option value="low">🟢 低</option>
-          </select>
-        </label>
+      <div class="te-body">
+        <!-- 完整编辑区：任务内容（仅 编辑/新建/子任务 模式） -->
+        <div class="te-sect" data-sect="text">
+          <input id="todoEditorText" class="search-input" placeholder="待办内容…">
+        </div>
+        <!-- 标签（完整编辑 或 聚焦标签） -->
+        <div class="te-sect" data-sect="tags">
+          <div class="te-tags-row" id="teTagsRow">
+            <span class="te-label">标签</span>
+            <div class="te-tags" id="todoEditorTags"></div>
+          </div>
+          <input id="todoEditorTagInput" class="search-input te-tag-input" placeholder="输入标签回车添加（最多 3 个 · 每个 10 字）" maxlength="10">
+        </div>
+        <!-- 备注（完整编辑 或 聚焦备注） -->
+        <div class="te-sect" data-sect="remark">
+          <div class="te-remark-wrap">
+            <span class="te-label">备注</span>
+            <textarea id="todoEditorRemark" maxlength="200" rows="2" placeholder="补充说明…（选填，最多 200 字）"></textarea>
+            <span class="te-remark-count" id="todoEditorRemarkCount">0/200</span>
+          </div>
+        </div>
+        <!-- 完成时间（完整编辑 或 聚焦完成时间） -->
+        <div class="te-sect" data-sect="due">
+          <div class="todo-editor-grid">
+            <label class="te-field">完成日期<input type="date" id="todoEditorDate"></label>
+            <label class="te-field">完成时间<input type="time" id="todoEditorDueTime"></label>
+          </div>
+        </div>
+        <!-- 提醒时间（完整编辑 或 聚焦提醒） -->
+        <div class="te-sect" data-sect="remind">
+          <div class="todo-editor-grid">
+            <label class="te-field">提醒日期（选填）<input type="date" id="todoEditorRemindDate"></label>
+            <label class="te-field">提醒时间（选填）<input type="time" id="todoEditorRemindTime"></label>
+          </div>
+        </div>
+        <!-- 优先级（仅完整编辑） -->
+        <div class="te-sect" data-sect="prio">
+          <div class="todo-editor-grid">
+            <label class="te-field" id="todoEditorPrioWrap">优先级
+              <select id="todoEditorPrio">
+                <option value="high">🔴 高</option>
+                <option value="medium" selected>🟡 中</option>
+                <option value="low">🟢 低</option>
+              </select>
+            </label>
+          </div>
+        </div>
       </div>
       <div class="clip-editor-footer">
         <span class="clip-editor-hint" id="todoEditorHint"></span>
@@ -556,8 +610,56 @@
     <div class="mm-ctx-item danger" data-cmd="removeSelf">仅删除当前节点<span class="mm-ctx-kbd">Shift+Backspace</span></div>
   </div>
 
+  <!-- ═══════════ 思维导图导出对话框（选格式 / 路径 / 文件名 · 同名默认加序号 · 强制同名二次覆盖确认） ═══════════ -->
+  <div id="mmExportOverlay" class="hidden">
+    <div id="mmExportDialog" class="glass">
+      <div class="clip-editor-header">
+        <span class="clip-editor-title"><span class="ix">📤</span> 导出思维导图</span>
+        <button class="icon-btn" id="mmExportClose" title="关闭（Esc）">
+          <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M1 1l10 10M11 1L1 11" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+        </button>
+      </div>
+      <div class="mm-export-body">
+        <div class="mm-export-field">
+          <label class="mm-field-label">导出格式</label>
+          <div class="mm-export-fmts" id="mmExportFmts">
+            <label class="mm-fmt-card"><input type="radio" name="mmFmt" value="json" checked><span class="mf-top"><span class="mf-name">JSON</span><span class="mf-ext">.json</span></span><span class="mf-desc">纯节点树 · 可再导入编辑</span></label>
+            <label class="mm-fmt-card"><input type="radio" name="mmFmt" value="svg"><span class="mf-top"><span class="mf-name">SVG</span><span class="mf-ext">.svg</span></span><span class="mf-desc">矢量图 · 缩放无损</span></label>
+            <label class="mm-fmt-card"><input type="radio" name="mmFmt" value="png"><span class="mf-top"><span class="mf-name">PNG</span><span class="mf-ext">.png</span></span><span class="mf-desc">位图 · 便于分享预览</span></label>
+            <label class="mm-fmt-card"><input type="radio" name="mmFmt" value="pdf"><span class="mf-top"><span class="mf-name">PDF</span><span class="mf-ext">.pdf</span></span><span class="mf-desc">文档 · 归档打印</span></label>
+          </div>
+        </div>
+        <div class="mm-export-field">
+          <label class="mm-field-label" for="mmExportDir">存储路径</label>
+          <input class="search-input" id="mmExportDir" value="~/Documents/MindMaps" title="模拟存储目录（真实由系统保存对话框选择；原型在此目录内做同名检测）">
+        </div>
+        <div class="mm-export-field">
+          <label class="mm-field-label" for="mmExportName">文件名</label>
+          <input class="search-input" id="mmExportName" placeholder="导出文件名（不含扩展名）" title="仅填名称，扩展名由所选格式自动追加">
+        </div>
+        <div class="mm-export-hint" id="mmExportHint">输入文件名后将实时检测目录是否同名</div>
+        <label class="mm-export-overwrite"><input type="checkbox" id="mmExportOverwrite"><span>强制同名覆盖（不勾选时，若目录已存在同名文件将<span class="emp">自动追加序号</span>避免重名）</span></label>
+      </div>
+      <div class="clip-editor-footer">
+        <span class="clip-editor-hint">同名默认加序号 · 强制同名需二次确认</span>
+        <div class="clip-editor-actions">
+          <button class="btn ghost" id="mmExportCancel">取消</button>
+          <button class="btn primary" id="mmExportConfirm">确定导出</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- 热力图悬浮明细 tooltip -->
   <div id="heatTip" class="hidden"></div>
+
+  <!-- 删除二次确认浮层（全局唯一：锚定卡片右侧、箭头指向卡片；JS fixed 定位，避免滚动容器裁剪） -->
+  <div id="cardConfirm" class="hidden" role="alertdialog" aria-live="polite">
+    <div class="cc-caret"></div>
+    <span class="card-confirm-text" id="cardConfirmText"></span>
+    <button class="btn tiny danger" id="cardConfirmYes">删除</button>
+    <button class="btn tiny ghost" id="cardConfirmNo">取消</button>
+  </div>
 
   <!-- toast 轻提示 -->
   <div id="toast" class="hidden"></div>
@@ -568,6 +670,6 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
   <!-- 思维导图库（参考 https://github.com/wanglin2/mind-map，UMD 全局变量 simpleMindMap） -->
   <script src="https://unpkg.com/simple-mind-map@0.14.0-fix.3/dist/simpleMindMap.umd.min.js"></script>
-  <script src="app.js?v=2.4"></script>
+  <script src="app.js?v=2.8"></script>
 </body>
 </html>

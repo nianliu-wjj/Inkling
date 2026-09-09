@@ -2,16 +2,17 @@
 (() => {
   // ── 模拟数据 ──────────────────────────────────
   const clips = [
-    { id: 1, type: 'text',  text: '把鼠标移到屏幕顶部中央试试 —— Inkling 的核心交互', date: todayStr(), time: '14:32:05', pinned: true },
-    { id: 2, type: 'link',  text: 'https://tauri.app/zh-cn/v2/guides/', date: todayStr(), time: '14:10:47', pinned: false },
-    { id: 3, type: 'code',  text: 'fn top_center(size: &PhysicalSize<u32>, origin: &PhysicalPosition<i32>)', date: todayStr(), time: '13:58:12', pinned: false },
-    { id: 4, type: 'text',  text: '念头捕手的产品哲学：1 秒原则，零上下文切换', date: todayStr(), time: '11:24:36', pinned: false },
-    { id: 5, type: 'image', text: '[图片] 设计稿-顶部面板-v3.png (1920×480)', date: yesterdayStr(), time: '18:02', pinned: false },
-    { id: 6, type: 'text',  text: '#idea 桌面宠物 + 速记结合的玩法', date: yesterdayStr(), time: '09:15', pinned: false },
+    { id: 1, type: 'text',  text: '把鼠标移到屏幕顶部中央试试 —— Inkling 的核心交互', date: todayStr(), time: '14:32:05', pinned: true,  app: '备忘录' },
+    { id: 2, type: 'link',  text: 'https://tauri.app/zh-cn/v2/guides/', date: todayStr(), time: '14:10:47', pinned: false, app: 'Chrome' },
+    { id: 3, type: 'code',  text: 'fn top_center(size: &PhysicalSize<u32>, origin: &PhysicalPosition<i32>)', date: todayStr(), time: '13:58:12', pinned: false, app: 'VS Code' },
+    { id: 4, type: 'text',  text: '念头捕手的产品哲学：1 秒原则，零上下文切换', date: todayStr(), time: '11:24:36', pinned: false, app: 'Typora' },
+    { id: 5, type: 'image', text: '[图片] 设计稿-顶部面板-v3.png (1920×480)', date: yesterdayStr(), time: '18:02', pinned: false, app: 'Figma' },
+    { id: 6, type: 'text',  text: '#idea 桌面宠物 + 速记结合的玩法', date: yesterdayStr(), time: '09:15', pinned: false, app: '微信' },
     // 历史种子：供侧边栏当月热力图与日期详情查询演示
-    { id: 7, type: 'text',  text: 'GSAP timeline：滑入 200ms / 滑出 150ms，ease back.out(1.6)', date: daysAgoStr(20), time: '16:08', pinned: false },
-    { id: 8, type: 'link',  text: 'https://docs.rs/tauri/2.0/window.html', date: daysAgoStr(12), time: '10:26', pinned: false },
-    { id: 9, type: 'code',  text: 'select * from todos where date <= ? and done = 0;', date: daysAgoStr(5), time: '20:15', pinned: false },
+    { id: 7, type: 'text',  text: 'GSAP timeline：滑入 200ms / 滑出 150ms，ease back.out(1.6)', date: daysAgoStr(20), time: '16:08', pinned: false, app: 'Chrome' },
+    { id: 8, type: 'link',  text: 'https://docs.rs/tauri/2.0/window.html', date: daysAgoStr(12), time: '10:26', pinned: false, app: 'Safari' },
+    { id: 9, type: 'code',  text: 'select * from todos where date <= ? and done = 0;', date: daysAgoStr(5), time: '20:15', pinned: false, app: 'Typora' },
+    { id: 10, type: 'text', text: '周四版本评审纪要：核心交互定稿，下周进入开发', date: daysAgoStr(3), time: '15:30', pinned: false, app: '飞书' },
   ];
   // 数据模型（待办 & 子任务一致）：
   //   完成时间 = date(完成日期) + dueTime(完成时刻)，两者必填
@@ -59,6 +60,54 @@
       ] } },
   ];
 
+  // ── 浏览器访问历史（原型模拟数据） ──
+  // 真实实现由浏览器扩展 / 系统 API 同步，记录规则：
+  //   ① 无痕（隐身）模式下的访问不记录；
+  //   ② 同一地址（协议 + 域名 + 端口 + 路径 + 参数完全一致）只保留一条，重复访问仅刷新访问时间——
+  //     例：https://baidu.com/q.html、https://baidu.com/a.html、https://baidu.com/a.html?a=b 为三条独立记录；
+  //   ③ 默认仅保留近 100 天，超期自动清理（天数可在「启动台」页调整）
+  let browserHistory = [
+    { url: 'https://tauri.app/zh-cn/v2/guides/', title: 'Tauri 2.0 中文指南', visitedAt: Date.now() - 2 * 36e5 },
+    { url: 'https://baidu.com/q.html', title: 'q.html - 百度', visitedAt: Date.now() - 5 * 36e5 },
+    { url: 'https://baidu.com/a.html', title: 'a.html - 百度', visitedAt: Date.now() - 26 * 36e5 },
+    { url: 'https://baidu.com/a.html?a=b', title: 'a.html?a=b - 百度', visitedAt: Date.now() - 30 * 36e5 },
+    { url: 'https://github.com/wanglin2/mind-map', title: 'wanglin2/mind-map · GitHub', visitedAt: Date.now() - 3 * 864e5 },
+    { url: 'https://developer.mozilla.org/zh-CN/docs/Web/CSS/backdrop-filter', title: 'backdrop-filter - CSS | MDN', visitedAt: Date.now() - 8 * 864e5 },
+    { url: 'https://www.yuque.com/', title: '语雀', visitedAt: Date.now() - 45 * 864e5 },
+    { url: 'https://example.com/old-page', title: '100 天前的旧页面（启动时将被自动清理）', visitedAt: Date.now() - 120 * 864e5 },
+  ];
+
+  // 记录一次浏览器访问（原型模拟入口，真实实现由浏览器扩展回调触发）：
+  // 无痕模式不记录；完整 URL 精确匹配去重，重复访问仅刷新时间
+  function recordBrowserVisit(url, title = '', incognito = false) {
+    if (incognito || !url) return null;
+    const existing = browserHistory.find(h => h.url === url);
+    if (existing) {
+      existing.visitedAt = Date.now();
+      if (title) existing.title = title;
+      return existing;
+    }
+    const rec = { url, title, visitedAt: Date.now() };
+    browserHistory.unshift(rec);
+    return rec;
+  }
+
+  // 清理超过保留天数的记录（默认近 100 天）
+  function pruneBrowserHistory() {
+    const days = Math.min(365, Math.max(1, Number(prefs.lpHistoryRetention) || 100));
+    const cutoff = Date.now() - days * 864e5;
+    browserHistory = browserHistory.filter(h => h.visitedAt >= cutoff);
+  }
+
+  // 用默认浏览器打开网址（600ms 内同一地址去抖：避免双击触发两次 click 打开两个标签页）
+  let lastOpenUrl = '', lastOpenAt = 0;
+  function openUrlInBrowser(url) {
+    const now = Date.now();
+    if (url === lastOpenUrl && now - lastOpenAt < 600) return;
+    lastOpenUrl = url; lastOpenAt = now;
+    window.open(url, '_blank', 'noopener,noreferrer');
+  }
+
   // ── DOM 引用 ──────────────────────────────────
   const $ = (id) => document.getElementById(id);
   const panel = $('panel'), hotzone = $('hotzone'), editor = $('editor');
@@ -86,9 +135,79 @@
       .replace(/\n/g, '<br>');
   }
 
-  // ── 删除二次确认状态（笔记/粘贴板/待办统一：✕ → 确认浮层 → 删除） ──
-  let noteConfirmId = null;   // 历史归档·笔记
-  let clipConfirmId = null;   // 粘贴板条目（面板与归档共用一套数据）
+  // ── 删除二次确认（全局唯一浮层 #cardConfirm：锚定卡片右侧、箭头指向卡片） ──
+  // 由 JS fixed 定位而非卡片内联渲染，避免滚动容器裁剪；scope 隔离触发视图
+  // （panel 唤出面板 / archive 主窗口归档 / day 日期详情），只在对应视图弹出
+  let pendingDelete = null;   // { kind: 'note'|'clip'|'todo', id: number, scope: 'panel'|'archive'|'day' }
+  function setPendingDelete(kind, id, scope) {
+    pendingDelete = id == null ? null : { kind, id, scope };
+  }
+  function clearPendingDelete() {
+    pendingDelete = null;
+    $('cardConfirm').classList.add('hidden');
+  }
+  function pendingDeleteScopeContainer(pd) {
+    if (pd.scope === 'panel') return pd.kind === 'todo' ? $('todoList') : $('clipList');
+    if (pd.scope === 'archive') return pd.kind === 'note' ? $('noteArchList') : pd.kind === 'clip' ? $('clipArchList') : $('archiveTodoList');
+    return $('dayDetailList');
+  }
+  function pendingDeleteText(pd) {
+    if (pd.kind === 'note') return '确认删除该笔记？';
+    if (pd.kind === 'clip') return '确认删除该条目？';
+    const isChild = todos.some(p => p.children.some(c => c.id === pd.id));
+    return isChild ? '确认删除该子任务？' : '确认删除该待办事项？';
+  }
+  // 每次重渲染后调用：若本视图有待确认删除，把浮层锚定到目标卡片右侧；找不到卡片则清除确认态
+  function refreshCardConfirm(scope) {
+    const pd = pendingDelete;
+    if (!pd || pd.scope !== scope) return;
+    const container = pendingDeleteScopeContainer(pd);
+    const card = container ? container.querySelector(
+      scope === 'day' ? `[data-kind="${pd.kind}"][data-id="${pd.id}"]` : `[data-id="${pd.id}"]`
+    ) : null;
+    if (!card) { clearPendingDelete(); return; }
+    const pop = $('cardConfirm');
+    const wasHidden = pop.classList.contains('hidden');
+    $('cardConfirmText').textContent = pendingDeleteText(pd);
+    pop.classList.remove('hidden');
+    // 与待办编辑面板同一套锚定逻辑：优先卡片右侧，空间不足翻转左侧，垂直对齐卡片中心
+    const r = card.getBoundingClientRect();
+    const W = pop.offsetWidth, H = pop.offsetHeight;
+    let left, flip = false;
+    if (r.right + 14 + W <= innerWidth - 10) left = r.right + 14;
+    else if (r.left - 14 - W >= 10) { left = r.left - 14 - W; flip = true; }
+    else left = Math.max(10, (innerWidth - W) / 2);
+    const top = Math.max(10, Math.min(r.top + r.height / 2 - H / 2, innerHeight - H - 10));
+    pop.style.left = left + 'px';
+    pop.style.top = top + 'px';
+    pop.classList.toggle('flip', flip);
+    pop.style.setProperty('--caret-y', Math.max(14, Math.min(r.top + r.height / 2 - top, H - 14)) + 'px');
+    if (wasHidden) gsap.fromTo(pop, { opacity: 0, x: flip ? 10 : -10 }, { opacity: 1, x: 0, duration: .15, ease: 'power2.out' });
+  }
+  // 确认/取消按钮（全局浮层，按 kind 分发删除逻辑）
+  $('cardConfirmYes').addEventListener('click', () => {
+    const pd = pendingDelete; if (!pd) return;
+    clearPendingDelete();
+    if (pd.kind === 'note') {
+      notes = notes.filter(x => x.id !== pd.id);
+      if (shakeNoteId === pd.id) shakeNoteId = null;
+      toast('笔记已删除');
+    } else if (pd.kind === 'clip') {
+      const i = clips.findIndex(x => x.id === pd.id); if (i >= 0) clips.splice(i, 1);
+      toast('条目已删除');
+    } else {
+      todos = todos.filter(x => x.id !== pd.id);
+      for (const p of todos) p.children = p.children.filter(c => c.id !== pd.id);
+      toast('待办已删除');
+    }
+    renderClips($('clipSearch').value);
+    renderArchive();
+    renderTodos();
+  });
+  $('cardConfirmNo').addEventListener('click', clearPendingDelete);
+  // 列表滚动 / 窗口缩放时浮层位置失效：直接关闭（与优先级/重复下拉的交互一致）
+  document.addEventListener('scroll', () => { if (pendingDelete) clearPendingDelete(); }, true);
+  window.addEventListener('resize', () => { if (pendingDelete) clearPendingDelete(); });
 
   // ── Toast ─────────────────────────────────────
   let toastTimer;
@@ -117,9 +236,6 @@
   }
   function showPanel() {
     if (panelVisible) return;
-    // 插件化配置：呼出面板被全局停用时静默拦截
-    const pPanel = PLUGINS.find(p => p.id === 'panel');
-    if (pPanel && !pPanel.enabled) return;
     panelVisible = true;
     panel.classList.remove('hidden');
     $('dynamicIsland').classList.add('di-fade');   // 面板展开期间灵动岛淡出（避免遮挡）
@@ -134,6 +250,7 @@
     if (!panelVisible) return;
     if (modalDepth > 0) return;           // 有编辑弹窗打开时禁止收起（内容需回显）
     panelVisible = false;
+    clearPendingDelete();                 // 面板收起时同步关闭删除确认浮层
     setZenMode(false);                    // 收起面板时同步退出 Zen 专注模式
     // 若正在编辑笔记但未保存（Esc/失焦放弃），退出编辑模式并恢复按钮文案
     if (typeof editingNoteId !== 'undefined' && editingNoteId !== null) {
@@ -215,10 +332,15 @@
   }
 
   // 悬停 100ms 防抖展开主面板（与 hotzone 同一交互）；悬停时暂停轮播，移开后恢复
+  // 悬停穿透开启时：不展开面板、不暂停轮播（鼠标事件视为穿透到下层）
   let diHoverTimer;
-  island.addEventListener('mouseenter', () => { diHoverTimer = setTimeout(showPanel, 100); stopIslandTicker(); });
+  island.addEventListener('mouseenter', () => {
+    if (prefs.islandPassHover) return;
+    diHoverTimer = setTimeout(showPanel, 100); stopIslandTicker();
+  });
   island.addEventListener('mouseleave', () => {
     clearTimeout(diHoverTimer);
+    if (prefs.islandPassHover) return;
     if (diCount > 1 && !diTimer) diTimer = setTimeout(diStep, DI.stay * 1000);   // 恢复轮播
   });
 
@@ -246,7 +368,10 @@
     blur: '延迟 3 秒收起', remarkStyle: 'auto',
     island: true, islandStay: 3, islandScope: 'today',
     islandOpacity: 100, islandGlow: false, islandAutoHide: true,
+    islandPassClick: false, islandPassHover: false,   // 鼠标穿透：点击 / 悬停 两个独立开关
     clipRetention: 30, autoStart: true,
+    lpApps: true, lpNotes: true, lpTodos: true, lpCalc: true,   // 启动台检索范围（页面与浮窗共用）
+    lpHistory: true, lpHistoryRetention: 100,                   // 浏览器历史：纳入检索 + 保留天数（默认近 100 天）
   };
   let prefs = { ...PREF_DEFAULTS };
   function loadPrefs() {
@@ -254,6 +379,11 @@
       prefs = { ...PREF_DEFAULTS, ...JSON.parse(localStorage.getItem(PREF_KEY) || '{}') };
     } catch {
       prefs = { ...PREF_DEFAULTS };   // 存储损坏时回退默认值，不阻塞启动
+    }
+    // 迁移：旧版单一「鼠标透传」开关 → 拆分为点击/悬停两个独立开关
+    if ('islandPassthrough' in prefs) {
+      if (prefs.islandPassthrough) { prefs.islandPassClick = true; prefs.islandPassHover = true; }
+      delete prefs.islandPassthrough;
     }
   }
   function setPref(key, value) {
@@ -282,6 +412,8 @@
     $('settingIslandStay').value = prefs.islandStay;
     $('settingIslandScope').value = prefs.islandScope;
     $('settingIslandOpacity').value = prefs.islandOpacity;
+    $('settingIslandPassClick').checked = prefs.islandPassClick;
+    $('settingIslandPassHover').checked = prefs.islandPassHover;
     $('settingIslandGlow').checked = prefs.islandGlow;
     $('settingIslandAutoHide').checked = prefs.islandAutoHide;
     $('settingClipRetention').value = prefs.clipRetention;
@@ -290,6 +422,7 @@
     DI.scope = prefs.islandScope;
     island.classList.toggle('hidden', !prefs.island);
     island.classList.toggle('di-glow', prefs.islandGlow);
+    island.classList.toggle('di-pass-click', prefs.islandPassClick);
     island.style.opacity = prefs.islandOpacity / 100;
   }
 
@@ -317,6 +450,18 @@
   $('settingIslandOpacity').addEventListener('input', (e) => {
     island.style.opacity = e.target.value / 100;
     setPref('islandOpacity', Number(e.target.value));
+  });
+  // 鼠标穿透（两个独立开关，对齐 Electron setIgnoreMouseEvents 能力模型）：
+  //   点击穿透 = (true, { forward: true }) —— 点击落到下层应用，悬停事件仍保留（面板可展开）
+  //   悬停穿透 = (true) 完全忽略 —— 悬停不再展开面板、不暂停轮播（仍可用顶部感应区/快捷键呼出）
+  $('settingIslandPassClick').addEventListener('change', (e) => {
+    island.classList.toggle('di-pass-click', e.target.checked);
+    setPref('islandPassClick', e.target.checked);
+    toast(e.target.checked ? '点击穿透已开启：点击落到下层应用（悬停展开仍有效）' : '点击穿透已关闭');
+  });
+  $('settingIslandPassHover').addEventListener('change', (e) => {
+    setPref('islandPassHover', e.target.checked);
+    toast(e.target.checked ? '悬停穿透已开启：悬停不再展开面板/暂停轮播' : '悬停穿透已关闭');
   });
   $('settingIslandGlow').addEventListener('change', (e) => {
     island.classList.toggle('di-glow', e.target.checked);
@@ -381,6 +526,7 @@
       // Zen 专注模式 / 启动台 / 导图通用弹窗 / 导图搜索框 / 导图抽屉 / 导图全屏 / 思维导图独立窗口 / 标签管理弹窗 / 编辑浮框打开时优先关闭
       if (panel.classList.contains('zen-mode')) { setZenMode(false); return; }
       if (!$('launcherWindow').classList.contains('hidden')) { closeLauncher(); return; }
+      if (!$('mmExportOverlay').classList.contains('hidden')) { closeExportDialog(); return; }
       if (!$('mmModalOverlay').classList.contains('hidden')) { closeMmModal(); return; }
       if (!$('mmSearchBox').classList.contains('hidden')) { closeMindmapSearch(); return; }
       if (!$('mindmapCtxMenu').classList.contains('hidden')) { mmHideCtx(); return; }   // 先关导图右键菜单
@@ -406,6 +552,7 @@
       if (!$('todoEditorOverlay').classList.contains('hidden')) { closeTodoEditor(); return; }
       if (!$('prioMenu').classList.contains('hidden')) { hidePrioMenu(); return; }
       if (!$('repeatMenu').classList.contains('hidden')) { hideRepeatMenu(); return; }
+      if (pendingDelete) { clearPendingDelete(); return; }   // 删除确认浮层优先关闭
       hidePanel(); closeAllWindows(); $('trayMenu').classList.add('hidden');
     }
     // 快捷键呼出启动台：Alt+Space 或 ⌥Space（参考 Wox / ZeroLaunch-rs）
@@ -424,6 +571,7 @@
 
   // ── 三态圆点切换 ──────────────────────────────
   function switchMode(mode) {
+    clearPendingDelete();   // 切换三态时关闭删除确认浮层（目标列表已隐藏）
     document.querySelectorAll('.nav-dot').forEach(d => {
       const on = d.dataset.mode === mode;
       d.classList.toggle('active', on);
@@ -535,10 +683,16 @@
   // ── 🟡 粘贴板：写入新条目 ──
   // 统一入口：思维导图「复制大纲」、启动台计算结果等场景写回剪贴板均走此处，
   // 保证新条目同时反映到面板列表、归档列表与当月热力图。
-  function addClip(text, type = 'text') {
+  // 来源应用：真实实现需在「复制发生瞬间」读取系统前台应用（Windows GetForegroundWindow
+  //   或 macOS NSWorkspace.frontmostApplication.localizedName）；此处用轮转常用应用名模拟，
+  //   调用方可显式传入来源（如「思维导图」「启动台」），未传则采用模拟前台应用。
+  const SOURCE_APPS = ['VS Code', 'Chrome', 'Safari', '微信', '飞书', '备忘录', 'Typora', 'Figma'];
+  let simAppSeq = 0;
+  function simSourceApp() { return SOURCE_APPS[simAppSeq++ % SOURCE_APPS.length]; }
+  function addClip(text, type = 'text', app = simSourceApp()) {
     const content = String(text ?? '').trim();
     if (!content) { toast('内容为空，未写入剪贴板'); return null; }
-    const clip = { id: Date.now(), type, text: content, date: todayStr(), time: nowTimeStr(), pinned: false };
+    const clip = { id: Date.now(), type, text: content, date: todayStr(), time: nowTimeStr(), pinned: false, app };
     clips.unshift(clip);
     renderClips($('clipSearch')?.value || '');   // 保持当前搜索过滤态
     renderArchive();                             // 同步归档列表与当月热力图
@@ -553,16 +707,12 @@
       .sort((a,b) => (b.pinned - a.pinned));
     list.innerHTML = items.map(c => `
       <li class="clip-item ${c.pinned ? 'pinned' : ''}" data-id="${c.id}">
-        ${clipConfirmId === c.id ? `<div class="card-confirm">
-          <span class="card-confirm-text">确认删除该条目？</span>
-          <button class="btn tiny danger" data-op="del-yes">删除</button>
-          <button class="btn tiny ghost" data-op="del-no">取消</button>
-        </div>` : ''}
         <!-- 右上：删除图标按钮（悬浮卡片时显示） -->
         <button class="card-close" data-op="del" title="删除该条目">${ICON_CLOSE}</button>
         <!-- 左上：时间 -->
         <div class="clip-head">
-          <span class="clip-time">${c.pinned ? '📌 ' : ''}${c.time}</span>
+          <span class="clip-time">${c.pinned ? '<span class="ix">📌</span> ' : ''}${c.time}</span>
+          <span class="clip-from" title="来源应用"><span class="ix">🌐</span> ${escapeHtml(c.app || '未知应用')}</span>
           <span class="clip-type ${c.type}">${{text:'文本',link:'链接',code:'代码',image:'图片'}[c.type]}</span>
         </div>
         <div class="clip-text">${c.text}</div>
@@ -574,6 +724,7 @@
           <button class="icon-btn ${c.pinned ? 'active-pin' : ''}" data-op="pin" title="${c.pinned ? '取消收藏' : '收藏置顶'}">${ICON_PIN}</button>
         </div>
       </li>`).join('');
+    refreshCardConfirm('panel');   // 有待确认删除时，锚定浮层到目标卡片右侧
   }
   $('clipSearch').addEventListener('input', (e) => renderClips(e.target.value));
   $('clipList').addEventListener('dblclick', (e) => {
@@ -591,12 +742,7 @@
     if (op === 'paste') toast('已写回剪贴板 ✔');
     if (op === 'pin') { c.pinned = !c.pinned; toast(c.pinned ? '已收藏 📌' : '已取消收藏'); }
     if (op === 'edit') { openClipEditor(c); return; }   // 打开独立编辑浮框（内部负责重渲染）
-    if (op === 'del') { clipConfirmId = c.id; }         // 先确认再删除
-    if (op === 'del-yes') {
-      clips.splice(clips.indexOf(c), 1); clipConfirmId = null;
-      toast('条目已删除'); renderArchive();
-    }
-    if (op === 'del-no') { clipConfirmId = null; }
+    if (op === 'del') { setPendingDelete('clip', c.id, 'panel'); }   // 先确认再删除（锚定卡片右侧浮层，仅本视图弹出）
     renderClips($('clipSearch').value);
   });
 
@@ -668,8 +814,6 @@
     return null;
   }
 
-  let todoDeleteConfirmId = null;   // 删除二次确认中的待办 id
-
   // 备注展示样式（设置页配置）：auto=混合（≤100字文本行 / >100字图标徽章）、icon、line
   function remarkDisplayStyle() {
     const sel = document.getElementById('settingRemarkStyle');
@@ -678,7 +822,7 @@
 
   // 单条待办 HTML（含子任务树；depth 供缩进）
   // opts: { showDate:搜索结果显示所属日期, q:搜索词(高亮), forceExpand:命中子任务时强制展开, hitId:命中的子任务 id }
-  function todoItemHTML(t, viewDate, depth = 0, opts = {}) {
+  function todoItemHTML(t, viewDate, depth = 0, opts = {}, scope = '') {
     const overdue = isOverdue(t, viewDate);
     const canEdit = !t.done;                                   // 已完成：禁改禁删
     const hasChildren = t.children.length > 0;
@@ -692,19 +836,19 @@
     const useRemarkLine = !!remark && !useRemarkIcon;
     // 提醒徽章：已设置 → 日期+时间（同日仅显时间）；未设置 → 淡色占位（默认三次提醒）
     const remindText = t.remind
-      ? (t.remind.date === t.date ? `⏰ ${t.remind.time}` : `⏰ ${Number(t.remind.date.slice(5, 7))}/${Number(t.remind.date.slice(8))} ${t.remind.time}`)
-      : '⏰';
+      ? (t.remind.date === t.date ? `<span class="ix">⏰</span> ${t.remind.time}` : `<span class="ix">⏰</span> ${Number(t.remind.date.slice(5, 7))}/${Number(t.remind.date.slice(8))} ${t.remind.time}`)
+      : '<span class="ix">⏰</span>';
     const remindTitle = t.remind
       ? `提醒：${t.remind.date} ${t.remind.time}（点击修改）`
       : '默认提醒：完成前30分钟、前5分钟、完成时各一次（点击设置）';
     const tagsHtml = (t.tags && t.tags.length)
       ? `<div class="todo-tags">${t.tags.map(tg =>
-          `<span class="tag-chip todo-tag" data-todoact="edit" title="#${escapeAttr(tg)}（点击编辑）"><span class="tag-name">${escapeAttr(tg)}</span></span>`).join('')}</div>`
+          `<span class="tag-chip todo-tag" data-todoact="tags" title="#${escapeAttr(tg)}（点击编辑标签）"><span class="tag-name">${escapeAttr(tg)}</span></span>`).join('')}</div>`
       : '';
     // 完成时间徽章（紧跟标签之后，可点击修改）
     const dueText = t.date === todayStr()
-      ? `📅 今天 ${t.dueTime}`
-      : `📅 ${Number(t.date.slice(5, 7))}/${Number(t.date.slice(8))} ${t.dueTime}`;
+      ? `<span class="ix">📅</span> 今天 ${t.dueTime}`
+      : `<span class="ix">📅</span> ${Number(t.date.slice(5, 7))}/${Number(t.date.slice(8))} ${t.dueTime}`;
     const dueChip = `<span class="due-badge ${overdue ? 'overdue' : ''}" data-todoact="due" title="完成时间：${escapeAttr(t.date + ' ' + t.dueTime)}（点击修改）">${dueText}</span>`;
     // 操作区：已完成项禁改（⏰/✏️ 隐藏），但父级仍可 ＋子任务（新建后系统自动恢复父级为未完成）
     const canAddChild = depth === 0 && t.children.length < MAX_CHILDREN;
@@ -716,11 +860,6 @@
           </div>` : '';
     return `
       <li class="todo-item prio-${t.priority} ${t.done ? 'done' : ''} ${overdue ? 'overdue' : ''} depth-${depth} ${hasChildren ? 'has-children' : ''} ${collapsed ? 'collapsed' : ''} ${hit}" data-id="${t.id}">
-        ${todoDeleteConfirmId === t.id ? `<div class="card-confirm">
-          <span class="card-confirm-text">⚠️ 确认删除该${depth === 0 ? '待办事项' : '子任务'}？</span>
-          <button class="btn tiny danger" data-todoact="del-yes">删除</button>
-          <button class="btn tiny ghost" data-todoact="del-no">取消</button>
-        </div>` : ''}
         <div class="todo-body">
         ${t.done ? '' : `<button class="card-close todo-del" data-todoact="del" title="删除待办">${ICON_CLOSE}</button>`}
         <div class="todo-head">
@@ -734,16 +873,16 @@
             <span class="todo-badges">
               ${opts.showDate ? `<span class="todo-date-chip" title="所属日期">${t.date}${t.date === todayStr() ? ' · 今天' : ''}</span>` : ''}
               ${overdue ? '<span class="overdue-flag" title="完成时间已过">逾期</span>' : ''}
-              ${t.repeat ? `<span class="todo-meta repeat" title="重复提醒：${t.repeat === 'daily' ? '每天' : '每周'}（点击切换/结束）" data-todoact="repeat">🔁${t.repeat === 'daily' ? '每天' : '每周'}</span>` : ''}
-              ${useRemarkIcon ? `<span class="remark-badge" data-todoact="edit" title="${escapeAttr(remark)}">📄</span>` : ''}
+              ${t.repeat ? `<span class="todo-meta repeat" title="重复提醒：${t.repeat === 'daily' ? '每天' : '每周'}（点击切换/结束）" data-todoact="repeat"><span class="ix">🔁</span>${t.repeat === 'daily' ? '每天' : '每周'}</span>` : ''}
+              ${useRemarkIcon ? `<span class="remark-badge" data-todoact="remark" title="${escapeAttr(remark)}"><span class="ix">📄</span></span>` : ''}
             </span>
           </div>
-          ${useRemarkLine ? `<div class="todo-remark" data-todoact="edit" title="${escapeAttr(remark)}">${escapeHtml(remark)}</div>` : ''}
+          ${useRemarkLine ? `<div class="todo-remark" data-todoact="remark" title="${escapeAttr(remark)}">${escapeHtml(remark)}</div>` : ''}
         </div>
         </div>
         ${(tagsHtml || opsHtml) ? `<div class="todo-foot"><div class="todo-foot-left">${tagsHtml}${dueChip}</div>${opsHtml}</div>` : ''}
         </div>
-        ${hasChildren && expanded ? `<ul class="todo-children">${sortTodos(t.children).map(c => todoItemHTML(c, viewDate, depth + 1, opts)).join('')}</ul>` : ''}
+        ${hasChildren && expanded ? `<ul class="todo-children">${sortTodos(t.children).map(c => todoItemHTML(c, viewDate, depth + 1, opts, scope)).join('')}</ul>` : ''}
       </li>`;
   }
 
@@ -758,7 +897,7 @@
   // 逾期规则：待办自身逾期，或其任一子任务逾期 → 整体（含全部子任务，含已完成）归入当日列表顶部逾期区
   // q 非空 + todayOnly=false：归档跨日期搜索模式（含子任务文本，结果显示所属日期）
   // prio：优先级过滤（'all' = 全部）；todayOnly=true：仅当日视图范围（面板），q 在当日范围内过滤
-  function renderTodoList(el, viewDate, q = '', prio = 'all', todayOnly = false) {
+  function renderTodoList(el, viewDate, q = '', prio = 'all', todayOnly = false, scope = '') {
     const pool = todos.filter(t => prio === 'all' || t.priority === prio);
     if (q && q.trim() && !todayOnly) {
       const needle = q.trim().toLowerCase();
@@ -771,7 +910,7 @@
         const childOpts = parentHit
           ? { showDate: true, q, hitId: t.children.find(match)?.id }   // 命中待办：显示整棵子任务树
           : { showDate: true, q, forceExpand: true, hitId: t.children.find(match)?.id };  // 仅命中子任务：展开并高亮
-        return todoItemHTML(t, viewDate, 0, childOpts);
+        return todoItemHTML(t, viewDate, 0, childOpts, scope);
       }).join('') || `<div class="todo-empty">未找到匹配「${escapeHtml(q)}」的待办事项</div>`;
       return;
     }
@@ -783,9 +922,9 @@
     const normal = pool.filter(t => t.date === viewDate && !pulledIds.has(t.id) && hit(t));
     const pulledHtml = pulled.length
       ? `<li class="todo-section">⚠️ 逾期事项 · 按完成时间与优先级置顶（${pulled.length} 项）</li>` +
-        sortOverdue(pulled).map(t => todoItemHTML(t, viewDate)).join('')
+        sortOverdue(pulled).map(t => todoItemHTML(t, viewDate, 0, {}, scope)).join('')
       : '';
-    const normalHtml = normal.length ? sortTodos(normal).map(t => todoItemHTML(t, viewDate)).join('') : '';
+    const normalHtml = normal.length ? sortTodos(normal).map(t => todoItemHTML(t, viewDate, 0, {}, scope)).join('') : '';
     const emptyMsg = needle ? `未找到匹配「${escapeHtml(q.trim())}」的当日待办` : `该日暂无${prio === 'all' ? '' : PRIORITY[prio].label + '优先级'}待办事项`;
     el.innerHTML = (pulledHtml + normalHtml) || `<div class="todo-empty">${emptyMsg}</div>`;
   }
@@ -883,32 +1022,39 @@
   let editorTags = [];        // 编辑中的标签副本（保存时写回）
   let editorTagShake = null, editorTagShakeTimer = null;   // 标签删除抖动确认
 
+  // 各模式可见的字段区段：编辑/新建/子任务=完整编辑；其余为聚焦单项
+  const TODO_SECTS = {
+    create: ['text', 'tags', 'remark', 'due', 'remind', 'prio'],
+    edit:   ['text', 'tags', 'remark', 'due', 'remind', 'prio'],
+    child:  ['text', 'tags', 'remark', 'due', 'remind', 'prio'],
+    due:    ['due'],
+    remind: ['remind'],
+    tags:   ['tags'],
+    remark: ['remark'],
+  };
   function openTodoEditor(ctx) {
     todoEditorCtx = ctx;
     const t = ctx.todoId ? findTodo(ctx.todoId) : null;
     const parent = ctx.parentId ? findTodo(ctx.parentId) : null;
-    const remindOnly = ctx.mode === 'remind';   // 提醒模式：仅可改提醒时间
-    const dueOnly = ctx.mode === 'due';         // 完成时间模式：仅可改完成时间
-    const lockAll = remindOnly || dueOnly;      // 两种聚焦模式均锁定其余字段
+    const mode = ctx.mode;
 
-    const titles = { create: '＋ 新建待办', child: '＋ 添加子任务', remind: '⏰ 设置/更改提醒', due: '📅 修改完成时间', edit: '✏️ 编辑待办' };
-    $('todoEditorTitle').textContent = titles[ctx.mode] || '待办';
+    const titles = { create: '＋ 新建待办', child: '＋ 添加子任务', remind: '⏰ 设置/更改提醒', due: '📅 修改完成时间', edit: '✏️ 编辑待办', tags: '🏷️ 编辑标签', remark: '📄 编辑备注' };
+    $('todoEditorTitle').textContent = titles[mode] || '待办';
     $('todoEditorText').value = ctx.prefillText || (t ? t.text : '');
-    $('todoEditorText').readOnly = lockAll;
 
     // 完成时间（必填）：创建默认今天 + 1 小时；子任务默认父级完成时间（日期上限锁定为父级）；
     // 已完成的父待办新建子任务 → 默认 1 小时后（父级完成时间必然已过，子任务恢复为可安排的未来时间）
     const dateEl = $('todoEditorDate'), dueEl = $('todoEditorDueTime');
-    if (ctx.mode === 'create') {
+    if (mode === 'create') {
       dateEl.value = ctx.defaultDate || todayStr();
       dueEl.value = minutesFromNow(60);
     } else {
       dateEl.value = t ? t.date : (parent ? (parent.done ? todayStr() : parent.date) : todayStr());
       dueEl.value = t ? (t.dueTime || '') : (parent ? (parent.done ? minutesFromNow(60) : (parent.dueTime || '')) : minutesFromNow(60));
     }
-    if (ctx.mode === 'child' && parent && !parent.done) { dateEl.max = parent.date; }
+    if (mode === 'child' && parent && !parent.done) { dateEl.max = parent.date; }
     else { dateEl.removeAttribute('max'); }
-    if ((ctx.mode === 'create' || ctx.mode === 'child') && !ctx.allowPast) { dateEl.min = todayStr(); }
+    if ((mode === 'create' || mode === 'child') && !ctx.allowPast) { dateEl.min = todayStr(); }
     else { dateEl.removeAttribute('min'); }
 
     // 提醒（选填）：完整日期 + 时间；留空 = 默认三次提醒
@@ -925,31 +1071,60 @@
     $('todoEditorRemark').value = (t && t.remark) || '';
     updateRemarkCount();
 
-    // 聚焦模式（提醒/完成时间）：其余字段禁用
-    $('todoEditorDate').disabled = remindOnly;
-    $('todoEditorDueTime').disabled = remindOnly;
-    $('todoEditorRemindDate').disabled = dueOnly;
-    $('todoEditorRemindTime').disabled = dueOnly;
-    $('todoEditorPrio').disabled = lockAll;
-    $('todoEditorTagInput').disabled = lockAll;
-    $('todoEditorRemark').disabled = lockAll;
-    $('teTagsRow').style.display = lockAll ? 'none' : 'flex';
-    $('todoEditorPrioWrap').style.display = lockAll ? 'none' : 'flex';
+    // 模式分段：只显示当前模式需要的区段（聚焦模式只含对应字段）
+    const panel = $('todoEditorPanel');
+    panel.dataset.mode = mode;
+    const sects = TODO_SECTS[mode] || TODO_SECTS.edit;
+    panel.querySelectorAll('.te-sect').forEach(s => {
+      s.style.display = sects.includes(s.dataset.sect) ? '' : 'none';
+    });
 
     $('todoEditorHint').textContent =
-      ctx.mode === 'child' ? `子任务完成时间不能晚于父待办（${parent.date} ${parent.dueTime}）`
-      : ctx.mode === 'remind'
+      mode === 'child' ? `子任务完成时间不能晚于父待办（${parent.date} ${parent.dueTime}）`
+      : mode === 'remind'
         ? ((t && t.remind) ? `已设提醒：${t.remind.date} ${t.remind.time}（清空两栏保存 = 恢复默认提醒）` : '未设置提醒：默认在完成前30分钟、前5分钟、完成时各提醒一次')
-      : ctx.mode === 'due'
+      : mode === 'due'
         ? '完成时间决定列表排序与逾期判定；子任务不能晚于父待办'
-      : ctx.mode === 'create'
+      : mode === 'tags' ? '标签 ≤3 个、每个 ≤10 字；✕ 需再次点击确认删除'
+      : mode === 'remark' ? '备注 ≤200 字'
+      : mode === 'create'
         ? (ctx.defaultDate ? `完成时间默认 1 小时后，将归入 ${ctx.defaultDate}${ctx.allowPast ? '（历史日期补录）' : ''}` : '完成时间默认 1 小时后，可修改；提醒留空 = 默认三次提醒')
       : '完成时间、任务内容必填；提醒留空 = 默认三次提醒';
 
     $('todoEditorOverlay').classList.remove('hidden');
     modalOpened();
-    gsap.fromTo('#todoEditorModal', { scale: .94, opacity: 0 }, { scale: 1, opacity: 1, duration: .2, ease: 'power2.out' });
-    setTimeout(() => (ctx.mode === 'remind' ? $('todoEditorRemindTime') : ctx.mode === 'due' ? $('todoEditorDueTime') : $('todoEditorText')).focus(), 80);
+    // 锚定到触发卡片右侧（待 DOM 渲染出面板后再定位）
+    requestAnimationFrame(() => {
+      positionTodoEditor(ctx.anchorEl || null);
+      const focusEl = { remind: 'todoEditorRemindTime', due: 'todoEditorDueTime', tags: 'todoEditorTagInput', remark: 'todoEditorRemark' }[mode];
+      ($(focusEl || 'todoEditorText')).focus();
+    });
+  }
+  // 面板定位：优先放触发卡片右侧并带左箭头；右侧空间不足则放左侧（箭头转右）；垂直对齐并防出屏
+  function positionTodoEditor(anchorEl) {
+    const panel = $('todoEditorPanel');
+    const W = panel.offsetWidth || 340, H = panel.offsetHeight || 300;
+    const r = anchorEl ? anchorEl.getBoundingClientRect() : null;
+    let left, top, flip = false;
+    if (r) {
+      if (r.right + 14 + W <= innerWidth - 10) { left = r.right + 14; }
+      else if (r.left - 14 - W >= 10) { left = r.left - 14 - W; flip = true; }
+      else { left = Math.max(10, (innerWidth - W) / 2); }   // 两侧都不够则水平居中兜底
+      top = r.top;
+    } else {
+      left = Math.max(10, (innerWidth - W) / 2);
+      top = Math.max(10, (innerHeight - H) / 2);           // 无锚点（如顶部新增按钮）居中
+    }
+    top = Math.max(10, Math.min(top, innerHeight - H - 10));
+    panel.style.left = left + 'px';
+    panel.style.top = top + 'px';
+    panel.classList.toggle('flip', flip);
+    // 箭头纵向对齐触发点（箭头在面板左/右边缘）
+    if (r) {
+      const cy = Math.max(14, Math.min(r.top + r.height / 2 - top, H - 14));
+      panel.style.setProperty('--caret-y', cy + 'px');
+    }
+    gsap.fromTo(panel, { opacity: 0, x: flip ? 10 : -10 }, { opacity: 1, x: 0, duration: .18, ease: 'power2.out' });
   }
 
   // ── 编辑弹窗内的标签管理（参考笔记标签设计：✕ 抖动二次确认） ──
@@ -996,7 +1171,7 @@
   function updateRemarkCount() { $('todoEditorRemarkCount').textContent = $('todoEditorRemark').value.length + '/200'; }
   $('todoEditorRemark').addEventListener('input', updateRemarkCount);
   function closeTodoEditor() {
-    gsap.to('#todoEditorModal', { scale: .96, opacity: 0, duration: .15, ease: 'power2.in',
+    gsap.to('#todoEditorPanel', { opacity: 0, duration: .12, ease: 'power2.in',
       onComplete: () => { $('todoEditorOverlay').classList.add('hidden'); todoEditorCtx = null; modalClosed(); } });
   }
   function saveTodoEditor() {
@@ -1058,6 +1233,16 @@
       t.date = date; t.dueTime = dueTime;
       toast('完成时间已改为 ' + date + ' ' + dueTime);
     }
+    if (ctx.mode === 'tags') {
+      const t = findTodo(ctx.todoId);
+      t.tags = editorTags.slice();
+      toast('标签已更新 ✔');
+    }
+    if (ctx.mode === 'remark') {
+      const t = findTodo(ctx.todoId);
+      t.remark = remark;
+      toast('备注已更新 ✔');
+    }
     if (ctx.mode === 'edit') {
       const t = findTodo(ctx.todoId);
       if (!text) { toast('任务内容必填'); return; }
@@ -1074,7 +1259,7 @@
   $('todoEditorText').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); saveTodoEditor(); } });
 
   // 事件委托（面板与归档共用）
-  function bindTodoList(el, viewDateGetter) {
+  function bindTodoList(el, viewDateGetter, scope = '') {
     el.addEventListener('click', (e) => {
       const btn = e.target.closest('[data-todoact]'); if (!btn || btn.disabled) return;
       const item = e.target.closest('.todo-item'); if (!item) return;
@@ -1094,22 +1279,18 @@
       }
       if (act === 'collapse') { t.collapsed = !t.collapsed; rerender(); return; }   // 树折叠/展开
       if (act === 'del') {
-        // 不直接删除：条目上方弹出确认框二次确认
-        todoDeleteConfirmId = t.id; rerender(); return;
+        // 不直接删除：锚定卡片右侧弹确认浮层；记录来源 scope，仅本视图弹出
+        setPendingDelete('todo', t.id, scope); rerender(); return;
       }
-      if (act === 'del-yes') {   // 确认删除
-        todos = todos.filter(x => x.id !== t.id);
-        for (const p of todos) p.children = p.children.filter(c => c.id !== t.id);
-        todoDeleteConfirmId = null; toast('待办已删除'); rerender(); return;
-      }
-      if (act === 'del-no') { todoDeleteConfirmId = null; rerender(); return; }   // 取消
       // ＋子任务在完成守卫之前：已完成的父待办也允许新建子任务（新建后系统自动恢复为未完成）
-      if (act === 'addchild') { openTodoEditor({ mode: 'child', parentId: t.id }); return; }
+      if (act === 'addchild') { openTodoEditor({ mode: 'child', parentId: t.id, anchorEl: item }); return; }
       if (t.done) { toast('已完成的待办不允许修改'); return; }   // 完成后禁改
-      if (act === 'edit') { openTodoEditor({ mode: 'edit', todoId: t.id }); return; }
+      if (act === 'edit') { openTodoEditor({ mode: 'edit', todoId: t.id, anchorEl: item }); return; }
 
-      if (act === 'remind') { openTodoEditor({ mode: 'remind', todoId: t.id }); return; }
-      if (act === 'due') { openTodoEditor({ mode: 'due', todoId: t.id }); return; }   // 点击完成时间徽章修改
+      if (act === 'remind') { openTodoEditor({ mode: 'remind', todoId: t.id, anchorEl: btn }); return; }
+      if (act === 'due') { openTodoEditor({ mode: 'due', todoId: t.id, anchorEl: btn }); return; }     // 点击完成时间徽章：仅改完成时间
+      if (act === 'tags') { openTodoEditor({ mode: 'tags', todoId: t.id, anchorEl: btn }); return; }   // 点击标签：仅改标签
+      if (act === 'remark') { openTodoEditor({ mode: 'remark', todoId: t.id, anchorEl: btn }); return; }   // 点击备注：仅改备注
 
       if (act === 'repeat') { showRepeatMenu(t, btn); return; }   // 弹出下拉框选择循环方式
       if (act === 'prio') { showPrioMenu(t, btn); return; }       // 弹出优先级阶梯下拉
@@ -1119,21 +1300,22 @@
 
   // 面板：当日视图 + 搜索/优先级过滤（归档若开着则带搜索词同步刷新）；数据变化同步迷你热力图与日期详情
   function renderTodos() {
-    renderTodoList($('todoList'), todayStr(), $('todoPanelSearch').value, $('todoPrioFilter').value, true);
+    renderTodoList($('todoList'), todayStr(), $('todoPanelSearch').value, $('todoPrioFilter').value, true, 'panel');
+    refreshCardConfirm('panel');
     const arch = document.getElementById('archiveTodoList');
-    if (arch) renderTodoList(arch, archiveViewDate, ($('todoArchiveSearch').value || '').trim());
+    if (arch) { renderTodoList(arch, archiveViewDate, ($('todoArchiveSearch').value || '').trim(), 'all', false, 'archive'); refreshCardConfirm('archive'); }
     renderMiniHeat();
     renderDayDetail();
     renderIsland();   // 待办变化同步灵动岛滚动播放
   }
   let archiveViewDate = todayStr();   // 归档页当前查看日期
-  bindTodoList($('todoList'), () => todayStr());           // 面板事件委托（锁死当天）
-  bindTodoList($('archive-todos'), () => archiveViewDate); // 归档事件委托（委托到外部容器，内部列表动态渲染）
+  bindTodoList($('todoList'), () => todayStr(), 'panel');           // 面板事件委托（锁死当天）
+  bindTodoList($('archive-todos'), () => archiveViewDate, 'archive'); // 归档事件委托（委托到外部容器，内部列表动态渲染）
 
   // 面板待办：搜索框与优先级过滤器
   $('todoPanelSearch').addEventListener('input', renderTodos);
   $('todoPrioFilter').addEventListener('change', renderTodos);
-  $('todoDueBtn').addEventListener('click', () => openTodoEditor({ mode: 'create' }));   // 新增待办（弹窗内设置完成时间）
+  $('todoDueBtn').addEventListener('click', (e) => openTodoEditor({ mode: 'create', anchorEl: e.currentTarget }));   // 新增待办（弹窗内设置完成时间）
 
   // 归档页日期切换（默认当天；面板不可切日期）
   function switchTodoDate(offset) {
@@ -1153,11 +1335,12 @@
   // 归档待办搜索：跨全部日期模糊匹配（含子任务文本，含已完成）
   $('todoArchiveSearch').addEventListener('input', (e) => renderTodos());
   // 新增待办事项：默认归入当前查看日（查看历史日期时允许补录）
-  $('todoArchiveNew').addEventListener('click', () => {
+  $('todoArchiveNew').addEventListener('click', (e) => {
     openTodoEditor({
       mode: 'create',
       defaultDate: archiveViewDate,
       allowPast: archiveViewDate < todayStr(),
+      anchorEl: e.currentTarget,
     });
   });
 
@@ -1187,6 +1370,7 @@
   let currentArchiveView = 'notes';
   function switchArchiveView(view) {
     currentArchiveView = view;
+    clearPendingDelete();   // 切换视图时关闭删除确认浮层（目标卡片所在视图已切换）
     hideHeatTip();   // 切换视图时收起热力图悬浮明细
     document.querySelectorAll('.side-item').forEach(x => {
       const on = x.dataset.view === view;
@@ -1195,7 +1379,7 @@
     });
     $('sideSettings').classList.toggle('active', view === 'settings');
     $('sideStats').classList.toggle('active', view === 'stats');
-    ['notes','clips','todos','settings','stats','day','plugins'].forEach(v => {
+    ['notes','clips','todos','launcher','island','settings','stats','day'].forEach(v => {
       const el = $('archive-' + v);
       if (el) el.classList.toggle('hidden', v !== view);
     });
@@ -1203,7 +1387,8 @@
     if (view === 'todos') renderTodos();
     if (view === 'stats') renderStats();
     if (view === 'day') renderDayDetail();
-    if (view === 'plugins') renderPlugins();
+    if (view === 'launcher') renderLauncherPage();
+    if (view === 'island') renderIslandPage();
   }
   function openMainWindow(view) {
     if (view) currentArchiveView = view;
@@ -1211,7 +1396,7 @@
     gsap.fromTo('#mainWindow', { scale: .94, opacity: 0 }, { scale: 1, opacity: 1, duration: .22, ease: 'power2.out' });
     switchArchiveView(currentArchiveView);
   }
-  function closeAllWindows() { $('mainWindow').classList.add('hidden'); }
+  function closeAllWindows() { $('mainWindow').classList.add('hidden'); clearPendingDelete(); }
   document.querySelectorAll('[data-close]').forEach(el => el.addEventListener('click', () => $(el.dataset.close).classList.add('hidden')));
   // 侧边栏：页签 + 底部左侧偏好设置 / 右侧统计
   document.querySelectorAll('.side-item').forEach(x => x.addEventListener('click', () => switchArchiveView(x.dataset.view)));
@@ -1315,15 +1500,10 @@
       const shaking = (n.id === shakeNoteId);
       return `
       <div class="archive-item ${n.pinned ? 'pinned' : ''} ${shaking ? 'shaking' : ''}" data-id="${n.id}">
-        ${noteConfirmId === n.id ? `<div class="card-confirm">
-          <span class="card-confirm-text">确认删除该笔记？</span>
-          <button class="btn tiny danger" data-act="close-yes">删除</button>
-          <button class="btn tiny ghost" data-act="close-no">取消</button>
-        </div>` : ''}
         <button class="card-close" data-act="close" title="删除该笔记">${ICON_CLOSE}</button>
-        <div class="a-text">${n.type === 'mindmap' ? '<span class="clip-type mindmap">🧠 思维导图</span>' : ''}${renderMdCard(n.text)}</div>
+        <div class="a-text">${n.type === 'mindmap' ? '<span class="clip-type mindmap"><span class="ix">🧠</span> 思维导图</span>' : ''}${renderMdCard(n.text)}</div>
         <div class="a-meta">
-          <span>${n.pinned ? '📌 ' : ''}${n.time}</span>
+          <span>${n.pinned ? '<span class="ix">📌</span> ' : ''}${n.time}</span>
           ${renderCardTags(n, expanded, shaking)}
           <span class="a-ops">
             <button class="icon-btn ${n.pinned ? 'active-pin' : ''}" data-act="pin" title="${n.pinned ? '取消置顶' : '置顶'}">${ICON_PIN}</button>
@@ -1341,16 +1521,12 @@
       .filter(c => !clipFilter || c.text.toLowerCase().includes(clipFilter));
     $('clipArchList').innerHTML = sortedClips.map(c => `
       <div class="archive-item clip-arch ${c.pinned ? 'pinned' : ''}" data-id="${c.id}">
-        ${clipConfirmId === c.id ? `<div class="card-confirm">
-          <span class="card-confirm-text">确认删除该条目？</span>
-          <button class="btn tiny danger" data-clipact="del-yes">删除</button>
-          <button class="btn tiny ghost" data-clipact="del-no">取消</button>
-        </div>` : ''}
         <button class="card-close" data-clipact="del" title="删除该条目">${ICON_CLOSE}</button>
         <div class="a-text">${c.text}</div>
         <div class="a-meta">
           <span class="clip-type ${c.type}">${TYPE_LABEL[c.type] || c.type}</span>
-          <span>${c.pinned ? '📌 ' : ''}${c.time}</span>
+          <span class="clip-from" title="来源应用"><span class="ix">🌐</span> ${escapeHtml(c.app || '未知应用')}</span>
+          <span>${c.pinned ? '<span class="ix">📌</span> ' : ''}${c.time}</span>
           <span class="a-ops">
             <button class="icon-btn" data-clipact="paste" title="粘贴到鼠标光标处">${ICON_PASTE}</button>
             <button class="icon-btn ${c.pinned ? 'active-pin' : ''}" data-clipact="pin"
@@ -1366,9 +1542,10 @@
       </div>`).join('') || `<div class="todo-empty">${clipFilter ? '未找到匹配的条目' : '暂无粘贴板条目'}</div>`;
 
     // 待办列表随日期/搜索词刷新（日期条为静态结构，不再整体重建）
-    renderTodoList(document.getElementById('archiveTodoList'), archiveViewDate, ($('todoArchiveSearch').value || '').trim());
+    renderTodoList(document.getElementById('archiveTodoList'), archiveViewDate, ($('todoArchiveSearch').value || '').trim(), 'all', false, 'archive');
     renderMiniHeat();   // 笔记/粘贴板数据变化同步侧边栏迷你热力图
     renderDayDetail();  // 同步日期详情视图
+    refreshCardConfirm('archive');   // 有待确认删除时，锚定浮层到目标卡片右侧
   }
 
   // 笔记卡片操作：标签弹窗 / 标签删除抖动确认 / 展开省略 / 右上角关闭 / 置顶 / 编辑（回显）
@@ -1421,15 +1598,7 @@
     // ④ 卡片右上角 ✕（二次确认）/ 置顶 / 编辑
     const btn = e.target.closest('[data-act]'); if (!btn) return;
     const act = btn.dataset.act;
-    if (act === 'close') { noteConfirmId = id; renderArchive(); }   // 先确认再删除
-    if (act === 'close-yes') {
-      notes = notes.filter(x => x.id !== id);
-      noteConfirmId = null;
-      if (shakeNoteId === id) shakeNoteId = null;
-      toast('笔记已删除');
-      renderArchive();
-    }
-    if (act === 'close-no') { noteConfirmId = null; renderArchive(); }
+    if (act === 'close') { setPendingDelete('note', id, 'archive'); renderArchive(); return; }   // 先确认再删除（锚定卡片右侧浮层，仅归档视图弹出）
     if (act === 'pin') {
       n.pinned = !n.pinned;
       toast(n.pinned ? '已置顶 📌' : '已取消置顶');
@@ -2136,7 +2305,7 @@
             const ind = '  '.repeat(d);
             return `${ind}- ${stripRichText(n.data && n.data.text)}\n` + (n.children || []).map(c => getRaw(c, d + 1)).join('');
           })(mindMap.getData(false)) : '';
-          addClip(rawText, 'text');
+          addClip(rawText, 'text', '思维导图');
           toast('大纲文本已复制到剪贴板 📋');
         });
 
@@ -2188,27 +2357,110 @@
   $('mmRemove').addEventListener('click', () => { if (!mmNeedNode()) mmExec('REMOVE_NODE'); });
   $('mmExpandAll').addEventListener('click', () => mmExec('EXPAND_ALL'));
   $('mmCollapseAll').addEventListener('click', () => mmExec('UNEXPAND_ALL'));
-  // 导出：按所选目标格式导出。保存格式与导出格式是两条独立路径——PNG/SVG/PDF 属
-  // 单向渲染产物，无法反解回节点树，故只能导出、不可作为保存后缀（需求 2.9）。
-  $('mmExport').addEventListener('click', () => {
-    if (!mindMap) return;
-    const fmt = $('mmExportFormat').value;
-    if (fmt !== 'json') {
-      // 原型未接入渲染引擎。此前的实现无视所选格式恒定输出 JSON，属静默失败；
-      // 现改为如实告知，避免用户以为拿到的是 PNG/PDF。
-      toast(`原型暂不支持 ${fmt.toUpperCase()} 渲染导出，请先选择 JSON`);
-      return;
+  // ── 导出对话框（点击「导出」→ 选格式/路径/文件名 → 同名加序号或二次覆盖确认 → 执行） ──
+  // 保存格式(.smm/.json/.xmind/.md，可再编辑) 与导出格式(.json/.svg/.png/.pdf，单向产物) 是两条
+  // 独立路径。浏览器原型内无法真实选系统目录/写盘，此处维护「虚拟目录已存在文件清单」做同名检测；
+  // 真实实现由系统保存对话框选择目录，并在落盘前校验同名：
+  //   · 默认同名 → 文件名后自动追加序号(name → name1 → name2 …)避免覆盖；
+  //   · 勾选「强制同名覆盖」且存在同名 → 弹二次确认窗，确认后覆盖原文件。
+  const MM_EXT_MAP = { json: '.json', svg: '.svg', png: '.png', pdf: '.pdf' };
+  const EXPORT_DIR_FILES = [
+    { dir: '~/Documents/MindMaps', name: '减脂计划', ext: '.json' },
+    { dir: '~/Documents/MindMaps', name: '架构总览', ext: '.svg' },
+    { dir: '~/Desktop', name: 'Inkling 产品规划', ext: '.png' },
+  ];
+  function exportExist(dir, name, ext) {
+    return EXPORT_DIR_FILES.some(f => f.dir === dir && f.name === name && f.ext === ext);
+  }
+  function exportAutoInc(dir, name, ext) {            // 同名自动加序号：首个不冲突的 name+i
+    if (!exportExist(dir, name, ext)) return name;
+    let i = 1;
+    while (exportExist(dir, name + i, ext)) i++;
+    return name + i;
+  }
+  function mmExportFmt() {
+    const r = document.querySelector('input[name="mmFmt"]:checked');
+    return r ? r.value : 'json';
+  }
+  // 实时检测目录同名并更新提示文案/状态色
+  function updateExportHint() {
+    const dir = $('mmExportDir').value.trim();
+    const name = $('mmExportName').value.trim();
+    const ext = MM_EXT_MAP[mmExportFmt()];
+    const hint = $('mmExportHint');
+    if (!name) { hint.textContent = '输入文件名后将实时检测目录是否同名'; hint.className = 'mm-export-hint'; return; }
+    const exist = exportExist(dir, name, ext);
+    if (!exist) {
+      hint.textContent = `将导出为「${name}${ext}」到 ${dir}，目录无同名，可直接导出`;
+      hint.className = 'mm-export-hint ok';
+    } else if ($('mmExportOverwrite').checked) {
+      hint.textContent = `⚠ 目录已存在「${name}${ext}」，已选强制覆盖，确定后将弹出二次确认`;
+      hint.className = 'mm-export-hint warn';
+    } else {
+      hint.textContent = `⚠ 目录已存在「${name}${ext}」，将自动重命名为「${exportAutoInc(dir, name, ext)}${ext}」避免覆盖`;
+      hint.className = 'mm-export-hint warn';
     }
+  }
+  function openExportDialog() {
+    if (!mindMap) return;
     const data = mindMap.getData(false);
-    const rootText = stripRichText(data && data.data && data.data.text).trim() || '思维导图';
-    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = `${rootText}.inkling-mindmap.json`;
-    a.click();
-    URL.revokeObjectURL(a.href);
-    toast('已导出 JSON 文件 ⬇');
-  });
+    const root = stripRichText(data && data.data && data.data.text).trim() || '思维导图';
+    $('mmExportName').value = root;
+    $('mmExportOverwrite').checked = false;
+    updateExportHint();
+    $('mmExportOverlay').classList.remove('hidden');
+  }
+  function closeExportDialog() { $('mmExportOverlay').classList.add('hidden'); }
+  // 正式落盘/下载：JSON 真实生成 Blob 下载；SVG 序列化画布；PNG/PDF 原型诚实告知需渲染引擎
+  function performExport(dir, name, fmt) {
+    const ext = MM_EXT_MAP[fmt];
+    const fn = name + ext;
+    if (fmt === 'json') {
+      const blob = new Blob([JSON.stringify(mindMap.getData(false), null, 2)], { type: 'application/json' });
+      const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = fn; a.click(); URL.revokeObjectURL(a.href);
+      toast(`已导出 ${fn} 到 ${dir} ⬇`);
+    } else if (fmt === 'svg') {
+      const svg = $('mindmapContainer').querySelector('svg');
+      if (svg) {
+        const blob = new Blob([new XMLSerializer().serializeToString(svg)], { type: 'image/svg+xml' });
+        const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = fn; a.click(); URL.revokeObjectURL(a.href);
+        toast(`已导出 ${fn} 到 ${dir} ⬇`);
+      } else { toast(`原型未取到画布 SVG，已按 ${fn} 登记导出请求`); }
+    } else {
+      toast(`原型暂不支持 ${fmt.toUpperCase()} 渲染导出，已按 ${fn} 登记导出请求`);
+    }
+    EXPORT_DIR_FILES.push({ dir, name, ext });   // 记入虚拟目录，供后续同名检测复用
+  }
+  // 确定导出：无同名 → 直接导出；同名且未勾覆盖 → 自动加序号导出；同名且勾覆盖 → 二次覆盖确认
+  function doExport() {
+    const dir = $('mmExportDir').value.trim() || '~/Documents/MindMaps';
+    const raw = $('mmExportName').value.trim();
+    if (!raw) { toast('请输入文件名'); return; }
+    const fmt = mmExportFmt();
+    const ext = MM_EXT_MAP[fmt];
+    if (!exportExist(dir, raw, ext)) { performExport(dir, raw, fmt); closeExportDialog(); return; }
+    if ($('mmExportOverwrite').checked) {
+      // 强制同名：弹二次覆盖确认（复用通用 mmModal），确认后才覆盖
+      openMmModal('确认覆盖同名文件',
+        `<div class="mm-ov-confirm"><span class="ix">⚠</span> 目录「${escapeHtml(dir)}」已存在文件「${escapeHtml(raw + ext)}」，覆盖后原文件无法恢复，是否确认覆盖？</div>`,
+        () => { performExport(dir, raw, fmt); closeExportDialog(); });
+    } else {
+      // 默认：自动加序号避免重名，无需二次确认
+      const inc = exportAutoInc(dir, raw, ext);
+      performExport(dir, inc, fmt);
+      toast(`目录已存在同名，已自动重命名为「${inc + ext}」并导出 ✔`);
+      closeExportDialog();
+    }
+  }
+  $('mmExport').addEventListener('click', openExportDialog);
+  $('mmExportConfirm').addEventListener('click', doExport);
+  $('mmExportCancel').addEventListener('click', closeExportDialog);
+  $('mmExportClose').addEventListener('click', closeExportDialog);
+  $('mmExportOverlay').addEventListener('click', (e) => { if (e.target === e.currentTarget) closeExportDialog(); });
+  $('mmExportName').addEventListener('input', updateExportHint);
+  $('mmExportDir').addEventListener('input', updateExportHint);
+  $('mmExportOverwrite').addEventListener('change', updateExportHint);
+  document.querySelectorAll('input[name="mmFmt"]').forEach(r => r.addEventListener('change', updateExportHint));
   // 导入：读取 JSON 节点树替换当前画布（结构与库导出格式一致）
   $('mmImport').addEventListener('click', () => $('mmImportFile').click());
   $('mmImportFile').addEventListener('change', (e) => {
@@ -2454,13 +2706,7 @@
       // 编辑：弹出文本编辑浮框，回显内容，保存后替换原文本（不影响置顶状态）
       openClipEditor(c);
     }
-    if (act === 'del') { clipConfirmId = c.id; renderArchive(); }   // 先确认再删除
-    if (act === 'del-yes') {
-      clips.splice(clips.indexOf(c), 1); clipConfirmId = null;
-      toast('条目已删除');
-      renderArchive(); renderClips($('clipSearch').value);
-    }
-    if (act === 'del-no') { clipConfirmId = null; renderArchive(); renderClips($('clipSearch').value); }
+    if (act === 'del') { setPendingDelete('clip', c.id, 'archive'); renderArchive(); return; }   // 先确认再删除（锚定卡片右侧浮层，仅归档视图弹出）
     if (act === 'paste') {
       pasteAtCursor(c);
     }
@@ -2479,8 +2725,9 @@
     pasteAtCursor(c);
   });
 
-  // ── 多主题系统（设置页下拉切换 · localStorage 持久化 · 默认深色，共 30 套） ──
+  // ── 多主题系统（设置页下拉切换 · localStorage 持久化 · 默认打字机，共 31 套） ──
   const THEMES = [
+    { id: 'typewriter',  name: '打字机',   dots: ['#ece7db', '#c62828', '#1a1a1a', '#2e7d32'] },
     { id: 'dark',        name: '深色',     dots: ['#1e2232', '#6c8cff', '#ffd76e', '#7ee0a8'] },
     { id: 'light',       name: '浅色',     dots: ['#f2f5fc', '#4c68e0', '#b8860b', '#12805c'] },
     { id: 'cupcake',     name: '纸杯蛋糕', dots: ['#fdf0f4', '#e56ba5', '#8fd3c7', '#f5c26b'] },
@@ -2524,7 +2771,7 @@
   function renderThemeDD() {
     const trigger = $('themeDDTrigger'), menu = $('themeDDMenu');
     if (!trigger || !menu) return;
-    const cur = document.documentElement.dataset.theme || 'dark';
+    const cur = document.documentElement.dataset.theme || 'typewriter';
     const t = THEMES.find(x => x.id === cur) || THEMES[0];
     const dots = (x) => `<span class="theme-dots">${x.dots.map(c => `<i style="background:${c}"></i>`).join('')}</span>`;
     trigger.innerHTML = `${dots(t)}<span class="dd-name">${t.name}</span><span class="dd-chevron">▾</span>`;
@@ -2552,8 +2799,8 @@
     document.addEventListener('click', (e) => {
       if (!e.target.closest('#themeDD')) closeThemeDD();
     });
-    let saved = 'dark';
-    try { saved = localStorage.getItem('inkling-theme') || 'dark'; } catch (_) {}
+    let saved = 'typewriter';
+    try { saved = localStorage.getItem('inkling-theme') || 'typewriter'; } catch (_) {}
     applyTheme(saved, false);
   }
 
@@ -2698,107 +2945,6 @@
     el.innerHTML = `<div class="trend-legend">${series.map(s => `<span><i style="background:${s.color}"></i>${s.label}</span>`).join('')}</div>` + svg;
   }
 
-  // ── 插件化配置（灵动岛 / 呼出面板及子功能 / 思维导图 / 启动台） ───────
-  const PLUGINS = [
-    {
-      id: 'island', name: '灵动岛 (Dynamic Island)', ico: '🏝️', ver: 'v1.3',
-      desc: 'Windows 桌面顶部胶囊，轮播当日待办、提醒事件呈现、尺寸拖拽调节与流光边框',
-      enabled: true, builtin: true,
-      onToggle: (on) => {
-        $('settingIsland').checked = on;
-        island.classList.toggle('hidden', !on);
-        if (on) renderIsland();
-      },
-      onConfig: () => { openMainWindow('settings'); }
-    },
-    {
-      id: 'panel', name: '呼出面板 (Floating Panel)', ico: '🪟', ver: 'v1.2',
-      desc: '屏幕顶部中央零延迟滑入的主交互面板，支持笔记、粘贴板与待办三态',
-      enabled: true, builtin: true,
-      children: [
-        { id: 'mode-note', name: '🔴 极速笔记与即时渲染', hint: '快捷键 ⌃1 / Zen 模式' },
-        { id: 'mode-clipboard', name: '🟡 剪贴板历史捕获与搜索', hint: '快捷键 ⌃2 / 双击置顶' },
-        { id: 'mode-todo', name: '🟢 待办清单与完成时间模型', hint: '快捷键 ⌃3 / 逾期置顶' },
-      ],
-      onToggle: (on) => {
-        if (!on) { hidePanel(); toast('呼出面板已禁用（顶部感应区与全局快捷键已休眠）'); }
-        else toast('呼出面板已启用');
-      },
-      onConfig: () => { openMainWindow('settings'); }
-    },
-    {
-      id: 'mindmap', name: '思维导图 (Mind Map Editor)', ico: '🧠', ver: 'v1.3',
-      desc: '基于 simple-mind-map 的独立窗口思维导图，支持图片、公式、外框、大纲与多主题',
-      enabled: true, builtin: true,
-      onToggle: (on) => {
-        $('noteArchNewMindmap').style.display = on ? '' : 'none';
-        if (!on) closeMindmapEditor();
-      },
-      onConfig: () => { openMindmapEditor(null); }
-    },
-    {
-      id: 'launcher', name: '全局启动台 (Launcher)', ico: '🚀', ver: 'v1.3',
-      desc: 'Alt+Space 呼出的键盘优先单输入框，支持拼音模糊搜索应用、穿透检索与简易计算器',
-      enabled: true, builtin: true,
-      onToggle: (on) => {
-        if (!on) closeLauncher();
-      },
-      onConfig: () => { openLauncher(); }
-    },
-  ];
-
-  function renderPlugins() {
-    const list = $('pluginList'); if (!list) return;
-    list.innerHTML = PLUGINS.map(p => `
-      <div class="plugin-card ${p.enabled ? '' : 'disabled'}" data-pid="${p.id}">
-        <div class="plugin-ico">${p.ico}</div>
-        <div class="plugin-info">
-          <div class="plugin-name">
-            ${escapeHtml(p.name)}
-            <span class="plugin-ver">${p.ver}</span>
-            <span class="plugin-badge-builtin">内置核心</span>
-          </div>
-          <div class="plugin-desc">${escapeHtml(p.desc)}</div>
-        </div>
-        <div class="plugin-actions">
-          <button class="btn tiny ghost plugin-cfg-btn" data-cfg="${p.id}">⚙️ 配置</button>
-          <label class="plugin-switch">
-            <input type="checkbox" ${p.enabled ? 'checked' : ''} data-toggle="${p.id}">
-            <span class="ps-track"><span class="ps-thumb"></span></span>
-          </label>
-        </div>
-      </div>
-      ${p.children ? `
-        <div class="plugin-children">
-          ${p.children.map(c => `
-            <div class="plugin-child">
-              <span class="plugin-child-name">${escapeHtml(c.name)}</span>
-              <span class="plugin-child-hint">${escapeHtml(c.hint)}</span>
-            </div>`).join('')}
-        </div>` : ''}
-    `).join('');
-
-    // 绑定开关与配置点击
-    list.querySelectorAll('input[data-toggle]').forEach(chk => {
-      chk.addEventListener('change', (e) => {
-        const pid = e.target.dataset.toggle;
-        const p = PLUGINS.find(x => x.id === pid);
-        if (p) {
-          p.enabled = e.target.checked;
-          if (p.onToggle) p.onToggle(p.enabled);
-          renderPlugins();
-          toast(`${p.name} 已${p.enabled ? '启用 ✔' : '停用 ✕'}`);
-        }
-      });
-    });
-    list.querySelectorAll('button[data-cfg]').forEach(btn => {
-      btn.addEventListener('click', () => {
-        const pid = btn.dataset.cfg;
-        const p = PLUGINS.find(x => x.id === pid);
-        if (p && p.onConfig) p.onConfig();
-      });
-    });
-  }
   let realByDate = {};        // 真实数据按日统计（迷你热力图数据源）
   let dayDetailDate = null;   // 日期详情当前查看日
   let dayFilter = 'all';      // 类别筛选：all | note | clip | todo
@@ -2899,34 +3045,26 @@
     }
     items.sort((a, b) => a.time.localeCompare(b.time));   // 按时间先后（待办取完成时间）
     const TYPE = { note: '📝 笔记', clip: '📋 粘贴板', todo: '✅ 待办' };
-    const KIND_NAME = { note: '笔记', clip: '条目', todo: '待办事项' };
-    const confirmIdFor = (it) => it.type === 'note' ? noteConfirmId : it.type === 'clip' ? clipConfirmId : todoDeleteConfirmId;
     const visible = items.filter(matchQ);
     listEl.innerHTML = visible.map(it => {
-      const confirmed = confirmIdFor(it) === it.id;
       const remindTxt = it.remind
-        ? `⏰ ${it.remind.date === dayDetailDate ? it.remind.time : it.remind.date + ' ' + it.remind.time}`
+        ? `<span class="ix">⏰</span> ${it.remind.date === dayDetailDate ? it.remind.time : it.remind.date + ' ' + it.remind.time}`
         : '';
       return `
       <div class="day-item ${it.type} ${it.done ? 'done' : ''}" data-kind="${it.type}" data-id="${it.id}">
-        ${confirmed ? `<div class="card-confirm">
-          <span class="card-confirm-text">确认删除该${KIND_NAME[it.type]}？</span>
-          <button class="btn tiny danger" data-dayact="del-yes">删除</button>
-          <button class="btn tiny ghost" data-dayact="del-no">取消</button>
-        </div>` : ''}
         <span class="day-time">${it.time}</span>
         <span class="day-badge ${it.type}">${TYPE[it.type]}</span>
         <div class="day-body">
           <div class="day-title-row">
             ${it.type === 'todo' ? `<span class="prio-badge ${it.priority}">${PRIORITY[it.priority].label}</span>` : ''}
             ${it.clipLabel ? `<span class="clip-type ${it.clipType}">${it.clipLabel}</span>` : ''}
-            ${it.noteType === 'mindmap' ? '<span class="clip-type mindmap">🧠 思维导图</span>' : ''}
+            ${it.noteType === 'mindmap' ? '<span class="clip-type mindmap"><span class="ix">🧠</span> 思维导图</span>' : ''}
             <div class="day-text ${it.type === 'note' ? 'd-clamp4' : 'd-clamp3'}" title="${escapeAttr(it.rawText)}">${it.titleHtml}</div>
             ${it.overdue ? '<span class="day-overdue">逾期</span>' : ''}
           </div>
           ${(remindTxt || it.repeat) ? `<div class="day-meta">
             ${it.remind ? `<span class="todo-meta">${remindTxt}</span>` : ''}
-            ${it.repeat ? `<span class="todo-meta">🔁 ${it.repeat === 'daily' ? '每天重复' : '每周重复'}</span>` : ''}
+            ${it.repeat ? `<span class="todo-meta"><span class="ix">🔁</span> ${it.repeat === 'daily' ? '每天重复' : '每周重复'}</span>` : ''}
           </div>` : ''}
           ${(it.tags && it.tags.length) ? `<div class="day-tags">${it.tags.map(tg =>
             `<span class="tag-chip todo-tag"><span class="tag-name">${escapeAttr(tg)}</span></span>`).join('')}</div>` : ''}
@@ -2939,6 +3077,7 @@
         </div>
       </div>`;
     }).join('') || `<div class="todo-empty">${q ? `未找到匹配「${escapeHtml(daySearch.trim())}」的记录` : '该日暂无' + (dayFilter === 'all' ? '记录' : { note: '笔记', clip: '粘贴板条目', todo: '待办事项' }[dayFilter])}</div>`;
+    refreshCardConfirm('day');   // 有待确认删除时，锚定浮层到目标卡片右侧
   }
 
   // 日期详情卡片操作：编辑 / 删除（二次确认）
@@ -2947,7 +3086,6 @@
     const card = e.target.closest('.day-item'); if (!card) return;
     const kind = card.dataset.kind, id = Number(card.dataset.id);
     const act = btn.dataset.dayact;
-    const rerenderDay = () => { renderMiniHeat(); renderDayDetail(); };
 
     if (act === 'edit') {
       if (kind === 'note') {
@@ -2959,33 +3097,12 @@
         const c = clips.find(x => x.id === id); if (c) openClipEditor(c);
       } else if (kind === 'todo') {
         if (findTodo(id)?.done) { toast('已完成的待办不允许修改'); return; }
-        openTodoEditor({ mode: 'edit', todoId: id });
+        openTodoEditor({ mode: 'edit', todoId: id, anchorEl: card });
       }
       return;
     }
     if (act === 'del') {
-      if (kind === 'note') noteConfirmId = id;
-      else if (kind === 'clip') clipConfirmId = id;
-      else todoDeleteConfirmId = id;
-      renderDayDetail(); return;
-    }
-    if (act === 'del-yes') {
-      if (kind === 'note') {
-        notes = notes.filter(x => x.id !== id); noteConfirmId = null;
-        toast('笔记已删除'); renderArchive();
-      } else if (kind === 'clip') {
-        const c = clips.find(x => x.id === id); if (c) clips.splice(clips.indexOf(c), 1);
-        clipConfirmId = null; toast('条目已删除');
-        renderArchive(); renderClips($('clipSearch').value);
-      } else {
-        todos = todos.filter(x => x.id !== id);
-        for (const p of todos) p.children = p.children.filter(c => c.id !== id);
-        todoDeleteConfirmId = null; toast('待办已删除'); renderTodos();
-      }
-      rerenderDay(); return;
-    }
-    if (act === 'del-no') {
-      noteConfirmId = null; clipConfirmId = null; todoDeleteConfirmId = null;
+      setPendingDelete(kind, id, 'day');
       renderDayDetail(); return;
     }
   });
@@ -3088,22 +3205,23 @@
     $('launcherInput').blur();
   }
 
-  function renderLauncherResults(q) {
-    const raw = (q || '').trim();
+  // 启动台检索数据源（浮窗与主窗口独立页共用）：尊重「检索范围」开关（prefs.lpApps/lpNotes/lpTodos/lpCalc）
+  function collectLauncherResults(raw) {
+    raw = (raw || '').trim();
     const query = raw.toLowerCase();
-    launcherResults = [];
+    const results = [];
 
     // 计算器支持：以 = 开头或纯数学表达式
-    if (raw.startsWith('=') || (/^[\d\s+\-*/().%^]+$/.test(raw) && /[+\-*/%]/.test(raw))) {
+    if (prefs.lpCalc && raw && (raw.startsWith('=') || (/^[\d\s+\-*/().%^]+$/.test(raw) && /[+\-*/%]/.test(raw)))) {
       const expr = raw.startsWith('=') ? raw.slice(1).trim() : raw;
       try {
         // 安全简易求值（仅允许数字与基本运算符）
         if (/^[0-9+\-*/().\s%]+$/.test(expr)) {
           const res = Function(`"use strict"; return (${expr})`)();
           if (typeof res === 'number' && !isNaN(res)) {
-            launcherResults.push({
+            results.push({
               ico: '🧮', name: `${expr} = ${res}`, sub: '回车复制结果到剪贴板', cat: '计算器',
-              run: () => { addClip(String(res), 'text'); toast(`已复制结果：${res}`); closeLauncher(); }
+              run: () => { addClip(String(res), 'text', '启动台'); toast(`已复制结果：${res}`); closeLauncher(); }
             });
           }
         }
@@ -3111,19 +3229,19 @@
     }
 
     // 匹配应用与内置命令
-    LAUNCHER_APPS.forEach(app => {
+    if (prefs.lpApps) LAUNCHER_APPS.forEach(app => {
       if (!query || app.name.toLowerCase().includes(query) || app.pinyin.includes(query)) {
-        launcherResults.push({ ico: app.ico, name: app.name, sub: '', cat: app.cat, run: app.run });
+        results.push({ ico: app.ico, name: app.name, sub: '', cat: app.cat, run: app.run });
       }
     });
 
-    // 搜索笔记
     if (query) {
-      notes.forEach(n => {
+      // 搜索笔记
+      if (prefs.lpNotes) notes.forEach(n => {
         const text = n.text.toLowerCase();
         const tags = (n.tags || []).join(' ').toLowerCase();
         if (text.includes(query) || tags.includes(query) || (n.type === 'mindmap' && mindmapAllText(n.mindmapData).includes(query))) {
-          launcherResults.push({
+          results.push({
             ico: n.type === 'mindmap' ? '🧠' : '📝',
             name: (n.type === 'mindmap' ? '思维导图: ' : '笔记: ') + n.text.slice(0, 36),
             sub: n.tags?.length ? `[${n.tags.join(', ')}]` : n.time,
@@ -3138,15 +3256,31 @@
       });
 
       // 搜索待办
-      todos.forEach(t => {
+      if (prefs.lpTodos) todos.forEach(t => {
         if (t.text.toLowerCase().includes(query)) {
-          launcherResults.push({
+          results.push({
             ico: '✅', name: `待办: ${t.text}`, sub: `${t.date} · 优先级 ${t.priority}`, cat: '待办',
             run: () => { closeLauncher(); openMainWindow('todos'); }
           });
         }
       });
+
+      // 搜索浏览器历史（标题或完整 URL 匹配；回车/点击 = 用默认浏览器打开该网址）
+      if (prefs.lpHistory) browserHistory.forEach(h => {
+        if (h.url.toLowerCase().includes(query) || (h.title || '').toLowerCase().includes(query)) {
+          results.push({
+            ico: '🌐', name: h.title || h.url, sub: h.url, cat: '历史',
+            run: () => { openUrlInBrowser(h.url); }
+          });
+        }
+      });
     }
+    return results;
+  }
+
+  function renderLauncherResults(q) {
+    const raw = (q || '').trim();
+    launcherResults = collectLauncherResults(raw);
 
     if (launcherIndex >= launcherResults.length) launcherIndex = Math.max(0, launcherResults.length - 1);
 
@@ -3166,14 +3300,14 @@
     $('launcherFooter').innerHTML = `<span>↑↓ 导航 · ↵ 执行 · Esc 关闭 · 共 ${launcherResults.length} 项</span>`;
 
     // 鼠标点击执行
-    document.querySelectorAll('.launcher-item').forEach(el => {
+    $('launcherList').querySelectorAll('.launcher-item').forEach(el => {
       el.addEventListener('click', () => {
         const idx = Number(el.dataset.idx);
         if (launcherResults[idx]) launcherResults[idx].run();
       });
       el.addEventListener('mouseenter', () => {
         launcherIndex = Number(el.dataset.idx);
-        document.querySelectorAll('.launcher-item').forEach((x, i) => x.classList.toggle('active', i === launcherIndex));
+        $('launcherList').querySelectorAll('.launcher-item').forEach((x, i) => x.classList.toggle('active', i === launcherIndex));
       });
     });
   }
@@ -3188,15 +3322,15 @@
       e.preventDefault();
       if (!launcherResults.length) return;
       launcherIndex = (launcherIndex + 1) % launcherResults.length;
-      document.querySelectorAll('.launcher-item').forEach((x, i) => x.classList.toggle('active', i === launcherIndex));
-      document.querySelectorAll('.launcher-item')[launcherIndex]?.scrollIntoView({ block: 'nearest' });
+      $('launcherList').querySelectorAll('.launcher-item').forEach((x, i) => x.classList.toggle('active', i === launcherIndex));
+      $('launcherList').querySelectorAll('.launcher-item')[launcherIndex]?.scrollIntoView({ block: 'nearest' });
     }
     if (e.key === 'ArrowUp') {
       e.preventDefault();
       if (!launcherResults.length) return;
       launcherIndex = (launcherIndex - 1 + launcherResults.length) % launcherResults.length;
-      document.querySelectorAll('.launcher-item').forEach((x, i) => x.classList.toggle('active', i === launcherIndex));
-      document.querySelectorAll('.launcher-item')[launcherIndex]?.scrollIntoView({ block: 'nearest' });
+      $('launcherList').querySelectorAll('.launcher-item').forEach((x, i) => x.classList.toggle('active', i === launcherIndex));
+      $('launcherList').querySelectorAll('.launcher-item')[launcherIndex]?.scrollIntoView({ block: 'nearest' });
     }
     if (e.key === 'Enter') {
       e.preventDefault();
@@ -3218,6 +3352,128 @@
       closeLauncher();
     }
   });
+
+  // ── 主窗口独立页：启动台 / 灵动岛 ─────────────
+  // 启动台页面：与浮窗启动台共用 collectLauncherResults 数据源，检索范围开关对两边同时生效
+  let launcherPageIndex = 0;
+  let launcherPageResults = [];
+  function renderLauncherPage() {
+    $('lpScopeApps').checked = prefs.lpApps;
+    $('lpScopeNotes').checked = prefs.lpNotes;
+    $('lpScopeTodos').checked = prefs.lpTodos;
+    $('lpScopeCalc').checked = prefs.lpCalc;
+    $('lpScopeHistory').checked = prefs.lpHistory;
+    $('lpHistoryRetention').value = prefs.lpHistoryRetention;
+    pruneBrowserHistory();   // 进入页面时清理超期记录并刷新计数
+    $('lpHistoryCount').textContent = `${browserHistory.length} 条（保留近 ${prefs.lpHistoryRetention} 天 · 无痕访问不记录）`;
+    launcherPageIndex = 0;
+    renderLauncherPageResults($('launcherPageInput').value);
+  }
+  function renderLauncherPageResults(q) {
+    const raw = (q || '').trim();
+    launcherPageResults = collectLauncherResults(raw);
+    if (launcherPageIndex >= launcherPageResults.length) launcherPageIndex = Math.max(0, launcherPageResults.length - 1);
+    const list = $('launcherPageList'), footer = $('launcherPageFooter');
+    if (!launcherPageResults.length) {
+      list.innerHTML = `<div class="launcher-empty">未找到匹配项，按 Enter 用默认浏览器搜索「${escapeHtml(raw)}」</div>`;
+      footer.innerHTML = `<span>↵ 回车搜索 · 点击条目直接执行</span>`;
+      return;
+    }
+    list.innerHTML = launcherPageResults.map((r, i) => `
+      <div class="launcher-item ${i === launcherPageIndex ? 'active' : ''}" data-idx="${i}">
+        <span class="li-ico">${r.ico}</span>
+        <span class="li-name">${escapeHtml(r.name)}${r.sub ? `<small>${escapeHtml(r.sub)}</small>` : ''}</span>
+        <span class="li-cat">${r.cat}</span>
+      </div>`).join('');
+    footer.innerHTML = `<span>↑↓ 导航 · ↵ 执行 · 点击直接执行 · 共 ${launcherPageResults.length} 项</span>`;
+    list.querySelectorAll('.launcher-item').forEach(el => {
+      el.addEventListener('click', () => {
+        const idx = Number(el.dataset.idx);
+        if (launcherPageResults[idx]) launcherPageResults[idx].run();
+      });
+      el.addEventListener('mouseenter', () => {
+        launcherPageIndex = Number(el.dataset.idx);
+        list.querySelectorAll('.launcher-item').forEach((x, i) => x.classList.toggle('active', i === launcherPageIndex));
+      });
+    });
+  }
+  $('launcherPageInput').addEventListener('input', (e) => { launcherPageIndex = 0; renderLauncherPageResults(e.target.value); });
+  $('launcherPageInput').addEventListener('keydown', (e) => {
+    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+      e.preventDefault();
+      if (!launcherPageResults.length) return;
+      const delta = e.key === 'ArrowDown' ? 1 : -1;
+      launcherPageIndex = (launcherPageIndex + delta + launcherPageResults.length) % launcherPageResults.length;
+      renderLauncherPageResults($('launcherPageInput').value);
+      $('launcherPageList').querySelectorAll('.launcher-item')[launcherPageIndex]?.scrollIntoView({ block: 'nearest' });
+    }
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      if (launcherPageResults[launcherPageIndex]) launcherPageResults[launcherPageIndex].run();
+      else {
+        const q = $('launcherPageInput').value.trim();
+        if (q) window.open(`https://www.google.com/search?q=${encodeURIComponent(q)}`, '_blank', 'noopener,noreferrer');
+      }
+    }
+  });
+  // 检索范围开关：浮窗与页面共用同一份偏好
+  [['lpScopeApps', 'lpApps'], ['lpScopeNotes', 'lpNotes'], ['lpScopeTodos', 'lpTodos'], ['lpScopeCalc', 'lpCalc'], ['lpScopeHistory', 'lpHistory']].forEach(([id, key]) => {
+    $(id).addEventListener('change', (e) => {
+      setPref(key, e.target.checked);
+      launcherPageIndex = 0;
+      renderLauncherPageResults($('launcherPageInput').value);
+    });
+  });
+  // 历史保留天数（1-365，默认 100）：修改后立即清理超期记录并刷新计数
+  $('lpHistoryRetention').addEventListener('change', (e) => {
+    const days = Math.min(365, Math.max(1, Number(e.target.value) || 100));
+    e.target.value = days;
+    setPref('lpHistoryRetention', days);
+    renderLauncherPage();
+    toast(`浏览器历史保留天数已设为 ${days} 天`);
+  });
+  $('launcherHotkeyRecord').addEventListener('click', () => {
+    // 真实实现须校验系统与应用内占用冲突，并支持注册失败降级（见需求 2.1）
+    toast('原型不支持录制全局快捷键（需系统级热键注册能力）');
+  });
+  $('openLauncherFromPage').addEventListener('click', openLauncher);
+
+  // 灵动岛页面：静态预览复用真实轮播轨道内容；设置控件桥接到设置页控件，复用其持久化与副作用
+  function renderIslandPage() {
+    const box = $('islandPreview');
+    if (box) {
+      const track = $('diTrack');
+      const first = track ? track.querySelector('.di-item') : null;
+      box.innerHTML = first
+        ? `<div class="di-item island-preview-item">${first.innerHTML}</div>`
+        : `<div class="di-item island-preview-item"><span class="di-dot idle"></span><span class="di-text dim">今日待办已全部完成 🎉</span></div>`;
+    }
+    const stat = $('islandPageStat');
+    if (stat) stat.textContent = `当前播放 ${diCount} 条待办 · 每条停留 ${DI.stay} 秒 · 范围：${DI.scope === 'today' ? '仅当天待办' : '全部未完成待办'}${prefs.island ? '' : ' · 灵动岛已停用'}${prefs.islandPassClick ? ' · 点击穿透' : ''}${prefs.islandPassHover ? ' · 悬停穿透' : ''}`;
+    $('islandPageEnabled').checked = prefs.island;
+    $('islandPageStay').value = prefs.islandStay;
+    $('islandPageScope').value = prefs.islandScope;
+    $('islandPageOpacity').value = prefs.islandOpacity;
+    $('islandPagePassClick').checked = prefs.islandPassClick;
+    $('islandPagePassHover').checked = prefs.islandPassHover;
+    $('islandPageGlow').checked = prefs.islandGlow;
+    $('islandPageAutoHide').checked = prefs.islandAutoHide;
+  }
+  // 桥接：页面控件 → 设置页同名控件（派发原生事件，复用现有监听器的持久化与副作用，两处始终一致）
+  function bridgeToSetting(settingId, value, evtName) {
+    const el = $(settingId);
+    if (!el) return;
+    if (el.type === 'checkbox') el.checked = value; else el.value = value;
+    el.dispatchEvent(new Event(evtName, { bubbles: true }));
+  }
+  $('islandPageEnabled').addEventListener('change', (e) => { bridgeToSetting('settingIsland', e.target.checked, 'change'); renderIslandPage(); });
+  $('islandPageStay').addEventListener('change', (e) => { bridgeToSetting('settingIslandStay', e.target.value, 'change'); renderIslandPage(); });
+  $('islandPageScope').addEventListener('change', (e) => { bridgeToSetting('settingIslandScope', e.target.value, 'change'); renderIslandPage(); });
+  $('islandPageOpacity').addEventListener('input', (e) => { bridgeToSetting('settingIslandOpacity', e.target.value, 'input'); });
+  $('islandPagePassClick').addEventListener('change', (e) => { bridgeToSetting('settingIslandPassClick', e.target.checked, 'change'); renderIslandPage(); });
+  $('islandPagePassHover').addEventListener('change', (e) => { bridgeToSetting('settingIslandPassHover', e.target.checked, 'change'); renderIslandPage(); });
+  $('islandPageGlow').addEventListener('change', (e) => { bridgeToSetting('settingIslandGlow', e.target.checked, 'change'); });
+  $('islandPageAutoHide').addEventListener('change', (e) => { bridgeToSetting('settingIslandAutoHide', e.target.checked, 'change'); });
 
   // ── 演示控制条 ────────────────────────────────
   $('demoTogglePanel').addEventListener('click', () => panelVisible ? hidePanel() : showPanel());
@@ -3250,6 +3506,7 @@
 
   // 初始渲染
   applyPrefs();              // 先恢复已保存的偏好，再渲染，避免首帧闪现默认值
+  pruneBrowserHistory();     // 启动即清理超期浏览器历史（默认保留近 100 天）
   buildThemePicker();
   renderClips(); renderTodos(); renderPanelTags();
 })();

@@ -8,6 +8,7 @@ dist/
 target/
 src-tauri/target/
 
+logs
 *.log
 .DS_Store
 
@@ -19,3 +20,6 @@ images/
 
 # subagent-driven-development 台账与任务简报（本地过程产物）
 .superpowers/
+
+# AI Coding
+.claude

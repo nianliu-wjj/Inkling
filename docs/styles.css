@@ -1,4 +1,4 @@
-/* ═══ Inkling 原型样式（毛玻璃暗色系） ═══ */
+/* ═══ Inkling 原型样式（默认主题：打字机 · 纸面终端风；深色为基础令牌） ═══ */
 * { margin: 0; padding: 0; box-sizing: border-box; user-select: none; }
 :root {
   color-scheme: var(--scheme);
@@ -55,7 +55,8 @@
   /* 焦点环：键盘可达性的统一视觉（需求 3.2） */
   --focus-ring: 0 0 0 2px rgba(var(--accent-rgb), .5), 0 0 0 4px rgba(var(--accent-rgb), .16);
 
-  /* ── 主题令牌（默认 = 深色；其他主题在文件末尾覆盖） ── */
+  /* ── 主题令牌（基础 = 深色；默认主题为「打字机」，由 html[data-theme] 首屏直接生效；
+       其余主题在文件末尾以 [data-theme] 块覆盖以下令牌） ── */
   --scheme: dark;
   --wsa: 255,255,255;
   --body-bg: radial-gradient(1200px 800px at 30% 20%, #2b3a67, #151826 70%);
@@ -96,7 +97,7 @@
      的技术约束，且导致它是全站唯一不跟随主题换肤的窗口。
      本轮先完成令牌化：默认值刻意等于原硬编码值，故视觉零变化、零回归风险。
      ⚠️ 下一步：在各 [data-theme] 主题块中覆盖以下 13 个令牌，导图窗口即可接入
-     30 套主题换肤（该项已记入需求文档 6.4 待办）。 */
+     31 套主题换肤（该项已记入需求文档 6.4 待办）。 */
   --mm-surface: #ffffff;
   --mm-surface-2: #fafafa;
   --mm-surface-3: #f0f2f5;
@@ -265,6 +266,11 @@ button:disabled, select:disabled, input:disabled, textarea:disabled {
 }
 /* 主面板展开时自动淡出，收起后恢复 */
 #dynamicIsland.di-fade { opacity: 0; pointer-events: none; }
+/* 点击穿透：胶囊内的可点击元素（提醒卡片 / 拖拽手柄）不再响应点击，点击落到下层应用；
+   悬停事件保留（悬停展开面板仍有效）——对齐 Electron setIgnoreMouseEvents(true, { forward: true }) */
+#dynamicIsland.di-pass-click .di-alert,
+#dynamicIsland.di-pass-click .di-resizer { pointer-events: none; }
+/* 悬停穿透为纯 JS 行为（mouseenter/leave 守卫），无需样式 */
 .di-ticker { height: 100%; overflow: hidden; }
 /* 逐条停留轮播：JS 步进 translateY，transition 平滑切换（末尾复制第一条实现无缝回环） */
 .di-track { will-change: transform; transition: transform .45s ease; }
@@ -328,7 +334,7 @@ button:disabled, select:disabled, input:disabled, textarea:disabled {
               transform var(--dur-base) var(--ease-spring),
               box-shadow var(--dur-base) var(--ease-out);
 }
-/* 颜色取自类别语义令牌，30 套主题自动跟随 */
+/* 颜色取自类别语义令牌，31 套主题自动跟随 */
 .nav-dot.dot-note { --dot-c: var(--c-note); }
 .nav-dot.dot-clip { --dot-c: var(--c-clip); }
 .nav-dot.dot-todo { --dot-c: var(--c-todo); }
@@ -390,6 +396,9 @@ button:disabled, select:disabled, input:disabled, textarea:disabled {
 .clip-head { display: flex; align-items: center; gap: 8px; margin-bottom: 3px; }
 .clip-head .clip-time { order: -1; }
 .clip-type { font-size: 11px; padding: 1px 7px; border-radius: 4px; background: rgba(var(--accent-rgb), .2); color: var(--blue-soft); }
+/* 来源应用标注：置于剪贴板条目头部/归档元信息，图标统一黑白（.ix），文字用次级色 */
+.clip-from { font-size: 10.5px; color: var(--text-dim); display: inline-flex; align-items: center; gap: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 110px; }
+.clip-from > .ix { font-size: 10px; opacity: .8; }
 .clip-type.link { background: rgba(126,224,255,.18); color: var(--cyan); }
 .clip-type.code { background: rgba(195,232,141,.15); color: var(--code-green); }
 .clip-type.image { background: rgba(255,158,205,.15); color: var(--pink); }
@@ -759,42 +768,6 @@ button:disabled, select:disabled, input:disabled, textarea:disabled {
 }
 #mindmapContainer:active { cursor: grabbing; }
 
-/* ═══ 插件管理（内置功能插件卡片：启停开关 + 独立配置入口） ═══ */
-.plugin-card {
-  display: flex; align-items: center; gap: 12px; padding: 12px 14px; margin-bottom: 10px;
-  background: rgba(var(--wsa), .04); border: 1px solid rgba(var(--wsa), .09); border-radius: 12px;
-  transition: opacity .2s;
-}
-.plugin-card.disabled { opacity: .55; }
-.plugin-ico {
-  width: 38px; height: 38px; flex-shrink: 0; display: flex; align-items: center; justify-content: center;
-  font-size: 20px; border-radius: 10px; background: rgba(var(--wsa), .08);
-}
-.plugin-info { flex: 1; min-width: 0; }
-.plugin-name { font-size: 13.5px; font-weight: 600; color: var(--text-strong); display: flex; align-items: center; gap: 8px; }
-.plugin-ver { font-size: 10px; color: var(--text-dim); border: 1px solid rgba(var(--wsa), .2); border-radius: 4px; padding: 0 5px; font-weight: 400; }
-.plugin-badge-builtin { font-size: 10px; color: var(--cyan); background: rgba(126,224,255,.12); border-radius: 4px; padding: 0 5px; font-weight: 400; }
-.plugin-desc { font-size: 11.5px; color: var(--text-dim); margin-top: 3px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.plugin-children { margin: 2px 0 10px 50px; display: flex; flex-direction: column; gap: 6px; }
-.plugin-child {
-  display: flex; align-items: center; gap: 8px; padding: 7px 12px;
-  background: rgba(var(--wsa), .03); border: 1px dashed rgba(var(--wsa), .14); border-radius: 9px; font-size: 12px;
-}
-.plugin-child .plugin-child-name { flex: 1; color: var(--text-strong); }
-.plugin-child .plugin-child-hint { font-size: 10.5px; color: var(--text-dim); }
-.plugin-actions { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
-.plugin-switch { position: relative; width: 38px; height: 22px; flex-shrink: 0; cursor: pointer; }
-.plugin-switch input { display: none; }
-.plugin-switch .ps-track {
-  position: absolute; inset: 0; border-radius: 999px; background: rgba(var(--wsa), .18); transition: background .2s;
-}
-.plugin-switch .ps-thumb {
-  position: absolute; top: 3px; left: 3px; width: 16px; height: 16px; border-radius: 50%;
-  background: #fff; box-shadow: 0 1px 4px rgba(0,0,0,.25); transition: transform .2s;
-}
-.plugin-switch input:checked + .ps-track { background: #4a9eff; }
-.plugin-switch input:checked + .ps-track .ps-thumb { transform: translateX(16px); }
-
 /* ═══ 启动台（参考 Wox / ZeroLaunch-rs：顶部居中、键盘优先的单输入框启动器） ═══ */
 #launcherWindow {
   position: fixed; top: 16vh; left: 50%; transform: translateX(-50%);
@@ -820,6 +793,65 @@ button:disabled, select:disabled, input:disabled, textarea:disabled {
 .launcher-item .li-act { flex-shrink: 0; font-size: 11px; color: var(--text-dim); }
 .launcher-empty { padding: 18px; text-align: center; font-size: 13px; color: var(--text-dim); }
 .launcher-footer { padding: 8px 16px; font-size: 11px; color: var(--text-dim); border-top: 1px solid rgba(var(--wsa), .1); }
+
+/* UI 图标统一黑白：精确标记需去色的图标位，保留语义编码色与用户内容 emoji 原色。
+   -.ix：用于承载编码色/主题色的元素内的图标（侧边栏 active 类别色、day-filter 类别色、
+     按钮主题色、卡片语义色徽章等），仅去 emoji 色而保留周围编码色。
+   -容器级 grayscale：用于确认无编码色的标题/菜单/工具栏/启动台项/搜索框等，一条规则覆盖一批。 */
+.ix { filter: grayscale(1); }
+.page-title, .page-sub-title, .stats-legend, .launcher-ico, .mm-ico, .mm-dock-ico,
+.mm-ctrl-btn, .li-ico, .di-alert-ico, .repeat-opt, .menu-title, .menu-row,
+.onboard-title, .reminder-title, .mm-drawer-title, .clip-editor-title, .app-ico,
+.search-input, .day-search, .mm-search-input, #toast {
+  filter: grayscale(1);
+}
+
+/* 思维导图导出对话框（选格式/路径/文件名 · 同名加序号或二次覆盖确认） */
+#mmExportOverlay { position: fixed; inset: 0; background: rgba(0,0,0,.45); display: flex; align-items: center; justify-content: center; z-index: 9500; }
+#mmExportDialog { width: min(440px, 92vw); max-height: 88vh; overflow: auto; border-radius: var(--radius-md); padding: 6px; }
+.mm-export-body { padding: 6px 2px 4px; display: flex; flex-direction: column; gap: 14px; }
+.mm-export-field { display: flex; flex-direction: column; gap: 6px; }
+.mm-field-label { font-size: 12px; font-weight: 600; color: var(--text-strong); }
+.mm-export-fmts { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.mm-fmt-card { display: flex; flex-direction: column; gap: 3px; padding: 9px 11px; border: 1px solid var(--glass-border); border-radius: var(--radius-sm); cursor: pointer; background: rgba(var(--wsa),.03); position: relative; transition: border-color .15s, background .15s; }
+.mm-fmt-card input { position: absolute; opacity: 0; }
+.mm-fmt-card .mf-top { display: flex; align-items: baseline; gap: 6px; }
+.mm-fmt-card .mf-name { font-size: 13px; font-weight: 700; color: var(--text-strong); }
+.mm-fmt-card .mf-ext { font-size: 10.5px; color: var(--text-dim); }
+.mm-fmt-card .mf-desc { font-size: 10.5px; color: var(--text-dim); }
+.mm-fmt-card:has(input:checked) { border-color: var(--accent); background: rgba(var(--accent-rgb),.08); }
+.mm-fmt-card:has(input:checked) .mf-name { color: var(--accent); }
+.mm-export-hint { font-size: 11.5px; color: var(--text-dim); padding: 7px 10px; border-radius: var(--radius-sm); background: rgba(var(--wsa),.04); border: 1px solid rgba(var(--wsa),.08); line-height: 1.5; }
+.mm-export-hint.ok { color: var(--code-green); border-color: rgba(126,196,134,.3); background: rgba(126,196,134,.08); }
+.mm-export-hint.warn { color: var(--red-soft); border-color: rgba(var(--red-soft),.35); background: rgba(var(--red-soft),.08); }
+.mm-export-overwrite { display: flex; align-items: flex-start; gap: 8px; font-size: 12px; color: var(--text-dim); cursor: pointer; padding: 8px 9px; border: 1px dashed var(--glass-border); border-radius: var(--radius-sm); }
+.mm-export-overwrite input { margin-top: 2px; }
+.mm-export-overwrite .emp { color: var(--text-strong); font-weight: 600; }
+.mm-ov-confirm { display: flex; gap: 8px; align-items: flex-start; font-size: 12.5px; line-height: 1.6; color: var(--text); padding: 4px 2px; }
+.mm-ov-confirm .ix { margin-top: 1px; }
+
+/* ═══ 主窗口独立页：启动台 / 灵动岛 ═══ */
+/* 启动台/灵动岛/插件 侧边栏项无分类色，回退为强调色（保证选中指示条与图标底色可见） */
+.side-item[data-view="launcher"], .side-item[data-view="island"] { --tint: var(--accent-rgb); }
+.page-sub-title { margin-top: 16px; }
+/* 启动台页面：内嵌试用区（复用浮窗启动台的输入行/列表/页脚样式） */
+.launcher-page-hero {
+  border: 1px solid var(--glass-border); border-radius: var(--radius);
+  background: var(--glass-bg); box-shadow: var(--glass-shadow);
+  overflow: hidden; margin-bottom: 6px;
+}
+.launcher-page-hero .launcher-input-row { border-bottom: 1px solid rgba(var(--wsa), .1); }
+.launcher-page-hero .launcher-list { max-height: 280px; }
+/* 灵动岛页面：与真实胶囊同源的静态预览 */
+.island-preview-wrap { margin: 12px 0 4px; }
+.island-preview {
+  width: 320px; max-width: 100%; height: 36px; border-radius: 999px; overflow: hidden;
+  background: var(--glass-bg); border: 1px solid var(--glass-border); box-shadow: var(--glass-shadow);
+  display: flex; align-items: center;
+}
+.island-preview .di-item { height: 36px; width: 100%; }
+.island-preview-hint { font-size: 11px; color: var(--text-dim); margin-top: 6px; }
+.island-page-stat { font-size: 12px; color: var(--text-dim); margin-top: 8px; }
 /* ═══ 侧边栏（分类色系 + 计数徽章 + 选中指示条，色彩与日期详情的类别色一致） ═══ */
 .archive-side {
   width: 150px; flex-shrink: 0; display: flex; flex-direction: column; gap: 6px;
@@ -1040,21 +1072,31 @@ button:disabled, select:disabled, input:disabled, textarea:disabled {
 .a-ops .icon-btn.active-pin { color: var(--gold); }
 .a-ops .icon-btn:hover.reminder-close { color: var(--red-soft); }
 
-/* ═══ 删除二次确认浮层（悬浮于卡片上方，不占满卡片、不推挤布局；笔记/粘贴板/待办统一） ═══ */
-.card-confirm {
-  display: flex; align-items: center; justify-content: flex-end; gap: 8px;
-  position: absolute; bottom: calc(100% + 6px); left: 0; right: 0; z-index: 7;
-  background: var(--confirm-bg); backdrop-filter: blur(8px);
-  border: 1px solid rgba(255,95,87,.5); border-radius: 9px;
-  padding: 6px 10px; box-shadow: 0 10px 28px rgba(0,0,0,.5);
-  animation: confirmIn .18s ease;
+/* ═══ 删除二次确认浮层（全局唯一 #cardConfirm：锚定卡片右侧、箭头指向卡片；
+   由 JS fixed 定位，避免滚动容器裁剪；笔记/粘贴板/待办统一） ═══ */
+#cardConfirm {
+  position: fixed; z-index: var(--z-modal);
+  display: flex; align-items: center; gap: var(--sp-md);
+  background: var(--confirm-bg); border: 1px solid rgba(255,95,87,.5);
+  border-radius: var(--radius-md); padding: var(--sp-md) var(--sp-lg);
+  box-shadow: var(--shadow-pop); font-size: var(--fs-sm); white-space: nowrap;
+  --caret-y: var(--sp-2xl);
 }
-@keyframes confirmIn { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; } }
-.card-confirm-text { flex: 1; font-size: 12px; color: var(--red-soft); text-align: left; }
+.card-confirm-text { color: var(--red-soft); }
+/* 左缘箭头指向目标卡片（flip = 浮层翻转到卡片左侧，箭头转到右缘） */
+#cardConfirm .cc-caret {
+  position: absolute; top: var(--caret-y); left: calc(-1 * var(--sp-sm));
+  width: calc(2 * var(--sp-sm)); height: calc(2 * var(--sp-sm));
+  background: var(--confirm-bg);
+  border: 1px solid rgba(255,95,87,.5); border-right: none; border-top: none;
+  transform: translateY(-50%) rotate(45deg);
+}
+#cardConfirm.flip .cc-caret {
+  left: auto; right: calc(-1 * var(--sp-sm));
+  border: 1px solid rgba(255,95,87,.5); border-left: none; border-bottom: none;
+}
 .btn.danger { background: rgba(255,95,87,.85); border-color: transparent; color: #fff; }
 .btn.danger:hover { background: var(--red); }
-/* 确认态下该条目删除按钮保持常显 */
-.todo-item:has(.card-confirm) .todo-del { opacity: 1; pointer-events: auto; }
 .settings-body .setting-row { display: flex; align-items: center; gap: 10px; padding: 10px 4px; font-size: 13.5px; border-bottom: 1px solid rgba(var(--wsa), .06); }
 .settings-body .setting-row span:first-child { width: 130px; color: var(--text-dim); }
 .settings-body select, .settings-body input[type=number] {
@@ -1438,15 +1480,32 @@ mark { background: rgba(255,215,110,.35); color: inherit; border-radius: 2px; pa
 .todo-arch-list { max-height: none; overflow: visible; }
 .todo-empty { text-align: center; color: var(--text-dim); font-size: 12.5px; padding: 22px 0; }
 
-/* ═══ 待办编辑弹窗 ═══ */
+/* ═══ 待办编辑面板（锚定卡片右侧弹出，箭头指向触发卡片；参考 iOS 提醒事项详情面板） ═══ */
 #todoEditorOverlay {
-  position: fixed; inset: 0; z-index: 9880;
-  background: rgba(8, 10, 18, .45); backdrop-filter: blur(2px);
-  display: flex; align-items: center; justify-content: center;
+  position: fixed; inset: 0; z-index: var(--z-modal);
+  background: transparent;   /* 无遮罩：点击面板外任意处即关闭 */
 }
-#todoEditorModal { width: 470px; max-height: 84vh; overflow-y: auto; padding: 14px 16px; }
-#todoEditorModal .search-input { margin-bottom: 10px; }
-.todo-editor-grid { display: flex; gap: 10px; margin-bottom: 10px; }
+#todoEditorPanel {
+  position: fixed; width: 340px; padding: var(--sp-lg) var(--sp-xl);
+  --caret-y: var(--sp-2xl);
+}
+/* 滚动区放在 te-body：面板自身 overflow 若开启会裁剪左/右缘箭头 */
+#todoEditorPanel .te-body { max-height: calc(84vh - 112px); overflow-y: auto; }
+#todoEditorPanel .search-input { margin-bottom: var(--sp-md); }
+/* 左缘箭头指向触发卡片（面板在卡片右侧时）；flip = 面板翻转到卡片左侧，箭头转到右缘。
+   箭头为 2×--sp-sm 的旋转方块，外探一半（--sp-sm）贴在面板边缘 */
+#todoEditorPanel .te-caret {
+  position: absolute; top: var(--caret-y); left: calc(-1 * var(--sp-sm));
+  width: calc(2 * var(--sp-sm)); height: calc(2 * var(--sp-sm));
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border); border-right: none; border-top: none;
+  transform: translateY(-50%) rotate(45deg);
+}
+#todoEditorPanel.flip .te-caret {
+  left: auto; right: calc(-1 * var(--sp-sm));
+  border: 1px solid var(--glass-border); border-left: none; border-bottom: none;
+}
+.todo-editor-grid { display: flex; gap: var(--sp-md); margin-bottom: var(--sp-md); }
 /* 编辑弹窗·标签行（参考笔记标签设计） */
 .te-tags-row { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; min-height: 24px; }
 .te-label { font-size: 11.5px; color: var(--text-dim); flex-shrink: 0; }
@@ -2450,4 +2509,146 @@ mark { background: rgba(255,215,110,.35); color: inherit; border-radius: 2px; pa
   --trend-clip: #7a6a1a;
   --trend-todo: #4a7c59;
   --select-arrow: url("data:image/svg+xml,%3Csvg width='10' height='6' viewBox='0 0 10 6' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1l4 4 4-4' stroke='rgba(40,40,45,.55)' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E");
+}
+
+/* ═══ 默认主题：打字机（typewriter）═══
+   参考目标风格：米色纸面 + 白卡黑描边 + 打字机红点缀 + 等宽字体 + 锐利直角。
+   与其他主题不同，本主题除颜色令牌外还覆盖圆角/阴影尺度令牌并关闭毛玻璃模糊，
+   以还原「纸面终端」的硬边质感；全部覆盖均限定在 [data-theme="typewriter"] 作用域内，
+   不影响其余 30 套主题。 */
+:root[data-theme="typewriter"] {
+  --scheme: light;
+  --wsa: 26,26,26;
+  --body-bg: linear-gradient(135deg, #efeade 0%, #e8e1d1 100%);
+  --glass-bg: rgba(253,252,249,.97);
+  --glass-border: rgba(26,26,26,.85);
+  --glass-shadow: 0 2px 0 rgba(26,26,26,.05), 0 12px 32px rgba(26,26,26,.14);
+  --menubar-bg: rgba(244,240,230,.98);
+  --menu-bg: rgba(253,252,249,.99);
+  --tip-bg: rgba(253,252,249,.99);
+  --confirm-bg: rgba(253,252,249,.99);
+  --toggle-bg: #fdfcf9;
+  --option-bg: #fdfcf9;
+  --accent: #c62828;
+  --accent-rgb: 198,40,40;
+  --hm-base: 198,40,40;
+  --text: rgba(26,26,26,.94);
+  --text-dim: rgba(26,26,26,.52);
+  --text-strong: rgba(26,26,26,.82);
+  --gold: #9a6a1c;
+  --red-soft: #c62828;
+  --red: #b71c1c;
+  --cyan: #00796b;
+  --blue-soft: #455a64;
+  --green: #2e7d32;
+  --pink: #ad1457;
+  --code-green: #33691e;
+  --c-note: 26,26,26;
+  --c-clip: 154,106,28;
+  --c-todo: 46,125,50;
+  --trend-note: #c62828;
+  --trend-clip: #9a6a1c;
+  --trend-todo: #2e7d32;
+  --bg-deep: #ddd6c4;
+  /* 锐利直角：硬边纸面质感（灵动岛胶囊仍用 --radius-pill，不受影响） */
+  --radius-sm: 2px;
+  --radius-md: 2px;
+  --radius-lg: 3px;
+  --radius: 3px;
+  /* 扁平化投影：去除厚重模糊阴影 */
+  --shadow-sm: 0 1px 2px rgba(26,26,26,.1);
+  --shadow-md: 0 4px 14px rgba(26,26,26,.12);
+  --shadow-lg: 0 10px 30px rgba(26,26,26,.16);
+  --shadow-pop: 0 6px 20px rgba(26,26,26,.18);
+  /* 思维导图窗口同步纸面 + 红色主色 */
+  --mm-surface: #fdfcf9;
+  --mm-surface-2: #f4f0e6;
+  --mm-surface-3: #e7e1d3;
+  --mm-border: rgba(26,26,26,.32);
+  --mm-text: rgba(26,26,26,.94);
+  --mm-text-2: rgba(26,26,26,.66);
+  --mm-text-dim: rgba(26,26,26,.48);
+  --mm-primary: #c62828;
+  --mm-primary-soft: #fbe9e7;
+  --mm-danger: #b71c1c;
+  --mm-danger-soft: #fbe9e7;
+  --mm-accent-2: #6d4c41;
+  --mm-accent-2-rgb: 109,76,65;
+  --select-arrow: url("data:image/svg+xml,%3Csvg width='10' height='6' viewBox='0 0 10 6' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1l4 4 4-4' stroke='rgba(26,26,26,.6)' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E");
+}
+
+/* 打字机主题质感补丁：等宽字体（含表单控件）、去毛玻璃、顶栏黑色下划线 */
+[data-theme="typewriter"] body {
+  font-family: ui-monospace, "SF Mono", "Cascadia Mono", "JetBrains Mono", Menlo, Consolas, "Courier New", "PingFang SC", "Microsoft YaHei", monospace;
+}
+[data-theme="typewriter"] input,
+[data-theme="typewriter"] select,
+[data-theme="typewriter"] textarea { font-family: inherit; }
+[data-theme="typewriter"] .glass,
+[data-theme="typewriter"] .context-menu,
+[data-theme="typewriter"] .prio-group,
+[data-theme="typewriter"] .repeat-menu,
+[data-theme="typewriter"] #demoBar {
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+[data-theme="typewriter"] #menubar {
+  border-bottom: 1px solid rgba(26,26,26,.85);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+/* 卡片立体感：白卡 + 硬边偏移投影，营造「纸卡浮于纸面」的复古层次。
+   悬浮时上浮（投影加大）、按压时下沉（投影收回），提供触觉反馈；
+   待办仅顶层卡片浮起，子任务保持扁平以维持树状层级可读性。 */
+[data-theme="typewriter"] .clip-item,
+[data-theme="typewriter"] .archive-item,
+[data-theme="typewriter"] .day-item,
+[data-theme="typewriter"] .todo-list > .todo-item {
+  background: #ffffff;
+  border: 1px solid rgba(26,26,26,.7);
+  box-shadow: 3px 3px 0 rgba(26,26,26,.55);
+  margin-bottom: 8px;
+  transition: transform .15s ease, box-shadow .15s ease, background .15s, border-color .15s;
+}
+[data-theme="typewriter"] .clip-item:hover,
+[data-theme="typewriter"] .archive-item:hover,
+[data-theme="typewriter"] .day-item:hover,
+[data-theme="typewriter"] .todo-list > .todo-item:hover {
+  background: #ffffff;
+  border-color: rgba(26,26,26,.9);
+  transform: translate(-1px, -1px);
+  box-shadow: 4px 4px 0 rgba(26,26,26,.65);
+}
+[data-theme="typewriter"] .clip-item:active,
+[data-theme="typewriter"] .archive-item:active,
+[data-theme="typewriter"] .day-item:active,
+[data-theme="typewriter"] .todo-list > .todo-item:active {
+  transform: translate(1px, 1px);
+  box-shadow: 2px 2px 0 rgba(26,26,26,.55);
+}
+/* 置顶卡片：暖金纸面 + 金色投影，与普通卡片拉开层级 */
+[data-theme="typewriter"] .clip-item.pinned,
+[data-theme="typewriter"] .archive-item.pinned {
+  background: #fdf6e0;
+  border-color: rgba(154,106,28,.75);
+  box-shadow: 3px 3px 0 rgba(154,106,28,.5);
+}
+[data-theme="typewriter"] .clip-item.pinned:hover,
+[data-theme="typewriter"] .archive-item.pinned:hover {
+  background: #fdf6e0;
+  border-color: rgba(154,106,28,.9);
+  box-shadow: 4px 4px 0 rgba(154,106,28,.6);
+}
+/* 日期详情卡片：保留左侧 3px 类别色条（防止被上方整圈描边重置） */
+[data-theme="typewriter"] .day-item { border-left-width: 3px; }
+[data-theme="typewriter"] .day-item.note { border-left-color: rgb(var(--c-note)); }
+[data-theme="typewriter"] .day-item.clip { border-left-color: rgb(var(--c-clip)); }
+[data-theme="typewriter"] .day-item.todo { border-left-color: rgb(var(--c-todo)); }
+/* 逾期待办：红色警示底色由 !important 规则保留，此处仅将投影调为红色系 */
+[data-theme="typewriter"] .todo-list > .todo-item.overdue {
+  box-shadow: 3px 3px 0 rgba(183,28,28,.4);
+}
+[data-theme="typewriter"] .todo-list > .todo-item.overdue:hover {
+  box-shadow: 4px 4px 0 rgba(183,28,28,.5);
 }
