@@ -52,6 +52,8 @@ import NodeImageDialog from './dialogs/NodeImageDialog.vue'
 import NodeHyperlinkDialog from './dialogs/NodeHyperlinkDialog.vue'
 import NodeNoteDialog from './dialogs/NodeNoteDialog.vue'
 import NodeTagDialog from './dialogs/NodeTagDialog.vue'
+import OutlineEditDialog from './dialogs/OutlineEditDialog.vue'
+import SourceCodeDialog from './dialogs/SourceCodeDialog.vue'
 import MindMapStage from './MindMapStage.vue'
 
 /**
@@ -328,6 +330,8 @@ watch(note, (value) => {
             <NodeHyperlinkDialog />
             <NodeNoteDialog />
             <NodeTagDialog />
+            <OutlineEditDialog />
+            <SourceCodeDialog />
           </template>
           <!-- 后续阶段在此挂 NavigatorToolbar / 各侧栏 / 各浮层 / 各对话框 -->
         </div>
