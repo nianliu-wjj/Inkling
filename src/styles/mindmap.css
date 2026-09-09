@@ -1118,3 +1118,115 @@
 .mm-scrollbar-inner:hover {
   background: rgba(var(--wsa), 0.42);
 }
+/* ═══ 搜索与替换浮层（SearchBox）专用样式 ═══
+   参考端 Search.vue 样式移植，走 Inkling 令牌；由控制器合并进 mindmap.css。 */
+
+.mm-search {
+  position: absolute;
+  top: 70px;
+  right: -320px;
+  z-index: 30;
+  width: 288px;
+  padding: 16px;
+  border-radius: 12px;
+  transition: right var(--dur-base, 220ms) var(--ease-out, ease);
+}
+.mm-search.show {
+  right: 16px;
+}
+
+.mm-search-close {
+  position: absolute;
+  right: -6px;
+  top: -6px;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: none;
+  background: var(--menu-bg);
+  color: var(--text);
+  font-size: 12px;
+  cursor: pointer;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+}
+
+.mm-search-input-box {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.mm-search-input {
+  flex: 1;
+  min-width: 0;
+  max-width: none;
+}
+.mm-search-info {
+  position: absolute;
+  right: 64px;
+  color: var(--text-dim);
+  font-size: 12px;
+  pointer-events: none;
+}
+.mm-search-replace-box {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 12px;
+}
+.mm-search-btns {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.mm-search-result-list {
+  position: absolute;
+  left: 0;
+  top: 100%;
+  width: 100%;
+  max-height: 300px;
+  overflow-y: auto;
+  margin-top: 6px;
+  padding: 10px 0;
+  border-radius: 12px;
+  background: var(--menu-bg);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25);
+}
+.mm-search-result-item {
+  height: 30px;
+  line-height: 30px;
+  padding: 0 12px 0 22px;
+  font-size: 13px;
+  color: var(--text);
+  cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  position: relative;
+}
+.mm-search-result-item::before {
+  content: '';
+  position: absolute;
+  left: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--text-dim);
+}
+.mm-search-result-item:hover {
+  background: rgba(var(--wsa), 0.08);
+}
+.mm-search-result-item .mm-search-hit {
+  color: var(--accent);
+  font-weight: 700;
+}
+.mm-search-empty {
+  padding: 20px 0;
+  text-align: center;
+  color: var(--text-dim);
+  font-size: 13px;
+}
