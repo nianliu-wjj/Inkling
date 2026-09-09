@@ -23,6 +23,7 @@ pub mod snapshot;
 
 mod drives;
 mod exclude;
+mod index_db;
 
 use std::collections::{HashMap, VecDeque};
 use std::path::PathBuf;
