@@ -31,6 +31,8 @@ import SearchBox from './popups/SearchBox.vue'
 import RichTextToolbar from './popups/RichTextToolbar.vue'
 import NodeIconToolbar from './popups/NodeIconToolbar.vue'
 import NodeImgPlacementToolbar from './popups/NodeImgPlacementToolbar.vue'
+import NoteContentShow from './popups/NoteContentShow.vue'
+import NodeImgPreview from './popups/NodeImgPreview.vue'
 import ShortcutSidebar from './sidebars/ShortcutSidebar.vue'
 import StructureSidebar from './sidebars/StructureSidebar.vue'
 import ThemeSidebar from './sidebars/ThemeSidebar.vue'
@@ -302,6 +304,8 @@ watch(note, (value) => {
             <RichTextToolbar />
             <NodeIconToolbar />
             <NodeImgPlacementToolbar />
+            <NoteContentShow />
+            <NodeImgPreview />
             <ShortcutSidebar />
             <StructureSidebar />
             <ThemeSidebar />
