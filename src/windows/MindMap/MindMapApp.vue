@@ -28,6 +28,7 @@ import SidebarTrigger from './chrome/SidebarTrigger.vue'
 import Count from './chrome/Count.vue'
 import ContextMenu from './popups/ContextMenu.vue'
 import SearchBox from './popups/SearchBox.vue'
+import RichTextToolbar from './popups/RichTextToolbar.vue'
 import ShortcutSidebar from './sidebars/ShortcutSidebar.vue'
 import StructureSidebar from './sidebars/StructureSidebar.vue'
 import ThemeSidebar from './sidebars/ThemeSidebar.vue'
@@ -296,6 +297,7 @@ watch(note, (value) => {
             <Count v-if="!ui.isZenMode" />
             <ContextMenu />
             <SearchBox />
+            <RichTextToolbar />
             <ShortcutSidebar />
             <StructureSidebar />
             <ThemeSidebar />

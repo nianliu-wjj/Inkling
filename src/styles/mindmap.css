@@ -1230,3 +1230,82 @@
   color: var(--text-dim);
   font-size: 13px;
 }
+/* ═══ 富文本浮动工具栏（RichTextToolbar）专用样式 ═══
+   参考端 RichTextToolbar.vue 样式移植，走 Inkling 令牌；Teleport 到 body，故用 fixed。
+   由控制器合并进 mindmap.css。 */
+
+.mm-rtt {
+  position: fixed;
+  z-index: 2000;
+  height: 44px;
+  padding: 0 4px;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  border-radius: 10px;
+  transform: translateX(-50%);
+}
+
+.mm-rtt-btn {
+  min-width: 34px;
+  height: 34px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  color: var(--text);
+  font-size: 15px;
+  cursor: pointer;
+}
+.mm-rtt-btn:hover {
+  background: rgba(var(--wsa), 0.12);
+}
+.mm-rtt-btn.active {
+  color: var(--accent);
+}
+
+/* 字体 / 字号 / 对齐 选项列表 */
+.mm-rtt-options {
+  width: 150px;
+  max-height: 260px;
+  overflow-y: auto;
+}
+.mm-rtt-option {
+  height: 30px;
+  display: flex;
+  align-items: center;
+  padding: 0 8px;
+  border-radius: 4px;
+  cursor: pointer;
+  color: var(--text);
+  font-size: 13px;
+}
+.mm-rtt-option:hover {
+  background: rgba(var(--wsa), 0.1);
+}
+.mm-rtt-option.active {
+  color: var(--accent);
+}
+
+/* 颜色快捷板 */
+.mm-rtt-colors {
+  display: grid;
+  grid-template-columns: repeat(9, 1fr);
+  gap: 4px;
+  width: 180px;
+}
+.mm-rtt-color {
+  width: 16px;
+  height: 16px;
+  border-radius: 4px;
+  border: 1px solid rgba(var(--wsa), 0.2);
+  cursor: pointer;
+  padding: 0;
+}
+.mm-rtt-color.transparent {
+  background:
+    linear-gradient(45deg, #ccc 25%, transparent 25%, transparent 75%, #ccc 75%) 0 0 / 8px 8px,
+    #fff;
+}
