@@ -207,6 +207,12 @@ crate::dto! {
         /// 启动器文件扫描根目录（JSON 数组字符串）；为空则用默认用户目录。
         #[serde(default)]
         launcher_roots: String,
+        /// 启动器全盘文件索引开关（默认开）；关闭时回退到 launcher_roots 根目录模式。
+        #[serde(default = "default_true")]
+        launcher_full_disk_index: bool,
+        /// 全盘索引额外排除目录（逗号分隔目录名）。
+        #[serde(default)]
+        launcher_extra_excludes: String,
     }
 }
 
@@ -239,6 +245,8 @@ impl Default for Settings {
             island_plugins: default_island_plugins(),
             launcher_shortcut: default_launcher_shortcut(),
             launcher_roots: String::new(),
+            launcher_full_disk_index: true,
+            launcher_extra_excludes: String::new(),
         }
     }
 }

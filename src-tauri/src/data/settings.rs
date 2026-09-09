@@ -19,6 +19,15 @@ fn flag(values: &std::collections::HashMap<String, String>, key: &str, fallback:
     values.get(key).map(|x| x == "true").unwrap_or(fallback)
 }
 
+/// 解析逗号分隔的排除目录字符串为去空白、去空项的列表（供启动器全盘索引用）。
+pub fn parse_excludes(raw: &str) -> Vec<String> {
+    raw.split(',')
+        .map(|s| s.trim())
+        .filter(|s| !s.is_empty())
+        .map(|s| s.to_string())
+        .collect()
+}
+
 /// SMTP 密码对外的占位值。
 ///
 /// `get_settings` 会把非空密码替换成它，真实密码不进入前端状态、日志与事件广播；
@@ -112,6 +121,17 @@ impl Store {
                 defaults.launcher_shortcut(),
             ))
             .launcher_roots(values.get("launcher_roots").cloned().unwrap_or_default())
+            .launcher_full_disk_index(flag(
+                &values,
+                "launcher_full_disk_index",
+                *defaults.launcher_full_disk_index(),
+            ))
+            .launcher_extra_excludes(
+                values
+                    .get("launcher_extra_excludes")
+                    .cloned()
+                    .unwrap_or_default(),
+            )
             .build()
     }
 
@@ -163,6 +183,14 @@ impl Store {
             ("island_plugins", settings.island_plugins().clone()),
             ("launcher_shortcut", settings.launcher_shortcut().clone()),
             ("launcher_roots", settings.launcher_roots().clone()),
+            (
+                "launcher_full_disk_index",
+                settings.launcher_full_disk_index().to_string(),
+            ),
+            (
+                "launcher_extra_excludes",
+                settings.launcher_extra_excludes().clone(),
+            ),
         ] {
             self.db
                 .execute(
@@ -190,6 +218,14 @@ impl Store {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn launcher_full_disk_defaults_on_and_parses_excludes() {
+        let d = Settings::default();
+        assert!(*d.launcher_full_disk_index());
+        assert_eq!(parse_excludes("a, b ,,c"), vec!["a", "b", "c"]);
+        assert!(parse_excludes("  ").is_empty());
+    }
 
     fn store() -> Store {
         let dir = std::env::temp_dir().join(format!("inkling-set-{}", uuid::Uuid::new_v4()));

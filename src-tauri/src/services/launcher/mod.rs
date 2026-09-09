@@ -284,14 +284,30 @@ pub fn roots_from_settings(app: &AppHandle) -> Vec<LauncherRoot> {
     scan::parse_roots(&raw)
 }
 
+/// 从设置读出全盘索引开关与额外排除目录。读失败按默认（开启、无额外排除）。
+pub fn full_disk_from_settings(app: &AppHandle) -> (bool, Vec<String>) {
+    match app
+        .state::<AppState>()
+        .lock_store()
+        .and_then(|store| store.get_settings())
+    {
+        Ok(settings) => (
+            *settings.launcher_full_disk_index(),
+            crate::data::settings::parse_excludes(settings.launcher_extra_excludes()),
+        ),
+        Err(_) => (true, Vec::new()),
+    }
+}
+
 /// 启动后台线程：立刻全量重扫一次（快照已在 new() 里加载，此刻已可搜），之后每 30 分钟重扫。
 pub fn start(app: AppHandle) {
     std::thread::Builder::new()
         .name("launcher-indexer".into())
         .spawn(move || loop {
             let roots = roots_from_settings(&app);
-            // 全盘开关与排除目录在 Task 7 接入设置；此处暂默认开启全盘、无额外排除。
-            app.state::<LauncherState>().rebuild(&roots, true, &[]);
+            let (full_disk, excludes) = full_disk_from_settings(&app);
+            app.state::<LauncherState>()
+                .rebuild(&roots, full_disk, &excludes);
             std::thread::sleep(REBUILD_INTERVAL);
         })
         .expect("启动启动器索引线程失败");
@@ -301,7 +317,9 @@ pub fn start(app: AppHandle) {
 pub fn rebuild_async(app: AppHandle) {
     std::thread::spawn(move || {
         let roots = roots_from_settings(&app);
-        app.state::<LauncherState>().rebuild(&roots, true, &[]);
+        let (full_disk, excludes) = full_disk_from_settings(&app);
+        app.state::<LauncherState>()
+            .rebuild(&roots, full_disk, &excludes);
     });
 }
 
