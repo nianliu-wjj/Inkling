@@ -917,3 +917,130 @@
 .mm-ns-tip-text {
   font-size: 12.5px;
 }
+/* ═══ 底部导航控制栏（NavigatorToolbar 及其子组件）专用样式 ═══
+   参考端 NavigatorToolbar / Scale / Fullscreen / Demonstrate 的样式移植，走 Inkling 令牌；
+   由控制器合并进 mindmap.css。 */
+
+/* 导航栏：浮于画布右下角，横排 */
+.mm-nav {
+  position: absolute;
+  right: 16px;
+  bottom: 16px;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  height: 40px;
+  padding: 0 14px;
+  border-radius: 10px;
+}
+
+/* 通用图标 / 文本按钮 */
+.mm-nav-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 22px;
+  height: 22px;
+  padding: 0 2px;
+  background: transparent;
+  border: none;
+  color: var(--text-dim);
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+  transition: color var(--dur-fast, 150ms) var(--ease-out, ease);
+}
+.mm-nav-btn:hover {
+  color: var(--text);
+}
+.mm-nav-btn.active {
+  color: var(--accent);
+}
+.mm-nav-more {
+  font-size: 20px;
+}
+
+/* 全屏 / 演示两个按钮成组时的内间距 */
+.mm-nav-fullscreen {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+
+/* 缩放控件 */
+.mm-nav-scale {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+.mm-nav-scale-info {
+  display: inline-flex;
+  align-items: center;
+  color: var(--text-dim);
+  font-size: 12px;
+}
+.mm-nav-scale-input {
+  width: 34px;
+  text-align: center;
+  background: transparent;
+  border: none;
+  outline: none;
+  color: var(--text);
+  font-size: 12px;
+  font-family: inherit;
+}
+
+/* ═══ 演示模式悬浮控制（Teleport 到 body，覆盖全屏演示画布）═══ */
+.mm-demo-exit {
+  position: fixed;
+  right: 40px;
+  top: 24px;
+  z-index: 10001;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.5);
+  border: none;
+  color: #fff;
+  font-size: 18px;
+  cursor: pointer;
+}
+.mm-demo-step {
+  position: fixed;
+  right: 40px;
+  bottom: 24px;
+  z-index: 10001;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 14px;
+  border-radius: 10px;
+  background: rgba(0, 0, 0, 0.5);
+}
+.mm-demo-count {
+  color: #fff;
+  font-size: 13px;
+}
+.mm-demo-jump {
+  background: transparent;
+  border: none;
+  color: #fff;
+  font-size: 18px;
+  cursor: pointer;
+}
+.mm-demo-jump:disabled {
+  color: rgba(255, 255, 255, 0.35);
+  cursor: not-allowed;
+}
+.mm-demo-input {
+  width: 50px;
+  height: 28px;
+  text-align: center;
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  border-radius: 6px;
+  outline: none;
+  color: #fff;
+  font-family: inherit;
+}

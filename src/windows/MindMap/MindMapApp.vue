@@ -21,6 +21,7 @@ import { type MindMapFullData, parseMindMapData, serializeMindMapData } from './
 import { createUiState } from './core/store'
 import { provideMindMapContext } from './core/useMindMap'
 import Toolbar from './chrome/Toolbar.vue'
+import NavigatorToolbar from './chrome/NavigatorToolbar.vue'
 import SidebarTrigger from './chrome/SidebarTrigger.vue'
 import Count from './chrome/Count.vue'
 import ContextMenu from './popups/ContextMenu.vue'
@@ -285,6 +286,7 @@ watch(note, (value) => {
           <!-- 编辑 UI：仅在实例就绪后渲染，避免组件里 requireMindMap 抛错 -->
           <template v-if="mindMap">
             <Toolbar v-if="!ui.isZenMode" />
+            <NavigatorToolbar v-if="!ui.isZenMode" />
             <SidebarTrigger v-if="!ui.isZenMode" />
             <Count v-if="!ui.isZenMode" />
             <ContextMenu />
