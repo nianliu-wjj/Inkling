@@ -635,24 +635,33 @@ pub fn launcher_search(
     state.search(&query)
 }
 
-/// 启动某个候选。`mode`：open / admin / reveal。`query` 用于记录查询亲和度。
+/// 启动一个命中项。`mode`：open / admin / reveal。文件命中按 path 启动，故直接收 path/kind
+/// （命中项自带，无需按 id 回查——文件索引命中不在内存候选表里）。`query` 用于记录查询亲和度。
 #[tauri::command]
 pub fn launcher_launch(
     app: AppHandle,
     state: State<'_, crate::services::launcher::LauncherState>,
-    id: u32,
+    path: String,
+    kind: String,
     mode: String,
     query: String,
 ) -> Result<(), String> {
     use crate::services::launcher::launch::{launch, LaunchMode};
-    use crate::services::launcher::model::Kind;
-    let candidate = state.candidate(id).ok_or("候选不存在（索引可能已更新）")?;
+    use crate::services::launcher::model::{Candidate, Kind};
+
+    let parsed_kind = match kind.as_str() {
+        "app" => Kind::App,
+        "uwp" => Kind::Uwp,
+        "file" => Kind::File,
+        "folder" => Kind::Folder,
+        "command" => Kind::Command,
+        other => return Err(format!("未知类型 {other}")),
+    };
+
     // 内置命令直接在此执行。
-    if candidate.kind == Kind::Command {
-        match candidate.path.as_str() {
-            "cmd:settings" => {
-                windows::show_main(&app, "settings")?;
-            }
+    if parsed_kind == Kind::Command {
+        match path.as_str() {
+            "cmd:settings" => windows::show_main(&app, "settings")?,
             "cmd:rebuild" => crate::services::launcher::rebuild_async(app.clone()),
             "cmd:quit" => windows::quit_app(&app),
             other => return Err(format!("未知命令 {other}")),
@@ -660,9 +669,18 @@ pub fn launcher_launch(
         let _ = windows::launcher_hide(&app);
         return Ok(());
     }
+
     let launch_mode = LaunchMode::parse(&mode).ok_or("未知启动方式")?;
+    let candidate = Candidate {
+        id: 0,
+        kind: parsed_kind,
+        name: String::new(),
+        path: path.clone(),
+        keywords: Vec::new(),
+        bias: 0.0,
+    };
     launch(&candidate, launch_mode)?;
-    state.record_launch(&candidate.path, &query);
+    state.record_launch(&path, &query);
     // 普通启动后收起启动器；打开所在文件夹保留窗口方便继续操作。
     if launch_mode != LaunchMode::Reveal {
         let _ = windows::launcher_hide(&app);

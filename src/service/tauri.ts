@@ -75,8 +75,8 @@ export const api = {
     /** 搜索，返回 Top-K 命中。 */
     search: (query: string) => invoke<LauncherHit[]>('launcher_search', { query }),
     /** 启动候选。mode：open / admin / reveal；query 用于记录查询亲和度。 */
-    launch: (id: number, mode: 'open' | 'admin' | 'reveal', query: string) =>
-      invoke<void>('launcher_launch', { id, mode, query }),
+    launch: (path: string, kind: LauncherHit['kind'], mode: 'open' | 'admin' | 'reveal', query: string) =>
+      invoke<void>('launcher_launch', { path, kind, mode, query }),
     /** 立即重建索引（后台）。 */
     rebuild: () => invoke<void>('launcher_rebuild'),
     /** 索引状态。 */

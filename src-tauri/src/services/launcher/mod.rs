@@ -128,7 +128,7 @@ impl LauncherState {
             }
         }
         let now = now_secs();
-        let hits = match self.history.lock() {
+        let mem_hits = match self.history.lock() {
             Ok(history) => search::search(&index.candidates, &history, &normalized, TOP_K, now),
             Err(_) => search::search(
                 &index.candidates,
@@ -138,6 +138,9 @@ impl LauncherState {
                 now,
             ),
         };
+        // 文件/文件夹命中来自磁盘索引（全盘模式）；索引为空时返回空，不影响内存结果。
+        let file_hits = self.search_file_index(&normalized, TOP_K);
+        let hits = search::merge_and_rank(mem_hits, file_hits, TOP_K);
         if let Ok(mut cache) = self.cache.lock() {
             let (map, order) = &mut *cache;
             if !map.contains_key(&normalized) {
@@ -151,6 +154,47 @@ impl LauncherState {
             map.insert(normalized, (index.generation, hits.clone()));
         }
         hits
+    }
+
+    /// 文件索引库路径。
+    fn file_index_path(&self) -> PathBuf {
+        self.dir.join("launcher-index.db")
+    }
+
+    /// 从磁盘索引粗筛并用 score 精排，产出文件/文件夹命中。打不开或空则返回空。
+    fn search_file_index(&self, query: &str, top_k: usize) -> Vec<Hit> {
+        if query.is_empty() {
+            return Vec::new();
+        }
+        let idx = match index_db::FileIndex::open(&self.file_index_path()) {
+            Ok(i) => i,
+            Err(error) => {
+                eprintln!("[launcher] 打开文件索引失败: {error}");
+                return Vec::new();
+            }
+        };
+        let rows = idx.query(query, 800).unwrap_or_default();
+        if rows.is_empty() {
+            return Vec::new();
+        }
+        // 把命中行造成临时 Candidate 交现有打分（id 仅本次查询用；文件启动走 path）。
+        let candidates: Vec<Candidate> = rows
+            .iter()
+            .enumerate()
+            .map(|(i, r)| Candidate {
+                id: i as u32,
+                kind: r.kind,
+                name: r.name.clone(),
+                path: r.path.clone(),
+                keywords: keyword::generate(&r.name),
+                bias: 0.0,
+            })
+            .collect();
+        let now = now_secs();
+        match self.history.lock() {
+            Ok(history) => search::search(&candidates, &history, query, top_k, now),
+            Err(_) => search::search(&candidates, &History::default(), query, top_k, now),
+        }
     }
 
     /// 按 id 取候选（启动用）。
@@ -174,7 +218,8 @@ impl LauncherState {
     }
 
     /// 全量重扫并替换索引（阻塞调用方线程；由后台线程或命令的 spawn 调用）。
-    pub fn rebuild(&self, roots: &[LauncherRoot]) {
+    /// `full_disk` 为真：内存只收程序/UWP/命令（不扫根目录文件），文件/文件夹改扫全盘 SQLite 索引。
+    pub fn rebuild(&self, roots: &[LauncherRoot], full_disk: bool, extra_excludes: &[String]) {
         if self
             .rebuilding
             .compare_exchange(false, true, Ordering::AcqRel, Ordering::Relaxed)
@@ -183,7 +228,9 @@ impl LauncherState {
             eprintln!("[launcher] 已有重建在进行，跳过");
             return;
         }
-        let (candidates, report) = scan::scan_all(roots);
+        // 全盘模式下内存不再扫根目录文件（文件走 SQLite），传空根目录给内存扫描。
+        let mem_roots: &[LauncherRoot] = if full_disk { &[] } else { roots };
+        let (candidates, report) = scan::scan_all(mem_roots);
         let created_at = now_secs();
         let generation = self.current().generation + 1;
         eprintln!(
@@ -203,6 +250,16 @@ impl LauncherState {
         if let Ok(mut cache) = self.cache.lock() {
             cache.0.clear();
             cache.1.clear();
+        }
+        // 全盘文件索引（写独立 SQLite 库；失败不影响内存候选可用）。
+        if full_disk {
+            match index_db::FileIndex::open(&self.file_index_path()) {
+                Ok(mut idx) => {
+                    let n = scan::scan_files_to_index(&mut idx, extra_excludes);
+                    eprintln!("[launcher] 全盘索引就绪 {n} 条");
+                }
+                Err(error) => eprintln!("[launcher] 文件索引打开失败: {error}"),
+            }
         }
         self.rebuilding.store(false, Ordering::Release);
     }
@@ -233,7 +290,8 @@ pub fn start(app: AppHandle) {
         .name("launcher-indexer".into())
         .spawn(move || loop {
             let roots = roots_from_settings(&app);
-            app.state::<LauncherState>().rebuild(&roots);
+            // 全盘开关与排除目录在 Task 7 接入设置；此处暂默认开启全盘、无额外排除。
+            app.state::<LauncherState>().rebuild(&roots, true, &[]);
             std::thread::sleep(REBUILD_INTERVAL);
         })
         .expect("启动启动器索引线程失败");
@@ -243,6 +301,34 @@ pub fn start(app: AppHandle) {
 pub fn rebuild_async(app: AppHandle) {
     std::thread::spawn(move || {
         let roots = roots_from_settings(&app);
-        app.state::<LauncherState>().rebuild(&roots);
+        app.state::<LauncherState>().rebuild(&roots, true, &[]);
     });
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn state_search_merges_file_index_hits() {
+        let dir = std::env::temp_dir().join(format!("inkling-state-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        let state = LauncherState::new(dir.clone());
+        // 直接往索引库写一条文件，查询应命中并（无内存候选时）出现在结果里。
+        {
+            let mut idx = index_db::FileIndex::open(&dir.join("launcher-index.db")).unwrap();
+            idx.begin_generation();
+            idx.upsert_batch(&[index_db::FileRow {
+                name: "预算表.xlsx".into(),
+                path: "C:/x/预算表.xlsx".into(),
+                kind: model::Kind::File,
+                keywords: keyword::generate("预算表.xlsx"),
+            }])
+            .unwrap();
+        }
+        let hits = state.search("yusuan");
+        assert!(hits.iter().any(|h| h.name.contains("预算表")));
+        std::fs::remove_dir_all(&dir).ok();
+    }
 }

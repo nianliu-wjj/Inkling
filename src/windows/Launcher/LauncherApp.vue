@@ -82,7 +82,7 @@ async function launch(mode: 'open' | 'admin' | 'reveal'): Promise<void> {
   const hit = current.value
   if (!hit) return
   try {
-    await api.launcher.launch(hit.id, mode, query.value)
+    await api.launcher.launch(hit.path, hit.kind, mode, query.value)
   } catch (error) {
     logger.error('launcher', '启动失败', error)
   }
