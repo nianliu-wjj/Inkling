@@ -219,6 +219,32 @@ function saveTags(next: string[]): void {
   showTagManager.value = false
 }
 
+// —— 拖拽文件导入（spec：enableDragImport 开启且非大纲树拖拽时）——
+const dragImportActive = ref(false)
+
+/** 是否允许当前拖拽触发导入（偏好开启，且不是在拖拽大纲树节点）。 */
+function canDragImport(): boolean {
+  return localConfig.enableDragImport && !ui.isDragOutlineTreeNode
+}
+function onDragEnter(): void {
+  if (canDragImport()) dragImportActive.value = true
+}
+function onDragOver(): void {
+  if (canDragImport()) dragImportActive.value = true
+}
+function onDragLeave(event: DragEvent): void {
+  // 仅当离开舞台边界时收起遮罩（避免子元素间移动误触）。
+  if (!(event.relatedTarget instanceof Node) || !(event.currentTarget as HTMLElement).contains(event.relatedTarget)) {
+    dragImportActive.value = false
+  }
+}
+function onDrop(event: DragEvent): void {
+  dragImportActive.value = false
+  if (!canDragImport()) return
+  const file = event.dataTransfer?.files?.[0]
+  if (file) bus.emit('importFile', file)
+}
+
 /** 画布实例创建完成：绑定库事件到 bus 与保存链路。 */
 function onCreated(instance: MindMap): void {
   mindMap.value = instance
@@ -312,8 +338,16 @@ onUnmounted(() => {
           </div>
         </header>
 
-        <div class="mm-stage">
+        <div
+          class="mm-stage"
+          @dragenter.prevent="onDragEnter"
+          @dragover.prevent="onDragOver"
+          @dragleave="onDragLeave"
+          @drop.prevent="onDrop"
+        >
           <MindMapStage v-if="canRender" :data="initialData" @created="onCreated" />
+          <!-- 拖拽文件导入遮罩 -->
+          <div v-if="dragImportActive" class="mm-drag-mask">松开鼠标导入该文件</div>
           <!-- 编辑 UI：仅在实例就绪后渲染，避免组件里 requireMindMap 抛错 -->
           <template v-if="mindMap">
             <Toolbar v-if="!ui.isZenMode" />

@@ -80,7 +80,6 @@
   overflow: hidden;
   background: var(--body-bg);
 }
-/* 思维导图窗口壳样式已迁往 src/styles/mindmap.css（只由 mindmap.ts 引入）。 */
 
 /* ═══ 独立编辑窗口：全屏压暗遮罩 + 居中对话框 ═══
  * 窗口铺满显示器工作区且以 transparent 创建，若不把 body 背景清成透明，
