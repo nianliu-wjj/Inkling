@@ -21,6 +21,8 @@ pub mod score;
 pub mod search;
 pub mod snapshot;
 
+mod drives;
+
 use std::collections::{HashMap, VecDeque};
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, Ordering};
