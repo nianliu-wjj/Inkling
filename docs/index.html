@@ -1,0 +1,573 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Inkling · 念头捕手 — 交互原型</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <!-- ═══════════ 模拟桌面环境 ═══════════ -->
+  <div id="desktop">
+    <!-- 模拟 macOS 顶部菜单栏 -->
+    <div id="menubar">
+      <div class="menubar-left">
+        <span class="menu-item bold"></span>
+        <span class="menu-item">Code</span>
+        <span class="menu-item">文件</span>
+        <span class="menu-item">编辑</span>
+        <span class="menu-item">选择</span>
+      </div>
+      <div class="menubar-right">
+        <span class="menu-item" id="clock">--:--</span>
+        <!-- Inkling 托盘图标（左键=历史归档 / 右键=菜单） -->
+        <span class="menu-item tray-icon" id="trayIcon" role="button" tabindex="0" aria-label="Inkling 托盘图标：左键打开主窗口，右键打开菜单" title="Inkling（左键: 历史归档 / 右键: 菜单）">✒️</span>
+      </div>
+    </div>
+
+    <!-- 托盘右键菜单：Inkling 主菜单 -->
+    <div id="trayMenu" class="context-menu hidden" role="menu" aria-label="Inkling 主菜单">
+      <div class="menu-title">✒️ Inkling 主菜单</div>
+      <div class="menu-sep" role="separator"></div>
+      <div class="menu-row" data-action="launcher" role="menuitem" tabindex="0">🚀 启动台</div>
+      <div class="menu-row" data-action="history" role="menuitem" tabindex="0">📚 历史归档</div>
+      <div class="menu-row" data-action="stats" role="menuitem" tabindex="0">📊 统计报表</div>
+      <div class="menu-row" data-action="settings" role="menuitem" tabindex="0">⚙️ 偏好设置</div>
+      <div class="menu-sep" role="separator"></div>
+      <div class="menu-row" data-action="quit" role="menuitem" tabindex="0">⏻ 退出 Inkling</div>
+    </div>
+
+    <!-- 桌面上的"当前工作应用"（演示不切换应用的沉浸感） -->
+    <div id="fakeApp">
+      <div class="fake-titlebar"><span class="dot red"></span><span class="dot yellow"></span><span class="dot green"></span><span class="fake-title">VS Code — 你正在专注工作的应用</span></div>
+      <div class="fake-body">
+        <pre class="fake-code">function captureThought() {
+  <span class="cmt">// 写到一半，突然闪过一个念头…</span>
+  <span class="kw">const</span> idea = <span class="str">"把鼠标移到屏幕顶部中央试试"</span>;
+  <span class="cmt">// 不需要离开这里 ↓</span>
+}</pre>
+      </div>
+    </div>
+
+    <!-- 首次使用引导 -->
+    <div id="onboarding" class="glass">
+      <div class="onboard-title">✨ 欢迎使用 Inkling</div>
+      <div class="onboard-tip">把鼠标移到<b>屏幕顶部中央</b>试试</div>
+      <div class="onboard-sub">或按 <kbd>⌃</kbd>+<kbd>⇧</kbd>+<kbd>Space</kbd>（原型中点击此处也可呼出）</div>
+      <button class="btn ghost" id="onboardDismiss">知道了</button>
+    </div>
+
+    <!-- 操作提示条（原型演示专用） -->
+    <div id="demoBar">
+      <span class="demo-label">原型演示：</span>
+      <button class="btn tiny" id="demoTogglePanel">⌃⇧Space 呼出面板</button>
+      <button class="btn tiny" id="demoLauncher">🚀 启动台（Alt+Space）</button>
+      <button class="btn tiny" id="demoReminder">模拟待办提醒</button>
+      <button class="btn tiny" id="demoReset">重置演示</button>
+    </div>
+  </div>
+
+  <!-- ═══════════ hotzone 顶部感应区 ═══════════ -->
+  <div id="hotzone" title="感应区（悬停 100ms 展开面板）"></div>
+
+  <!-- ═══════════ 灵动岛（Windows 顶部中央胶囊：滚动播放当日待办，悬停展开面板） ═══════════ -->
+  <div id="dynamicIsland" class="glass" title="灵动岛：滚动播放当日待办 · 提醒岛内呈现 · 悬停展开面板 · 拖动右下角手柄调整大小">
+    <div class="di-ticker"><div class="di-track" id="diTrack"></div></div>
+    <!-- 提醒事件岛内呈现（参考 NetSpeed-Dynamic：事件到达时岛屿切换为提醒卡片，点击或数秒后恢复轮播） -->
+    <div class="di-alert hidden" id="diAlert" title="点击关闭提醒并恢复轮播"></div>
+    <div class="di-resizer" id="diResizer" title="拖动调整胶囊大小（宽 200-480 · 高 32-56）"></div>
+  </div>
+
+  <!-- ═══════════ panel 主面板（三态合一） ═══════════ -->
+  <div id="panel" class="glass hidden">
+    <!-- 三态圆点导航（矢量渲染，颜色取自主题语义令牌，随换肤生效；详见需求 2.2） -->
+    <div class="panel-nav">
+      <div class="nav-dots" role="tablist" aria-label="捕获模式切换">
+        <button class="nav-dot dot-note active" data-mode="note" role="tab" aria-selected="true" aria-label="笔记模式" title="笔记 (⌃1)"></button>
+        <button class="nav-dot dot-clip" data-mode="clipboard" role="tab" aria-selected="false" aria-label="粘贴板模式" title="粘贴板 (⌃2)"></button>
+        <button class="nav-dot dot-todo" data-mode="todo" role="tab" aria-selected="false" aria-label="待办模式" title="待办 (⌃3)"></button>
+      </div>
+      <button class="btn ghost tiny hidden" id="zenToggle" title="Zen 专注模式：全屏沉浸编辑（Esc 退出）">🧘 Zen</button>
+      <span class="panel-hint">Esc 收起</span>
+    </div>
+
+    <!-- 🔴 笔记模式 -->
+    <section class="panel-page" id="page-note">
+      <div id="editor" class="editor" contenteditable="true" data-placeholder="此刻在想什么？直接写下来… 支持 **Markdown** 即时渲染，右下角管理标签"></div>
+      <div class="editor-footer">
+        <span class="save-state" id="saveState">已暂存</span>
+        <div class="editor-actions">
+          <!-- 右下角标签区：chips 或置灰「无标签」，点击弹标签管理窗 -->
+          <div class="tag-preview" id="tagPreview" title="点击管理标签"></div>
+          <button class="btn ghost hidden" id="zenExit" title="退出 Zen 专注模式（Esc）">🧘 退出 Zen</button>
+          <button class="btn primary" id="btnArchive">归档念头 ↵</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- 🟡 粘贴板模式 -->
+    <section class="panel-page hidden" id="page-clipboard">
+      <input class="search-input" id="clipSearch" placeholder="搜索剪贴板历史…（双击条目 = 粘贴并置顶）">
+      <ul class="clip-list" id="clipList"></ul>
+    </section>
+
+    <!-- 🟢 待办模式 -->
+    <section class="panel-page hidden" id="page-todo">
+      <div class="todo-input-row">
+        <input class="search-input" id="todoPanelSearch" placeholder="🔍 搜索当日待办…">
+        <select id="todoPrioFilter" class="prio-select" title="按优先级过滤">
+          <option value="all" selected>全部</option>
+          <option value="high">🔴 高</option>
+          <option value="medium">🟡 中</option>
+          <option value="low">🟢 低</option>
+        </select>
+        <button class="btn tiny" id="todoDueBtn" title="新增待办事项（可设置完成时间）">📅</button>
+      </div>
+      <div class="todo-panel-hint">搜索 / 优先级过滤当日待办 · 逾期事项自动置顶 · 点击优先级徽章可调整 · 点击 📅 新增待办</div>
+      <ul class="todo-list" id="todoList"></ul>
+    </section>
+  </div>
+
+  <!-- ═══════════ main 单窗口（Inkling：侧边栏 + 主内容区） ═══════════ -->
+  <div id="mainWindow" class="app-window glass hidden">
+    <div class="window-titlebar">
+      <span class="win-title"><span class="app-ico">✒️</span> Inkling</span>
+      <span class="win-close" data-close="mainWindow" role="button" tabindex="0" aria-label="关闭窗口" title="关闭">✕</span>
+    </div>
+    <div class="archive-layout">
+      <!-- 左侧边栏：页签 + 当月热力图 + 底部（左：偏好设置 / 右：统计）；支持折叠为图标窄栏、拖动调宽 -->
+      <aside class="archive-side" id="archiveSide">
+        <div class="side-nav" role="tablist" aria-label="数据视图切换">
+          <div class="side-item active" data-view="notes" role="tab" tabindex="0" aria-selected="true"><span class="si-icon">📝</span><span class="si-label">笔记</span><span class="si-count" id="countNotes"></span></div>
+          <div class="side-item" data-view="clips" role="tab" tabindex="0" aria-selected="false"><span class="si-icon">📋</span><span class="si-label">粘贴板</span><span class="si-count" id="countClips"></span></div>
+          <div class="side-item" data-view="todos" role="tab" tabindex="0" aria-selected="false"><span class="si-icon">✅</span><span class="si-label">待办</span><span class="si-count" id="countTodos"></span></div>
+          <div class="side-item" data-view="plugins" role="tab" tabindex="0" aria-selected="false"><span class="si-icon">🧩</span><span class="si-label">插件</span></div>
+        </div>
+        <!-- 当月热力图：悬浮看当日明细，点击查询该日全部 pin -->
+        <div class="mini-heat" id="miniHeat"></div>
+        <div class="side-foot">
+          <button class="icon-btn side-btn" id="sideSettings" title="偏好设置">⚙️</button>
+          <button class="icon-btn side-btn" id="sideStats" title="统计数据">📊</button>
+        </div>
+      </aside>
+      <div class="side-resizer" id="sideResizer" title="拖动调整宽度（拖过阈值自动折叠）">
+        <button class="icon-btn side-toggle" id="sideToggle" title="折叠/展开侧边栏">«</button>
+      </div>
+      <!-- 右侧主内容区（同一窗口内切换视图，不再弹独立窗口） -->
+      <main class="archive-main">
+        <div class="archive-page" id="archive-notes">
+          <div class="note-arch-bar">
+            <input class="search-input" id="noteArchiveSearch" placeholder="🔍 搜索笔记…（正文、标签与思维导图节点）">
+            <button class="btn tiny" id="noteArchNewMindmap" title="新建思维导图（保存后作为笔记卡片入列表）">🧠 思维导图</button>
+          </div>
+          <div id="noteArchList"></div>
+        </div>
+        <div class="archive-page hidden" id="archive-clips">
+          <input class="search-input" id="clipArchiveSearch" placeholder="🔍 搜索粘贴板历史…">
+          <div id="clipArchList"></div>
+        </div>
+        <div class="archive-page hidden" id="archive-todos">
+          <div class="todo-date-bar">
+            <button class="btn tiny" id="todoDatePrev" title="前一天">‹</button>
+            <span class="todo-date-label" id="todoDateLabel">—</span>
+            <button class="btn tiny" id="todoDateNext" title="后一天">›</button>
+            <button class="btn tiny" id="todoDateToday" title="回到今天">今天</button>
+            <span class="todo-date-hint">逾期未完成自动置顶</span>
+            <input class="search-input todo-search" id="todoArchiveSearch" placeholder="🔍 搜索全部待办（含子任务）…">
+            <button class="icon-btn todo-new-btn" id="todoArchiveNew" title="新增待办事项">
+              <svg width="13" height="13" viewBox="0 0 12 12" fill="none"><path d="M6 1v10M1 6h10" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+            </button>
+          </div>
+          <ul class="todo-list todo-arch-list" id="archiveTodoList"></ul>
+        </div>
+        <div class="archive-page hidden" id="archive-settings">
+          <div class="page-title">⚙️ 偏好设置</div>
+          <div class="settings-body">
+            <label class="setting-row"><span>失焦自动收起</span>
+              <select id="settingBlur">
+                <option>立即收起</option><option selected>延迟 3 秒收起</option><option>固定不收起</option>
+              </select>
+            </label>
+            <label class="setting-row"><span>灵动岛（Windows 顶部胶囊，滚动播放待办）</span><input type="checkbox" id="settingIsland" checked></label>
+            <label class="setting-row"><span>灵动岛滚动停留时间</span><input type="number" id="settingIslandStay" value="3" min="1" max="10"> 秒</label>
+            <label class="setting-row"><span>灵动岛播放范围</span>
+              <select id="settingIslandScope">
+                <option value="today" selected>仅当天待办（默认）</option>
+                <option value="all">全部未完成待办</option>
+              </select>
+            </label>
+            <label class="setting-row"><span>灵动岛透明度</span><input type="range" id="settingIslandOpacity" min="30" max="100" value="100"></label>
+            <label class="setting-row"><span>灵动岛流光边框（参考 NetSpeed-Dynamic）</span><input type="checkbox" id="settingIslandGlow"></label>
+            <label class="setting-row"><span>灵动岛全屏自动隐藏</span><input type="checkbox" id="settingIslandAutoHide" checked></label>
+            <label class="setting-row"><span>粘贴板保留天数</span><input type="number" id="settingClipRetention" value="30" min="1" max="365"> 天</label>
+            <label class="setting-row"><span>开机静默自启动</span><input type="checkbox" id="settingAutoStart" checked></label>
+            <!-- 含按钮的行不使用 label 包裹：label 会把点击转发给内部控件，导致按钮语义冲突 -->
+            <div class="setting-row"><span>全局快捷键</span><kbd>⌃ ⇧ Space</kbd> <button class="btn tiny" id="settingHotkeyRecord">重新录制</button></div>
+            <label class="setting-row"><span>备注展示样式</span>
+              <select id="settingRemarkStyle">
+                <option value="auto" selected>混合模式（超100字用图标）</option>
+                <option value="icon">图标徽章 + 悬浮</option>
+                <option value="line">置灰文本行</option>
+              </select>
+            </label>
+            <div class="setting-row"><span>主题</span>
+              <div class="theme-dd" id="themeDD">
+                <button class="theme-dd-trigger" id="themeDDTrigger"></button>
+                <div class="theme-dd-menu hidden" id="themeDDMenu"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <!-- 插件管理：内置功能以插件卡片形式启停与配置（灵动岛 / 呼出面板及三态子插件 / 思维导图 / 启动台） -->
+        <div class="archive-page hidden" id="archive-plugins">
+          <div class="page-title">🧩 插件管理</div>
+          <div class="stats-legend">内置功能以插件形态注册，支持启停与独立配置；停用后对应入口即刻隐藏/失效</div>
+          <div id="pluginList"></div>
+        </div>
+        <div class="archive-page hidden" id="archive-stats">
+          <div class="page-title">📊 使用统计</div>
+          <div class="stats-legend">每日活跃度热力图（悬浮查看当日明细 · 红框 = 存在逾期待办）</div>
+          <div class="heatmap-wrap" id="heatmap"></div>
+          <div class="stats-legend">近 6 个月趋势（各模块使用量折线）</div>
+          <div id="trendChart" class="trend-chart"></div>
+        </div>
+        <!-- 日期详情：点击侧边栏当月热力图某日 → 该日全部 pin（按时间排序，可按类别筛选/搜索，支持编辑删除） -->
+        <div class="archive-page hidden" id="archive-day">
+          <div class="day-head">
+            <span class="day-date" id="dayDetailDateLabel">—</span>
+            <div class="day-filters" id="dayFilters" role="group" aria-label="按类别筛选当日记录">
+              <span class="day-filter active" data-filter="all" role="button" tabindex="0" aria-pressed="true">全部</span>
+              <span class="day-filter f-note" data-filter="note" role="button" tabindex="0" aria-pressed="false">📝 笔记</span>
+              <span class="day-filter f-clip" data-filter="clip" role="button" tabindex="0" aria-pressed="false">📋 粘贴板</span>
+              <span class="day-filter f-todo" data-filter="todo" role="button" tabindex="0" aria-pressed="false">✅ 待办</span>
+            </div>
+            <input class="search-input day-search" id="dayDetailSearch" placeholder="🔍 在该日记录中搜索…">
+          </div>
+          <div class="day-hint">按时间先后排序（待办取完成时间）· 悬浮卡片可编辑 / 删除</div>
+          <div id="dayDetailList"></div>
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <!-- ═══════════ 思维导图独立编辑窗口（参考 wanglin2/mind-map 官方布局） ═══════════
+       独立于主窗口：主窗口隐藏/关闭不影响本窗口；画布支持滚轮缩放与鼠标拖动平移
+       布局：顶部两组悬浮工具岛（节点编辑 / 文件操作）＋ 画布 ＋ 右侧悬浮侧边栏 ＋ 底部统计/视图控制栏 -->
+  <div id="mindmapWindow" class="app-window glass hidden">
+    <div class="window-titlebar">
+      <span class="win-title"><span class="app-ico">🧠</span> <span id="mindmapBarTitle">新建思维导图</span></span>
+      <span class="win-close" data-close="mindmapWindow" role="button" tabindex="0" aria-label="关闭思维导图编辑窗口，未保存的修改将丢失" title="关闭（未保存的修改将丢失）">✕</span>
+    </div>
+
+    <!-- 顶部悬浮工具栏区（对齐 wanglin2/mind-map：左中右结构） -->
+    <div class="mm-topbar">
+      <!-- 左岛：节点与内容编辑工具组 -->
+      <div class="mm-island mm-island-left">
+        <button class="mm-tool-btn" id="mmUndo" title="回退（Ctrl+Z）"><span class="mm-ico">↩</span><span class="mm-txt">回退</span></button>
+        <button class="mm-tool-btn" id="mmRedo" title="前进（Ctrl+Y）"><span class="mm-ico">↪</span><span class="mm-txt">前进</span></button>
+        <button class="mm-tool-btn" id="mmPainter" title="格式刷"><span class="mm-ico">🧹</span><span class="mm-txt">格式刷</span></button>
+        <button class="mm-tool-btn" id="mmInsertSibling" title="同级节点（Enter）"><span class="mm-ico">☷</span><span class="mm-txt">同级节点</span></button>
+        <button class="mm-tool-btn" id="mmInsertChild" title="子节点（Tab）"><span class="mm-ico">↳</span><span class="mm-txt">子节点</span></button>
+        <button class="mm-tool-btn danger" id="mmRemove" title="删除节点（Delete）"><span class="mm-ico">🗑</span><span class="mm-txt">删除节点</span></button>
+        <button class="mm-tool-btn" id="mmImg" title="插入图片"><span class="mm-ico">🖼</span><span class="mm-txt">图片</span></button>
+        <button class="mm-tool-btn" id="mmIcon" title="插入图标"><span class="mm-ico">🙂</span><span class="mm-txt">图标</span></button>
+        <button class="mm-tool-btn" id="mmLink" title="超链接"><span class="mm-ico">🔗</span><span class="mm-txt">超链接</span></button>
+        <button class="mm-tool-btn" id="mmRemark" title="备注"><span class="mm-ico">📝</span><span class="mm-txt">备注</span></button>
+        <button class="mm-tool-btn" id="mmTag" title="标签"><span class="mm-ico">🏷</span><span class="mm-txt">标签</span></button>
+        <button class="mm-tool-btn" id="mmSummary" title="概要"><span class="mm-ico">⊞</span><span class="mm-txt">概要</span></button>
+        <button class="mm-tool-btn" id="mmRelLine" title="关联线"><span class="mm-ico">⤹</span><span class="mm-txt">关联线</span></button>
+        <button class="mm-tool-btn" id="mmFormula" title="公式"><span class="mm-ico">∑</span><span class="mm-txt">公式</span></button>
+        <button class="mm-tool-btn" id="mmOuterFrame" title="外框"><span class="mm-ico">⊡</span><span class="mm-txt">外框</span></button>
+        <button class="mm-tool-btn" id="mmAi" title="AI 智能续写/扩充"><span class="mm-ico">✨</span><span class="mm-txt">AI</span></button>
+      </div>
+
+      <!-- 中间：文件名编辑框（带后缀下拉 + 最大长度省略号 + 末尾编辑/保存图标按钮） -->
+      <div class="mm-filename-island" id="mmFilenameIsland">
+        <span class="mm-filename-text" id="mmFilenameText" title="点击编辑图标修改文件名与格式">Inkling 产品规划</span>
+        <input class="mm-filename-input hidden" id="mmFilenameInput" maxlength="32" spellcheck="false" autocomplete="off">
+        <span class="mm-ext-badge" id="mmExtBadge">.smm</span>
+        <!-- 仅列「保存格式」：保存后仍可再编辑。.png/.svg/.pdf 为单向渲染产物，
+             无法反解回节点树，若作为保存后缀会使笔记永久失去可编辑性，故移至导出格式（需求 2.9） -->
+        <select class="mm-ext-select hidden" id="mmExtSelect" title="保存格式（保存后仍可再编辑）">
+          <option value=".smm" selected>.smm（默认 · 完整工程）</option>
+          <option value=".json">.json（纯节点树）</option>
+          <option value=".xmind">.xmind（跨工具交换）</option>
+          <option value=".md">.md（大纲降级）</option>
+        </select>
+        <button class="mm-filename-btn" id="mmFilenameEditBtn" title="编辑文件名与后缀">✏️</button>
+      </div>
+
+      <!-- 右岛：文件与存储操作组 -->
+      <div class="mm-island mm-island-right">
+        <button class="mm-tool-btn" id="mmSave" title="保存到 Inkling 笔记"><span class="mm-ico">💾</span><span class="mm-txt">保存</span></button>
+        <button class="mm-tool-btn" id="mmNew" title="新建导图"><span class="mm-ico">📄</span><span class="mm-txt">新建</span></button>
+        <button class="mm-tool-btn" id="mmImport" title="导入 JSON 导图"><span class="mm-ico">📥</span><span class="mm-txt">导入</span></button>
+        <!-- 导出 = 单向渲染产物，与上方「保存格式」分离（需求 2.9） -->
+        <div class="mm-export-group">
+          <button class="mm-tool-btn" id="mmExport" title="按所选格式导出（产物不可再编辑）"><span class="mm-ico">📤</span><span class="mm-txt">导出</span></button>
+          <select class="mm-export-select" id="mmExportFormat" title="导出格式">
+            <option value="json" selected>JSON</option>
+            <option value="png">PNG</option>
+            <option value="svg">SVG</option>
+            <option value="pdf">PDF</option>
+          </select>
+        </div>
+        <button class="mm-tool-btn" id="mmCancel" title="取消放弃修改"><span class="mm-ico">✕</span><span class="mm-txt">取消</span></button>
+      </div>
+    </div>
+
+    <!-- 中间主体：画布 ＋ 右侧悬浮侧边栏 -->
+    <div class="mm-canvas-wrap">
+      <div id="mindmapContainer"></div>
+
+      <!-- 小地图导航（右下角悬浮缩略图，随导图变化实时重绘） -->
+      <div class="mm-minimap hidden" id="mmMinimap" title="小地图导航">
+        <canvas id="mmMinimapCanvas"></canvas>
+        <button class="mm-minimap-close" id="mmMinimapClose" title="关闭小地图">✕</button>
+      </div>
+
+      <!-- 右侧垂直悬浮侧边栏（对齐 wanglin2/mind-map：节点样式/主题/结构/大纲/设置） -->
+      <div class="mm-sidebar-dock">
+        <button class="mm-dock-item" data-side="nodeStyle" title="节点样式"><span class="mm-dock-ico">🎨</span><span class="mm-dock-lbl">节点样式</span></button>
+        <button class="mm-dock-item" data-side="baseStyle" title="基础样式"><span class="mm-dock-ico">📐</span><span class="mm-dock-lbl">基础样式</span></button>
+        <button class="mm-dock-item active" data-side="theme" title="切换主题模板"><span class="mm-dock-ico">👕</span><span class="mm-dock-lbl">主题</span></button>
+        <button class="mm-dock-item" data-side="struct" title="结构布局"><span class="mm-dock-ico">🗂</span><span class="mm-dock-lbl">结构</span></button>
+        <button class="mm-dock-item" data-side="outline" title="文档大纲"><span class="mm-dock-ico">📑</span><span class="mm-dock-lbl">大纲</span></button>
+        <button class="mm-dock-item" data-side="settings" title="导图设置"><span class="mm-dock-ico">⚙️</span><span class="mm-dock-lbl">设置</span></button>
+      </div>
+
+      <!-- 右侧抽屉面板（点击右侧 dock 展开/收起） -->
+      <div class="mm-drawer hidden" id="mmDrawer">
+        <div class="mm-drawer-header">
+          <span class="mm-drawer-title" id="mmDrawerTitle">👕 主题设置</span>
+          <button class="mm-drawer-close" id="mmDrawerClose" title="关闭面板">✕</button>
+        </div>
+        <div class="mm-drawer-body" id="mmDrawerBody"></div>
+      </div>
+
+      <!-- 节点搜索浮层（对齐 Image #13：右上角悬浮搜索框） -->
+      <div class="mm-search-box hidden" id="mmSearchBox">
+        <input class="mm-search-input" id="mmSearchInput" placeholder="输入查找内容后按回车键" spellcheck="false" autocomplete="off">
+        <button class="mm-search-close" id="mmSearchClose" title="关闭搜索">✕</button>
+      </div>
+
+      <!-- 通用节点编辑弹窗（备注/标签/图片/公式/超链接/外框，对齐 Image #14-#20） -->
+      <div class="mm-modal-overlay hidden" id="mmModalOverlay">
+        <div class="mm-modal" id="mmModal">
+          <div class="mm-modal-header">
+            <span class="mm-modal-title" id="mmModalTitle">备注</span>
+            <button class="mm-modal-close" id="mmModalClose" title="关闭">✕</button>
+          </div>
+          <div class="mm-modal-body" id="mmModalBody"></div>
+          <div class="mm-modal-footer" id="mmModalFooter">
+            <button class="btn ghost" id="mmModalCancel">取消</button>
+            <button class="btn primary" id="mmModalConfirm">确定</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 底部状态栏与控制栏（对齐 wanglin2/mind-map：左下字数/节点，右下缩放控制） -->
+    <div class="mm-bottombar">
+      <div class="mm-stat-left" id="mmStatLeft">字数 0 &nbsp; 节点 1</div>
+      <div class="mm-ctrl-right">
+        <select class="mm-lang-select" id="mmLangSelect" title="语言切换">
+          <option>简体中文</option><option>English</option>
+        </select>
+        <button class="mm-ctrl-btn" id="mmLocateCenter" title="定位到中心主题">⊙</button>
+        <button class="mm-ctrl-btn" id="mmSearchNode" title="搜索节点">🔍</button>
+        <button class="mm-ctrl-btn" id="mmToggleReadonly" title="只读浏览 / 编辑模式切换">🧭</button>
+        <button class="mm-ctrl-btn" id="mmToggleMinimap" title="开启小地图">🗺</button>
+        <button class="mm-ctrl-btn" id="mmToggleFullscreen" title="全屏编辑/查看">⛶</button>
+        <span class="mm-ctrl-sep"></span>
+        <button class="mm-ctrl-btn" id="mindmapZoomOut" title="缩小">−</button>
+        <span class="mm-zoom-val" id="mindmapZoomLabel">100 %</span>
+        <button class="mm-ctrl-btn" id="mindmapZoomIn" title="放大">＋</button>
+        <button class="mm-ctrl-btn" id="mindmapFit" title="自适应大小">⤢</button>
+        <button class="mm-ctrl-btn" id="mmExpandAll" title="展开全部">⊞</button>
+        <button class="mm-ctrl-btn" id="mmCollapseAll" title="收起全部">⊟</button>
+      </div>
+    </div>
+
+    <input type="file" id="mmImportFile" accept=".json,application/json" class="hidden">
+  </div>
+
+  <!-- ═══════════ 启动台（参考 Wox / ZeroLaunch-rs：键盘优先单输入框启动器） ═══════════
+       Alt+Space 或托盘菜单呼出；拼音/模糊匹配；↑↓ 选择 · Enter 启动 · Esc 关闭 -->
+  <div id="launcherWindow" class="glass hidden">
+    <div class="launcher-input-row">
+      <span class="launcher-ico">🚀</span>
+      <input id="launcherInput" placeholder="搜索应用 / 命令 / 笔记 / 待办 / 剪贴板… 支持拼音，= 开头计算" spellcheck="false" autocomplete="off">
+    </div>
+    <div class="launcher-list" id="launcherList"></div>
+    <div class="launcher-footer" id="launcherFooter"></div>
+  </div>
+
+  <!-- ═══════════ pinned 置顶浮窗（右下角） ═══════════ -->
+  <div id="pinnedWindow" class="glass hidden">
+    <div class="pinned-header"><span>📌 置顶</span><span class="pinned-close" id="pinnedClose">✕</span></div>
+    <div class="pinned-body" id="pinnedContent">双击可展开编辑…</div>
+    <div class="pinned-footer">
+      <span>透明度</span>
+      <input type="range" id="pinnedOpacity" min="30" max="100" value="100">
+    </div>
+  </div>
+
+  <!-- ═══════════ reminder 右上角提醒卡片 ═══════════ -->
+  <div id="reminderCard" class="glass hidden">
+    <div class="reminder-header">
+      <button class="icon-btn reminder-close" id="reminderDismiss" title="关闭（稍后不再提醒）">
+        <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M1 1l10 10M11 1L1 11" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+      </button>
+      <span class="reminder-title">⏰ 待办提醒</span>
+    </div>
+    <div class="reminder-content" id="reminderContent">记得给产品文档补充截图</div>
+    <div class="reminder-actions">
+      <select id="snoozeSelect" class="snooze-select">
+        <option value="" selected>选择下次提醒时间…</option>
+        <option value="10">10 分钟后</option>
+        <option value="30">30 分钟后</option>
+        <option value="60">1 小时后</option>
+        <option value="180">3 小时后</option>
+        <option value="tomorrow">明天上午 9:00</option>
+      </select>
+    </div>
+  </div>
+
+  <!-- ═══════════ 标签管理弹窗 ═══════════ -->
+  <div id="tagManagerOverlay" class="hidden">
+    <div id="tagManagerModal" class="glass">
+      <div class="clip-editor-header">
+        <span class="clip-editor-title">🏷️ 管理标签</span>
+        <button class="icon-btn" id="tagManagerClose" title="关闭（Esc）">
+          <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M1 1l10 10M11 1L1 11" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+        </button>
+      </div>
+      <div class="tag-mgr-sub" id="tagMgrSub">当前笔记的标签</div>
+      <!-- 新增标签 -->
+      <div class="tag-add-row">
+        <input id="tagAddInput" class="search-input" placeholder="输入标签名，回车添加（最多 5 字）" maxlength="5">
+        <button class="btn primary" id="tagAddBtn">添加</button>
+      </div>
+      <!-- 标签列表（可改可删） -->
+      <ul class="tag-mgr-list" id="tagMgrList"></ul>
+    </div>
+  </div>
+
+  <!-- ═══════════ 待办编辑弹窗（创建/子任务/提醒/编辑 共用） ═══════════ -->
+  <div id="todoEditorOverlay" class="hidden">
+    <div id="todoEditorModal" class="glass">
+      <div class="clip-editor-header">
+        <span class="clip-editor-title" id="todoEditorTitle">✏️ 编辑待办</span>
+        <button class="icon-btn" id="todoEditorClose" title="关闭（Esc）">
+          <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M1 1l10 10M11 1L1 11" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+        </button>
+      </div>
+      <input id="todoEditorText" class="search-input" placeholder="待办内容…">
+      <!-- 标签（参考笔记标签设计：≤3 个，每个 ≤10 字，✕ 抖动二次确认删除） -->
+      <div class="te-tags-row" id="teTagsRow">
+        <span class="te-label">标签</span>
+        <div class="te-tags" id="todoEditorTags"></div>
+      </div>
+      <input id="todoEditorTagInput" class="search-input te-tag-input" placeholder="输入标签回车添加（最多 3 个 · 每个 10 字）" maxlength="10">
+      <!-- 备注（最多 200 字，带字数计数） -->
+      <div class="te-remark-wrap">
+        <span class="te-label">备注</span>
+        <textarea id="todoEditorRemark" maxlength="200" rows="2" placeholder="补充说明…（选填，最多 200 字）"></textarea>
+        <span class="te-remark-count" id="todoEditorRemarkCount">0/200</span>
+      </div>
+      <div class="todo-editor-grid">
+        <label class="te-field">完成日期
+          <input type="date" id="todoEditorDate">
+        </label>
+        <label class="te-field">完成时间
+          <input type="time" id="todoEditorDueTime">
+        </label>
+      </div>
+      <div class="todo-editor-grid">
+        <label class="te-field">提醒日期（选填）
+          <input type="date" id="todoEditorRemindDate">
+        </label>
+        <label class="te-field">提醒时间（选填）
+          <input type="time" id="todoEditorRemindTime">
+        </label>
+      </div>
+      <div class="todo-editor-grid">
+        <label class="te-field" id="todoEditorPrioWrap">优先级
+          <select id="todoEditorPrio">
+            <option value="high">🔴 高</option>
+            <option value="medium" selected>🟡 中</option>
+            <option value="low">🟢 低</option>
+          </select>
+        </label>
+      </div>
+      <div class="clip-editor-footer">
+        <span class="clip-editor-hint" id="todoEditorHint"></span>
+        <div class="clip-editor-actions">
+          <button class="btn ghost" id="todoEditorCancel">取消</button>
+          <button class="btn primary" id="todoEditorSave">保存</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════ 粘贴板内容编辑浮框 ═══════════ -->
+  <div id="clipEditorOverlay" class="hidden">
+    <div id="clipEditorModal" class="glass">
+      <div class="clip-editor-header">
+        <span class="clip-editor-title">✏️ 编辑剪贴板内容</span>
+        <button class="icon-btn" id="clipEditorClose" title="关闭（Esc）">
+          <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M1 1l10 10M11 1L1 11" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+        </button>
+      </div>
+      <textarea id="clipEditorTextarea" placeholder="编辑内容…" spellcheck="false"></textarea>
+      <div class="clip-editor-footer">
+        <span class="clip-editor-hint">保存后替换原内容，时间更新为最后修改时间（⌃/⌘+Enter 快捷保存）</span>
+        <div class="clip-editor-actions">
+          <button class="btn ghost" id="clipEditorCancel">取消</button>
+          <button class="btn primary" id="clipEditorSave">保存修改</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════ 重复提醒下拉选择 ═══════════ -->
+  <div id="repeatMenu" class="repeat-menu hidden">
+    <div class="repeat-opt" data-repeat="">🚫 不重复</div>
+    <div class="repeat-opt" data-repeat="daily">🔁 每天重复</div>
+    <div class="repeat-opt" data-repeat="weekly">🔁 每周重复</div>
+  </div>
+
+  <!-- ═══════════ 优先级阶梯下拉（当前优先级由 Pin 卡片本身充当） ═══════════ -->
+  <div id="prioMenu" class="hidden"></div>
+
+  <!-- 思维导图节点右键菜单（body 级：不被编辑窗口 transform/overflow 裁剪，跟随鼠标、可超出窗口显示；参考 wanglin2/mind-map 节点上下文菜单核心子集） -->
+  <div id="mindmapCtxMenu" class="mm-ctx hidden">
+    <div class="mm-ctx-item" data-cmd="child">插入子节点<span class="mm-ctx-kbd">Tab</span></div>
+    <div class="mm-ctx-item" data-cmd="sibling">插入同级节点<span class="mm-ctx-kbd">Enter</span></div>
+    <div class="mm-ctx-item" data-cmd="up">上移节点<span class="mm-ctx-kbd">Ctrl+↑</span></div>
+    <div class="mm-ctx-item" data-cmd="down">下移节点<span class="mm-ctx-kbd">Ctrl+↓</span></div>
+    <div class="mm-ctx-sep"></div>
+    <div class="mm-ctx-item" data-cmd="copy">复制节点<span class="mm-ctx-kbd">Ctrl+C</span></div>
+    <div class="mm-ctx-item" data-cmd="cut">剪切节点<span class="mm-ctx-kbd">Ctrl+X</span></div>
+    <div class="mm-ctx-item" data-cmd="paste">粘贴节点<span class="mm-ctx-kbd">Ctrl+V</span></div>
+    <div class="mm-ctx-sep"></div>
+    <div class="mm-ctx-item danger" data-cmd="remove">删除节点<span class="mm-ctx-kbd">Delete</span></div>
+    <div class="mm-ctx-item danger" data-cmd="removeSelf">仅删除当前节点<span class="mm-ctx-kbd">Shift+Backspace</span></div>
+  </div>
+
+  <!-- 热力图悬浮明细 tooltip -->
+  <div id="heatTip" class="hidden"></div>
+
+  <!-- toast 轻提示 -->
+  <div id="toast" class="hidden"></div>
+
+  <!-- ⚠️ 原型期依赖：以下两个库经 CDN 引入，仅为原型演示便利。
+       正式版本必须改为随包内置的本地依赖——「本地优先」信条不允许核心编辑能力
+       依赖外网可用性，同时避免向第三方 CDN 泄露使用行为（见需求 3.4）。 -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+  <!-- 思维导图库（参考 https://github.com/wanglin2/mind-map，UMD 全局变量 simpleMindMap） -->
+  <script src="https://unpkg.com/simple-mind-map@0.14.0-fix.3/dist/simpleMindMap.umd.min.js"></script>
+  <script src="app.js?v=2.4"></script>
+</body>
+</html>
