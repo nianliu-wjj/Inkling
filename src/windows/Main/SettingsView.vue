@@ -143,6 +143,17 @@ async function rebuildLauncher(): Promise<void> {
   }
 }
 
+/** 切换全盘文件索引：持久化后立即重建（索引来源变化）。 */
+async function toggleFullDiskIndex(value: boolean): Promise<void> {
+  await patch({ launcher_full_disk_index: value })
+  void rebuildLauncher()
+}
+
+/** 修改额外排除目录：持久化（下次重建生效，用户可手动「立即重建」）。 */
+async function setExtraExcludes(value: string): Promise<void> {
+  await patch({ launcher_extra_excludes: value })
+}
+
 /** 启动器根目录：以 JSON 存 Settings.launcher_roots，UI 上按行编辑「路径|深度」。 */
 interface LauncherRootRow {
   path: string
@@ -521,6 +532,24 @@ async function openDataDir(): Promise<void> {
           重新录制
         </button>
       </label>
+      <label class="setting-row">
+        <span>全盘文件索引（搜索所有文件 / 文件夹）</span>
+        <input
+          type="checkbox"
+          :checked="settings.launcher_full_disk_index"
+          @change="toggleFullDiskIndex(($event.target as HTMLInputElement).checked)"
+        />
+      </label>
+      <div class="setting-col">
+        <span class="setting-col-label">额外排除目录（逗号分隔目录名）</span>
+        <input
+          class="search-input"
+          type="text"
+          :value="settings.launcher_extra_excludes"
+          placeholder="如 tmp, backup, dist"
+          @change="setExtraExcludes(($event.target as HTMLInputElement).value)"
+        />
+      </div>
       <div class="setting-row">
         <span>索引</span>
         <span class="clip-editor-hint">

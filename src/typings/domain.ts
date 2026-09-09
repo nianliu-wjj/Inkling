@@ -135,6 +135,10 @@ export interface Settings {
   launcher_shortcut: string
   /** 启动器文件扫描根目录（JSON 数组字符串）。 */
   launcher_roots: string
+  /** 启动器全盘文件索引开关（默认开）。 */
+  launcher_full_disk_index: boolean
+  /** 全盘索引额外排除目录（逗号分隔）。 */
+  launcher_extra_excludes: string
 }
 
 export interface ActivityDay {

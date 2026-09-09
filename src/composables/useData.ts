@@ -42,6 +42,8 @@ const DEFAULT_SETTINGS: Settings = {
   island_plugins: 'today-todos',
   launcher_shortcut: 'Alt+Space',
   launcher_roots: '',
+  launcher_full_disk_index: true,
+  launcher_extra_excludes: '',
 }
 
 const notes = ref<Note[]>([])
