@@ -23,6 +23,7 @@ import { provideMindMapContext } from './core/useMindMap'
 import Toolbar from './chrome/Toolbar.vue'
 import NavigatorToolbar from './chrome/NavigatorToolbar.vue'
 import Navigator from './chrome/Navigator.vue'
+import ScrollbarBars from './chrome/ScrollbarBars.vue'
 import SidebarTrigger from './chrome/SidebarTrigger.vue'
 import Count from './chrome/Count.vue'
 import ContextMenu from './popups/ContextMenu.vue'
@@ -289,6 +290,7 @@ watch(note, (value) => {
             <Toolbar v-if="!ui.isZenMode" />
             <NavigatorToolbar v-if="!ui.isZenMode" />
             <Navigator />
+            <ScrollbarBars />
             <SidebarTrigger v-if="!ui.isZenMode" />
             <Count v-if="!ui.isZenMode" />
             <ContextMenu />

@@ -1078,3 +1078,43 @@
 .mm-minimap-viewbox.with-transition {
   transition: all 0.3s;
 }
+/* ═══ 画布滚动条（ScrollbarBars）专用样式 ═══
+   参考端 Scrollbar.vue 样式移植，走 Inkling 令牌；由控制器合并进 mindmap.css。 */
+
+.mm-scrollbar-track {
+  position: absolute;
+  background: rgba(var(--wsa), 0.08);
+  border-radius: 10px;
+  overflow: hidden;
+  z-index: 15;
+}
+.mm-scrollbar-track.vertical {
+  width: 10px;
+  top: 100px;
+  bottom: 100px;
+  left: 20px;
+}
+.mm-scrollbar-track.horizontal {
+  height: 10px;
+  left: 100px;
+  right: 100px;
+  bottom: 70px;
+}
+
+.mm-scrollbar-inner {
+  position: absolute;
+  background: rgba(var(--wsa), 0.28);
+  border-radius: 10px;
+  cursor: pointer;
+}
+.mm-scrollbar-track.vertical .mm-scrollbar-inner {
+  width: 10px;
+  left: 0;
+}
+.mm-scrollbar-track.horizontal .mm-scrollbar-inner {
+  height: 10px;
+  top: 0;
+}
+.mm-scrollbar-inner:hover {
+  background: rgba(var(--wsa), 0.42);
+}
