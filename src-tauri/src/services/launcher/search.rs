@@ -112,10 +112,54 @@ fn empty_query(candidates: &[Candidate], history: &History, top_k: usize, now: i
         .collect()
 }
 
+/// D4 桶优先级：应用组（App/Uwp/Command）=0 < 文件夹=1 < 文件=2。
+pub fn bucket(kind: Kind) -> u8 {
+    match kind {
+        Kind::App | Kind::Uwp | Kind::Command => 0,
+        Kind::Folder => 1,
+        Kind::File => 2,
+    }
+}
+
+/// 合并内存命中与文件命中，按「桶优先 → 分数降序」严格分组排序，截断 top_k。
+pub fn merge_and_rank(mut mem: Vec<Hit>, mut files: Vec<Hit>, top_k: usize) -> Vec<Hit> {
+    let mut all = Vec::with_capacity(mem.len() + files.len());
+    all.append(&mut mem);
+    all.append(&mut files);
+    all.sort_by(|a, b| {
+        bucket(a.kind)
+            .cmp(&bucket(b.kind))
+            .then(b.score.total_cmp(&a.score))
+    });
+    all.truncate(top_k);
+    all
+}
+
 #[cfg(test)]
 mod tests {
     use super::super::keyword;
     use super::*;
+
+    #[test]
+    fn strict_group_order_app_folder_file() {
+        let h = |kind, name: &str, score: f64| Hit {
+            id: 0,
+            kind,
+            name: name.into(),
+            path: name.into(),
+            score,
+            matched_keyword: String::new(),
+        };
+        // 文件分更高，但严格分组下应用仍排在文件前。
+        let mem = vec![h(Kind::App, "低分应用", 1.0)];
+        let files = vec![
+            h(Kind::File, "高分文件", 99.0),
+            h(Kind::Folder, "文件夹", 50.0),
+        ];
+        let ranked = merge_and_rank(mem, files, 10);
+        let kinds: Vec<Kind> = ranked.iter().map(|x| x.kind).collect();
+        assert_eq!(kinds, vec![Kind::App, Kind::Folder, Kind::File]);
+    }
 
     fn candidate(id: u32, name: &str, path: &str, kind: Kind) -> Candidate {
         Candidate {
