@@ -29,6 +29,8 @@ import Count from './chrome/Count.vue'
 import ContextMenu from './popups/ContextMenu.vue'
 import SearchBox from './popups/SearchBox.vue'
 import RichTextToolbar from './popups/RichTextToolbar.vue'
+import NodeIconToolbar from './popups/NodeIconToolbar.vue'
+import NodeImgPlacementToolbar from './popups/NodeImgPlacementToolbar.vue'
 import ShortcutSidebar from './sidebars/ShortcutSidebar.vue'
 import StructureSidebar from './sidebars/StructureSidebar.vue'
 import ThemeSidebar from './sidebars/ThemeSidebar.vue'
@@ -298,6 +300,8 @@ watch(note, (value) => {
             <ContextMenu />
             <SearchBox />
             <RichTextToolbar />
+            <NodeIconToolbar />
+            <NodeImgPlacementToolbar />
             <ShortcutSidebar />
             <StructureSidebar />
             <ThemeSidebar />
