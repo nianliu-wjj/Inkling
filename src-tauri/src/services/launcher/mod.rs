@@ -22,6 +22,7 @@ pub mod search;
 pub mod snapshot;
 
 mod drives;
+mod exclude;
 
 use std::collections::{HashMap, VecDeque};
 use std::path::PathBuf;
