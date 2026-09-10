@@ -646,8 +646,11 @@ mod tests {
         db.execute_batch("CREATE TABLE settings (key TEXT PRIMARY KEY, value TEXT NOT NULL);")
             .unwrap();
         if let Some(theme) = theme {
-            db.execute("INSERT INTO settings(key, value) VALUES('theme', ?1)", [theme])
-                .unwrap();
+            db.execute(
+                "INSERT INTO settings(key, value) VALUES('theme', ?1)",
+                [theme],
+            )
+            .unwrap();
         }
         db
     }
@@ -705,6 +708,9 @@ mod tests {
 
     #[test]
     fn default_settings_theme_is_typewriter() {
-        assert_eq!(crate::domain::models::Settings::default().theme(), "typewriter");
+        assert_eq!(
+            crate::domain::models::Settings::default().theme(),
+            "typewriter"
+        );
     }
 }
