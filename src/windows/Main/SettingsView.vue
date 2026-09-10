@@ -7,7 +7,6 @@ import { useGlass } from '@/composables/useGlass'
 import { useTheme } from '@/composables/useTheme'
 import { glassLevels } from '@/constants/glass'
 import { builtinPlugins, resolvePlugins, serializePlugins } from '@/panel-plugins'
-import { builtinIslandPlugins, resolveIslandPlugins, serializeIslandPlugins } from '@/island-plugins'
 import { themes } from '@/constants/themes'
 import { logger } from '@/service/logger'
 import { api } from '@/service/tauri'
@@ -16,9 +15,9 @@ import type { CollapsePolicy, GlassLevel, PanelPosition, RemarkStyle, Settings }
 /**
  * 归档 · 偏好设置页。
  *
- * 需求 2.7：失焦收起策略 / 粘贴板保留天数 / 开机静默自启 / 全局快捷键（可重录）
- * / 备注展示样式 / 主题（30 套）/ 玻璃质感（3 档，与配色正交）。
- * 另加毛玻璃开关与邮件提醒配置。
+ * 行序与原型 #archive-settings 一致：失焦收起 → 粘贴板保留天数 → 开机自启 → 全局快捷键 →
+ * 备注展示样式 → 主题；其后为项目扩展项：面板唤出位置 / 窗口毛玻璃 / 玻璃质感 / 数据目录 /
+ * 面板插件 / 邮件提醒。灵动岛与启动器的设置分别位于灵动岛页与启动台页（原型位置）。
  *
  * 所有修改即时保存，并由后端广播 settings-changed 同步到其他窗口。
  */
@@ -126,56 +125,6 @@ function togglePlugin(id: string, enabled: boolean): void {
   void patch({ panel_plugins: serializePlugins(ordered) })
 }
 
-/** 灵动岛尺寸等数值项的允许范围（与 Rust 侧 island_clamp 一致，前端先钳一遍避免来回抖动）。 */
-const ISLAND_LIMITS = {
-  width: { min: 200, max: 800 },
-  height: { min: 28, max: 72 },
-  opacity: { min: 0.3, max: 1 },
-  cycle: { min: 2, max: 30 },
-} as const
-
-function clampNumber(value: number, range: { min: number; max: number }, fallback: number): number {
-  if (!Number.isFinite(value)) return fallback
-  return Math.min(range.max, Math.max(range.min, value))
-}
-
-/** 灵动岛数值设置：解析输入、钳制范围后保存。 */
-function patchIslandNumber(
-  key: 'island_width' | 'island_height' | 'island_opacity' | 'island_cycle_seconds',
-  raw: string,
-): void {
-  const range =
-    key === 'island_width'
-      ? ISLAND_LIMITS.width
-      : key === 'island_height'
-        ? ISLAND_LIMITS.height
-        : key === 'island_opacity'
-          ? ISLAND_LIMITS.opacity
-          : ISLAND_LIMITS.cycle
-  const value = clampNumber(Number(raw), range, settings.value[key])
-  logger.info('settings', `灵动岛 ${key} = ${value}`)
-  void patch({ [key]: value } as Partial<Settings>)
-}
-
-/** 当前启用的灵动岛插件 id 集合。 */
-const enabledIslandPluginIds = computed(
-  () => new Set(resolveIslandPlugins(settings.value.island_plugins).map((plugin) => plugin.id)),
-)
-
-/** 启用 / 禁用某个灵动岛插件；与面板插件同理，至少保留一个。 */
-function toggleIslandPlugin(id: string, enabled: boolean): void {
-  const next = new Set(enabledIslandPluginIds.value)
-  if (enabled) next.add(id)
-  else next.delete(id)
-  if (next.size === 0) {
-    toast('至少需要启用一个灵动岛插件')
-    return
-  }
-  const ordered = builtinIslandPlugins.filter((plugin) => next.has(plugin.id))
-  logger.info('settings', `灵动岛插件启用列表 = ${serializeIslandPlugins(ordered)}`)
-  void patch({ island_plugins: serializeIslandPlugins(ordered) })
-}
-
 /**
  * 切换玻璃质感。
  *
@@ -254,29 +203,6 @@ async function openDataDir(): Promise<void> {
         </select>
       </label>
 
-      <label class="setting-row">
-        <span>面板唤出位置</span>
-        <select
-          :value="settings.panel_position"
-          @change="patch({ panel_position: ($event.target as HTMLSelectElement).value as PanelPosition })"
-        >
-          <option value="top">顶部居中</option>
-          <option value="bottom">底部居中</option>
-          <option value="left">左侧居中</option>
-          <option value="right">右侧居中</option>
-        </select>
-      </label>
-
-      <label class="setting-row">
-        <span>窗口毛玻璃</span>
-        <input
-          type="checkbox"
-          :checked="settings.main_acrylic"
-          @change="toggleAcrylic(($event.target as HTMLInputElement).checked)"
-        />
-        <span class="clip-editor-hint">关闭后归档窗口使用不透明背景</span>
-      </label>
-
       <div class="setting-row">
         <span>主题</span>
         <!-- 结构与原型 renderThemeDD 一致：色点 → 名称(.dd-name 撑满) → 箭头/勾选靠右（.dd-check 靠 margin-left:auto 排最后） -->
@@ -307,6 +233,29 @@ async function openDataDir(): Promise<void> {
       </div>
 
       <label class="setting-row">
+        <span>面板唤出位置</span>
+        <select
+          :value="settings.panel_position"
+          @change="patch({ panel_position: ($event.target as HTMLSelectElement).value as PanelPosition })"
+        >
+          <option value="top">顶部居中</option>
+          <option value="bottom">底部居中</option>
+          <option value="left">左侧居中</option>
+          <option value="right">右侧居中</option>
+        </select>
+      </label>
+
+      <label class="setting-row">
+        <span>窗口毛玻璃</span>
+        <input
+          type="checkbox"
+          :checked="settings.main_acrylic"
+          @change="toggleAcrylic(($event.target as HTMLInputElement).checked)"
+        />
+        <span class="clip-editor-hint">关闭后归档窗口使用不透明背景</span>
+      </label>
+
+      <label class="setting-row">
         <span>玻璃质感</span>
         <select
           :value="settings.glass_level"
@@ -332,77 +281,6 @@ async function openDataDir(): Promise<void> {
           type="checkbox"
           :checked="enabledPluginIds.has(plugin.id)"
           @change="togglePlugin(plugin.id, ($event.target as HTMLInputElement).checked)"
-        />
-      </label>
-
-      <div class="setting-section-title">灵动岛</div>
-      <p class="setting-hint">
-        主屏顶部居中的胶囊，轮播当日待办；悬停查看详情，左键点击唤出面板到待办页。
-        开启<strong>鼠标穿透</strong>后点击会直接穿到桌面，悬停与点击改由后端光标探测。
-      </p>
-      <label class="setting-row">
-        <span>显示灵动岛</span>
-        <input
-          type="checkbox"
-          :checked="settings.island_enabled"
-          @change="patch({ island_enabled: ($event.target as HTMLInputElement).checked })"
-        />
-      </label>
-      <label class="setting-row">
-        <span>宽度（{{ ISLAND_LIMITS.width.min }}–{{ ISLAND_LIMITS.width.max }}）</span>
-        <input
-          type="number"
-          :min="ISLAND_LIMITS.width.min"
-          :max="ISLAND_LIMITS.width.max"
-          :value="settings.island_width"
-          @change="patchIslandNumber('island_width', ($event.target as HTMLInputElement).value)"
-        />
-      </label>
-      <label class="setting-row">
-        <span>高度（{{ ISLAND_LIMITS.height.min }}–{{ ISLAND_LIMITS.height.max }}）</span>
-        <input
-          type="number"
-          :min="ISLAND_LIMITS.height.min"
-          :max="ISLAND_LIMITS.height.max"
-          :value="settings.island_height"
-          @change="patchIslandNumber('island_height', ($event.target as HTMLInputElement).value)"
-        />
-      </label>
-      <label class="setting-row">
-        <span>背景不透明度 {{ Math.round(settings.island_opacity * 100) }}%</span>
-        <input
-          type="range"
-          :min="ISLAND_LIMITS.opacity.min"
-          :max="ISLAND_LIMITS.opacity.max"
-          step="0.05"
-          :value="settings.island_opacity"
-          @change="patchIslandNumber('island_opacity', ($event.target as HTMLInputElement).value)"
-        />
-      </label>
-      <label class="setting-row">
-        <span>鼠标穿透（零干扰）</span>
-        <input
-          type="checkbox"
-          :checked="settings.island_click_through"
-          @change="patch({ island_click_through: ($event.target as HTMLInputElement).checked })"
-        />
-      </label>
-      <label class="setting-row">
-        <span>轮播间隔（秒，{{ ISLAND_LIMITS.cycle.min }}–{{ ISLAND_LIMITS.cycle.max }}）</span>
-        <input
-          type="number"
-          :min="ISLAND_LIMITS.cycle.min"
-          :max="ISLAND_LIMITS.cycle.max"
-          :value="settings.island_cycle_seconds"
-          @change="patchIslandNumber('island_cycle_seconds', ($event.target as HTMLInputElement).value)"
-        />
-      </label>
-      <label v-for="plugin in builtinIslandPlugins" :key="plugin.id" class="setting-row">
-        <span>🧩 {{ plugin.label }}</span>
-        <input
-          type="checkbox"
-          :checked="enabledIslandPluginIds.has(plugin.id)"
-          @change="toggleIslandPlugin(plugin.id, ($event.target as HTMLInputElement).checked)"
         />
       </label>
 
