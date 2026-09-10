@@ -147,13 +147,6 @@ textarea,
 .nav-dot::before {
   content: none;
 }
-/* 主窗口粘贴板列表仍用裸 <ul>（原型主窗口为 <div>，只有面板 .clip-list 关掉了项目符号），
-   新原型的 .clip-item 不再是 flex 盒子，于是露出「•」（阶段二主窗口对齐后删除）。 */
-.archive-page > ul {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-}
 
 /* ═══ 6. 自建组件样式（迁自 components.css@ac81857，2026-09-10，由 .tmp/extract-app-only.mjs 抽取） ═══ */
 /* ═══ hotzone ═══ */

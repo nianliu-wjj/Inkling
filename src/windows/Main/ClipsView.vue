@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import { vStaggerList } from '@/motion'
-import ClipCard from '@/components/card/ClipCard.vue'
+import ClipArchiveCard from '@/components/card/ClipArchiveCard.vue'
 import ClipEditorModal from '@/components/clip/ClipEditorModal.vue'
 import { useConfirmDelete } from '@/composables/useConfirmDelete'
 import { useClips } from '@/composables/useData'
@@ -13,8 +13,8 @@ import type { ClipboardEntry } from '@/typings/domain'
 /**
  * 归档 · 粘贴板页。
  *
- * 需求 2.2：类型以彩色徽章展示；置顶优先排序并高亮描边；
- * 链接类型提供「在默认浏览器中打开」；同样提供搜索框。
+ * 原型 renderArchive / #archive-clips：搜索框 + 归档卡片列表（ClipArchiveCard：正文两行截断、
+ * 类型徽章、时间、粘贴 / 置顶 / 外链 / 编辑操作组）；置顶优先排序并金色描边。
  */
 const { clips } = useClips()
 const { toast } = useToast()
@@ -91,12 +91,11 @@ async function remove(entry: ClipboardEntry): Promise<void> {
   <div class="archive-page">
     <input v-model="keyword" class="search-input" placeholder="🔍 搜索粘贴板历史…" />
 
-    <ul v-stagger-list>
-      <ClipCard
+    <div v-stagger-list>
+      <ClipArchiveCard
         v-for="entry in visible"
         :key="entry.id"
         :entry="entry"
-        archive
         :confirming="confirm.isPending(entry.id)"
         @paste="paste(entry)"
         @pin="togglePin(entry)"
@@ -106,10 +105,8 @@ async function remove(entry: ClipboardEntry): Promise<void> {
         @confirm-delete="remove(entry)"
         @cancel-delete="confirm.cancel()"
       />
-      <li v-if="!visible.length" class="tag-mgr-empty">
-        {{ keyword ? '没有匹配的剪贴板记录' : '还没有剪贴板记录' }}
-      </li>
-    </ul>
+      <div v-if="!visible.length" class="todo-empty">{{ keyword ? '未找到匹配的条目' : '暂无粘贴板条目' }}</div>
+    </div>
 
     <ClipEditorModal v-if="editing" :content="editing.content" @save="saveEdit" @close="editing = null" />
   </div>
