@@ -191,7 +191,7 @@ test('rootTokenDuplicates：:root 内重复定义的 -- 令牌', () => {
 
 - [ ] **Step 2: 运行测试，确认失败**
 
-Run: `node --test scripts/lib/`
+Run: `node --test "scripts/**/*.test.mjs"`
 Expected: 失败，错误含 `Cannot find module` … `css-split.mjs`。
 
 - [ ] **Step 3: 实现 css-split.mjs**
@@ -448,12 +448,12 @@ export function rootTokenDuplicates(nodes) {
 
 - [ ] **Step 4: 运行测试，确认通过**
 
-Run: `node --test scripts/lib/`
+Run: `node --test "scripts/**/*.test.mjs"`
 Expected: `# pass 6`、`# fail 0`。
 
 - [ ] **Step 5: 加 npm 脚本并提交**
 
-在 `package.json` 的 `scripts` 中加入 `"test:scripts": "node --test scripts/lib/"`（放在 `typecheck` 之后）。
+在 `package.json` 的 `scripts` 中加入 `"test:scripts": "node --test "scripts/**/*.test.mjs""`（放在 `typecheck` 之后）。
 
 ```bash
 pnpm test:scripts
