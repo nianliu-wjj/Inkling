@@ -1,84 +1,66 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
+import HeatTip from '@/components/stats/HeatTip.vue'
 import TrendChart from '@/components/stats/TrendChart.vue'
+import { useSettings } from '@/composables/useData'
 import { logger } from '@/service/logger'
 import { api } from '@/service/tauri'
 import type { ActivityDay, MonthTrend } from '@/typings/domain'
-import { toDateKey } from '@/utils/datetime'
+import { alphaOf, buildRangeGrid, type HeatLevel, type RangeCell } from '@/utils/heatmap'
 
 /**
- * 归档 · 统计页。
+ * 归档 · 统计页（原型 #archive-stats / renderHeatmap + renderTrend）。
  *
- * 需求 v1.2 变更 #3：
- * - 日历格子热力图（列=周、行=星期），顶部标注月份范围；
- * - 悬浮显示日期与明细（笔记 / 复制项 / 待办含已完成与逾期）；
- * - 存在逾期的日期格子以红色边框标识（.ovd）；
- * - 趋势图为原型的内联 SVG 折线（TrendChart），不再依赖图表库。
+ * - 日历格子热力图：列为周（周一起）、行为星期，近 182 天，顶部标注月份范围，
+ *   档位 <5 / <10 / <18 四档叠在主题令牌 --hm-base 上；存在逾期的日期红框（.ovd）；
+ * - 悬浮明细 HeatTip 定位在格子上方居中（Teleport 到 body）；
+ * - 图例「少 … 多 · 存在逾期」；
+ * - 趋势图为原型的内联 SVG 折线（TrendChart），不依赖图表库。
  */
 
 /** 热力图覆盖的天数，与后端 stats_heatmap 的默认值一致。 */
 const HEATMAP_DAYS = 182
+/** 一列（周）的像素宽：14px 格子 + 3px 间距（原型 STEP）。 */
+const COLUMN_STEP = 17
+
+const { settings } = useSettings()
 
 const activity = ref<ActivityDay[]>([])
 const trend = ref<MonthTrend[]>([])
 
-/** 悬浮提示：位置与内容。 */
-const tip = ref<{ x: number; y: number; day: ActivityDay } | null>(null)
+/** 悬浮明细：格子矩形 + 当日数据（无记录的日期给全 0）。 */
+const tip = ref<{ day: ActivityDay; anchor: DOMRect } | null>(null)
 
-/** 读取主题令牌，保证图表颜色跟随 32 套主题。 */
-function themeVar(name: string, fallback: string): string {
-  const value = getComputedStyle(document.documentElement).getPropertyValue(name).trim()
-  return value || fallback
+function readHmBase(): string {
+  return getComputedStyle(document.documentElement).getPropertyValue('--hm-base').trim() || '108,140,255'
 }
 
-/**
- * 组装日历网格：列为周、行为星期（GitHub 风格）。
- * 起点回退到最早日期所在周的周日，保证每列都是完整的一周。
- */
-const grid = computed(() => {
-  const byDate = new Map(activity.value.map((day) => [day.date, day]))
-  const end = new Date()
-  const start = new Date()
-  start.setDate(end.getDate() - HEATMAP_DAYS + 1)
-  // 回退到所在周的周日
-  start.setDate(start.getDate() - start.getDay())
+/** 热力图基色随主题变化：主题写入 DOM 后（post flush）再读令牌。 */
+const hmBase = ref(readHmBase())
+watch(
+  () => settings.value.theme,
+  () => {
+    hmBase.value = readHmBase()
+  },
+  { flush: 'post' },
+)
 
-  const base = themeVar('--hm-base', '108,140,255')
-  const cells: { key: string; day: ActivityDay | null; background: string }[] = []
-  const months: { label: string; column: number }[] = []
+const grid = computed(() => buildRangeGrid(activity.value, { days: HEATMAP_DAYS }))
 
-  let column = 0
-  const cursor = new Date(start)
-  while (cursor <= end) {
-    const key = toDateKey(cursor)
-    const record = byDate.get(key) ?? null
-    const total = record ? record.notes + record.clips + record.todos : 0
-    const alpha = total === 0 ? 0 : total <= 2 ? 0.28 : total <= 5 ? 0.48 : total <= 9 ? 0.7 : 0.9
+function background(level: HeatLevel): string | undefined {
+  return level ? `rgba(${hmBase.value}, ${alphaOf(level)})` : undefined
+}
 
-    // 每月第一次出现时记录列号，供顶部月份标签定位。
-    if (cursor.getDate() <= 7 && cursor.getDay() === 0) {
-      months.push({ label: `${cursor.getMonth() + 1}月`, column })
-    }
+function legendColor(level: HeatLevel): string {
+  return `rgba(${hmBase.value}, ${alphaOf(level)})`
+}
 
-    cells.push({
-      key,
-      day: record,
-      background: alpha === 0 ? '' : `rgba(${base}, ${alpha})`,
-    })
+function dayOf(cell: RangeCell): ActivityDay {
+  return cell.day ?? { date: cell.key, notes: 0, clips: 0, todos: 0, completed: 0, overdue: 0 }
+}
 
-    if (cursor.getDay() === 6) column += 1
-    cursor.setDate(cursor.getDate() + 1)
-  }
-
-  return { cells, months }
-})
-
-function showTip(event: MouseEvent, day: ActivityDay | null, key: string): void {
-  tip.value = {
-    x: event.clientX + 14,
-    y: event.clientY + 14,
-    day: day ?? { date: key, notes: 0, clips: 0, todos: 0, completed: 0, overdue: 0 },
-  }
+function onEnter(event: MouseEvent, cell: RangeCell): void {
+  tip.value = { day: dayOf(cell), anchor: (event.currentTarget as HTMLElement).getBoundingClientRect() }
 }
 
 async function load(): Promise<void> {
@@ -101,10 +83,10 @@ onMounted(load)
 
     <div class="stats-legend">每日活跃度热力图（悬浮查看当日明细 · 红框 = 存在逾期待办）</div>
 
-    <div class="heatmap-wrap">
+    <div class="heatmap-wrap" @mouseleave="tip = null">
       <!-- 顶部月份范围标签，与周列对齐 -->
       <div class="heat-months">
-        <span v-for="m in grid.months" :key="m.label + m.column" :style="{ left: `${m.column * 17}px` }">
+        <span v-for="m in grid.months" :key="m.label + m.column" :style="{ left: `${m.column * COLUMN_STEP}px` }">
           {{ m.label }}
         </span>
       </div>
@@ -115,37 +97,25 @@ onMounted(load)
             v-for="cell in grid.cells"
             :key="cell.key"
             class="heat-cell"
-            :class="{ ovd: (cell.day?.overdue ?? 0) > 0 }"
-            :style="cell.background ? { background: cell.background } : undefined"
-            @mouseenter="showTip($event, cell.day, cell.key)"
-            @mouseleave="tip = null"
+            :class="{ ovd: cell.overdue }"
+            :style="background(cell.level) ? { background: background(cell.level) } : undefined"
+            :data-date="cell.key"
+            @mouseenter="onEnter($event, cell)"
           />
         </div>
+      </div>
+      <div class="heat-legend">
+        少
+        <i v-for="level in [1, 2, 3, 4]" :key="level" :style="{ background: legendColor(level as HeatLevel) }" />
+        多 <i class="lg-ovd" :style="{ background: `rgba(${hmBase}, .3)` }" /> 存在逾期
       </div>
     </div>
 
     <div class="stats-legend">近 6 个月趋势（各模块使用量折线）</div>
     <TrendChart :months="trend" />
 
-    <!-- 悬浮明细 -->
-    <div
-      v-if="tip"
-      id="heatTip"
-      :class="{ ovd: tip.day.overdue > 0 }"
-      :style="{ left: `${tip.x}px`, top: `${tip.y}px` }"
-    >
-      <div class="tip-title">{{ tip.day.date }}</div>
-      <div class="tip-row">
-        笔记 <b>{{ tip.day.notes }}</b> 条
-      </div>
-      <div class="tip-row">
-        复制项 <b>{{ tip.day.clips }}</b> 条
-      </div>
-      <div class="tip-row">
-        待办 <b>{{ tip.day.todos }}</b> 条（已完成 <b>{{ tip.day.completed }}</b>
-        <span v-if="tip.day.overdue > 0" class="ovd-red"> · 逾期 {{ tip.day.overdue }}</span
-        >）
-      </div>
-    </div>
+    <Teleport to="body">
+      <HeatTip v-if="tip" :day="tip.day" :anchor="tip.anchor" />
+    </Teleport>
   </div>
 </template>
