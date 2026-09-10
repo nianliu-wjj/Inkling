@@ -533,11 +533,6 @@ body:not(:focus-within) .mac-dot {
   color: var(--text);
   font-weight: 600;
 }
-input[type='number'],
-input[type='checkbox'] {
-  accent-color: var(--accent);
-  color-scheme: var(--scheme);
-}
 #todoEditorModal {
   width: 470px;
   max-height: 84vh;
