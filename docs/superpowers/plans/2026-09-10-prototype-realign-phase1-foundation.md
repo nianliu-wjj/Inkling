@@ -1512,7 +1512,7 @@ function playEnter(): void {
 
 ```bash
 pnpm remove gsap
-grep -rn "gsap" src package.json; echo "exit=$?"
+grep -rn "gsap" src --include=*.ts --include=*.vue package.json; echo "exit=$?"   # 生成层 components.css 里原型自带的一句「覆盖 gsap 内联位移动画」注释不算引用
 pnpm typecheck
 ```
 Expected: grep 无输出且 `exit=1`；typecheck 零错误。

@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import gsap from 'gsap'
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import ToastHost from '@/components/base/ToastHost.vue'
 import { useSettings } from '@/composables/useData'
@@ -9,6 +8,7 @@ import { AppEvents, onAppEvent } from '@/service/events'
 import { logger } from '@/service/logger'
 import { api } from '@/service/tauri'
 import { MAX_HOTKEY_SLOTS, resolvePlugins } from '@/panel-plugins'
+import { enter, exit } from '@/motion'
 
 /**
  * 呼出面板：由插件注册表驱动的多态容器。
@@ -18,7 +18,7 @@ import { MAX_HOTKEY_SLOTS, resolvePlugins } from '@/panel-plugins'
  * 新增一种捕获能力只需在注册表登记，不必改本文件。
  *
  * 需求 2.1：
- * - 滑入 200ms / 滑出 150ms 的弹性过渡（GSAP）；
+ * - 入场 280ms outBack / 收起 180ms inQuad 的弹性过渡（animejs，与原型 showPanel/hidePanel 一致）；
  * - 固定宽 480px，高度随内容自适应（120~600px）；
  * - 失焦按设置策略收起：立即 / 延迟 3 秒 / 固定不收起；
  * - **弹窗失焦保护**：任一编辑弹窗打开期间不因失焦收起；全部关闭后若鼠标
@@ -142,12 +142,12 @@ async function hide(): Promise<void> {
   logger.info('panel', '收起面板')
 
   if (panel.value) {
-    await gsap.to(panel.value, {
-      [motionAxis()]: motionDistance(12),
-      opacity: 0,
-      duration: 0.15,
-      ease: 'power2.in',
-    })
+    // 与原型 hidePanel 一致：24px 位移 + 淡出，180ms inQuad。被新的入场打断时不再隐藏窗口。
+    const completed = await exit(panel.value, { axis: motionAxis(), distance: motionDistance(24) })
+    if (!completed) {
+      logger.debug('panel', '收起动画被入场打断，取消隐藏')
+      return
+    }
   }
   try {
     await api.windows.panelHide()
@@ -157,20 +157,13 @@ async function hide(): Promise<void> {
 }
 
 /**
- * 滑入：物理弹性（back.out）呼应需求「Spring/Ease-out」。
- *
- * 这是全项目唯一保留 GSAP 的地方——弹性曲线用 CSS 表达不了，
- * 而窗口入场只此一处。其余动效一律走 styles/motion.css 的 CSS 令牌，
- * 避免四个独立 Vue app 都为一条曲线背上整个动画库的启动开销。
+ * 入场：与原型 showPanel 一致——30px 位移 + 淡入 + 0.97 起始缩放，280ms outBack(1.6)。
+ * 位移轴与方向按面板唤出位置推导（项目扩展，原型只有顶部）。
+ * 由 onMounted 与后端 panelShown 事件触发，不依赖 CSS 动画自身的时间线（硬约束见 src/motion/presets.ts）。
  */
 function playEnter(): void {
   if (!panel.value) return
-  const axis = motionAxis()
-  gsap.fromTo(
-    panel.value,
-    { [axis]: motionDistance(16), opacity: 0 },
-    { [axis]: 0, opacity: 1, duration: 0.2, ease: 'back.out(1.6)' },
-  )
+  void enter(panel.value, { axis: motionAxis(), distance: motionDistance(30), scale: 0.97 })
 }
 
 /**
