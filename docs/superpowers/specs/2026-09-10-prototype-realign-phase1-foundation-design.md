@@ -272,7 +272,13 @@
 
 ---
 
-## 12. 实机结论（实施后填写）
+## 12. 实机结论（2026-09-10 回填，详见 `../plans/2026-09-10-prototype-realign-phase1-acceptance.md`）
 
-- 面板入场 scale .97 在 WebView2 下是否保留：待填。
-- 破损补丁清单（文件 / 选择器 / 所属阶段）：待填。
+- **面板入场 scale .97 在 WebView2 下：保留。** 打字机与深色两主题各做 16 帧、28ms 间隔连拍：入场约 +80ms 呈半透明缩放态、+190ms 到位；收起约 +100ms 起淡出、+240ms 隐藏；深色主题的毛玻璃在缩放过程中与卡片边框始终重合，未见错位或残影。
+- **破损补丁清单**：
+  - `extensions.css` §5 `.nav-dot::before { content: none }`（阶段三改矢量圆点后删除）；
+  - `extensions.css` §5 `.archive-page > ul { list-style: none; margin: 0; padding: 0 }`（阶段二主窗口对齐后删除）；
+  - `extensions.css` §8 `.island, .hotzone-indicator` 三个文字令牌钉回浅色（阶段四对齐后删除）；
+  - `SettingsView.vue` 主题下拉标记顺序对齐原型 `renderThemeDD`（阶段二复核）。
+- **未能验证**：置顶浮窗——既有 `ipc::pin_create` 同步建窗缺陷导致 WebView 不初始化且主窗口 IPC 挂起，与本阶段无关，待用户决定是否单独修复。
+- **原型自身问题**：`.settings-body .setting-row span:first-child { width: 130px }` 命中主题下拉的 `.theme-dots`，名称被推到中间、150% 缩放下「纸杯蛋糕」折行；应用与原型一致，建议在原型改为 `> span:first-child` 后重新同步。

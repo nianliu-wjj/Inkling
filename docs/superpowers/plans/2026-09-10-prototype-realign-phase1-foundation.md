@@ -62,23 +62,23 @@ src-tauri/src/data/mod.rs     with_v5 + migrate（改）；src-tauri/src/domain/
 - Add（已在工作树新增）: `docs/Inkling 架构设计文档.md`、`docs/文档审查与风险清单.md`
 - Modify: `README.md`、`.gitignore`、`.prettierignore`
 
-- [ ] **Step 1: 确认工作树状态与预期一致**
+- [x] **Step 1: 确认工作树状态与预期一致**
 
 Run: `git status --short`
 Expected: 6 行 ` D doc/...`、2 行 `?? docs/*.md`、1 行 `?? .tmp/`。若出现其他改动，先停下向用户确认。
 
-- [ ] **Step 2: 忽略 .tmp/ 临时目录**
+- [x] **Step 2: 忽略 .tmp/ 临时目录**
 
 在 `.gitignore` 末尾追加一行 `.tmp/`；在 `.prettierignore` 末尾追加一行 `.tmp/`。
 
-- [ ] **Step 3: README 指向 docs/**
+- [x] **Step 3: README 指向 docs/**
 
 把 `README.md` 中的 `doc/index.html` 全部替换为 `docs/index.html`：
 
 Run: `sed -i 's#`doc/index.html`#`docs/index.html`#g; s#doc/index.html#docs/index.html#g' README.md && grep -n "doc/index" README.md`
 Expected: 只剩 `docs/index.html` 的匹配行，没有 `doc/index.html`。
 
-- [ ] **Step 4: 提交**
+- [x] **Step 4: 提交**
 
 ```bash
 git add -A doc docs README.md .gitignore .prettierignore
@@ -104,7 +104,7 @@ git commit -m "chore(docs): 移除旧原型 doc/，架构文档与审查清单�
   - `filterDenied(nodes): { nodes: Node[], removed: string[] }`
   - `rootTokenDuplicates(nodes): string[]`
 
-- [ ] **Step 1: 写失败的测试**
+- [x] **Step 1: 写失败的测试**
 
 创建 `scripts/lib/css-split.test.mjs`：
 
@@ -189,12 +189,12 @@ test('rootTokenDuplicates：:root 内重复定义的 -- 令牌', () => {
 })
 ```
 
-- [ ] **Step 2: 运行测试，确认失败**
+- [x] **Step 2: 运行测试，确认失败**
 
 Run: `node --test "scripts/**/*.test.mjs"`
 Expected: 失败，错误含 `Cannot find module` … `css-split.mjs`。
 
-- [ ] **Step 3: 实现 css-split.mjs**
+- [x] **Step 3: 实现 css-split.mjs**
 
 创建 `scripts/lib/css-split.mjs`：
 
@@ -446,12 +446,12 @@ export function rootTokenDuplicates(nodes) {
 }
 ```
 
-- [ ] **Step 4: 运行测试，确认通过**
+- [x] **Step 4: 运行测试，确认通过**
 
 Run: `node --test "scripts/**/*.test.mjs"`
 Expected: `# pass 6`、`# fail 0`。
 
-- [ ] **Step 5: 加 npm 脚本并提交**
+- [x] **Step 5: 加 npm 脚本并提交**
 
 在 `package.json` 的 `scripts` 中加入 `"test:scripts": "node --test "scripts/**/*.test.mjs""`（放在 `typecheck` 之后）。
 
@@ -473,7 +473,7 @@ git commit -m "feat(styles): 原型样式切分纯函数库（分节/演示脚�
 - Consumes: Task 2 的 `parseCss / splitSections / filterDenied / stringify / rootTokenDuplicates`
 - Produces: `pnpm sync:styles`（写入 `src/styles/`）、`pnpm sync:styles --check`（不一致时退出码 1）、`pnpm sync:styles --out <dir>`（写到指定目录，供试运行）
 
-- [ ] **Step 1: 写 CLI**
+- [x] **Step 1: 写 CLI**
 
 创建 `scripts/sync-prototype-styles.mjs`：
 
@@ -577,11 +577,11 @@ main().catch((error) => {
 })
 ```
 
-- [ ] **Step 2: 加 npm 脚本**
+- [x] **Step 2: 加 npm 脚本**
 
 在 `package.json` 的 `scripts` 中加入 `"sync:styles": "node scripts/sync-prototype-styles.mjs"`（放在 `test:scripts` 之后）。
 
-- [ ] **Step 3: 试运行到临时目录并核对**
+- [x] **Step 3: 试运行到临时目录并核对**
 
 Run: `pnpm sync:styles --out .tmp/gen && ls .tmp/gen && head -8 .tmp/gen/tokens.css`
 Expected: 输出四行 `[sync:styles] xxx.css：N 条规则…`；`.tmp/gen` 含四个文件；tokens.css 前 5 行为生成头（含 SHA-256）。被剔除的选择器清单应恰好包含 `.onboard-title`、`[data-theme="typewriter"] #demoBar`、`[data-theme="typewriter"] #menubar`，以及「桌面环境」段之外不应再出现 `#desktop/#fakeApp/.dot` 等（该段已整段丢弃，不进入统计）。
@@ -589,7 +589,7 @@ Expected: 输出四行 `[sync:styles] xxx.css：N 条规则…`；`.tmp/gen` 含
 Run: `grep -c "typewriter" .tmp/gen/themes.css && grep -c "\-\-sp-xs\|\-\-mm-surface:" .tmp/gen/tokens.css && grep -n "focus-visible" .tmp/gen/base.css | head -2`
 Expected: 第一个数 > 20（打字机主题块进入 themes.css）；第二个数为 2（尺度令牌与导图令牌进入 tokens.css）；base.css 含 `:focus-visible`。
 
-- [ ] **Step 4: 提交**
+- [x] **Step 4: 提交**
 
 ```bash
 git add scripts/sync-prototype-styles.mjs package.json
@@ -611,7 +611,7 @@ git commit -m "feat(styles): 原型样式同步脚本 CLI（生成 / --check / -
 - Consumes: Task 2 的 `parseCss / stringify`（用于抽取脚本）；Task 3 的 `pnpm sync:styles`
 - Produces: 全局 CSS 类名契约不变；新增 `.is-animating`（Task 7/9 使用）；扩展令牌 `--dur-instant --ease-in-out --lift --stagger --glass-blur --glass-saturate --glass-border-width`
 
-- [ ] **Step 1: 从提交 ac81857 抽取自建组件规则**
+- [x] **Step 1: 从提交 ac81857 抽取自建组件规则**
 
 创建一次性脚本 `.tmp/extract-app-only.mjs`（不提交）：
 
@@ -652,7 +652,7 @@ console.log('rules:', out.filter((n) => n.type === 'rule').length)
 Run: `node .tmp/extract-app-only.mjs && grep -c "" .tmp/app-only.css`
 Expected: `rules: 95`（89 条纯自建 + 6 条旧原型遗留：`.card-confirm`、`.todo-item:has(.card-confirm) .todo-del`、`#todoEditorModal`、`#todoEditorModal .search-input`、`.nav-dot:hover`、`.nav-dot.active`）。其中两条 `.nav-dot` 规则粘贴后要挪到第 5 节（注明「阶段三迁移后删除」：圆点导航仍是 emoji 字符，需要旧的悬浮/激活态）；另外抽取脚本只取规则不取关键帧，第 6 节末尾需手工补上 `@keyframes hotzoneIndicatorIn` 与 `@keyframes hotzoneDots`（`git show ac81857:src/styles/components.css` 中搜索这两个名字，逐字复制）。若数字不同，打开 `.tmp/app-only.css` 逐条核对：允许的内容只能是 spec §6 表格列出的分组，不允许出现 `.nav-dot`、`.tag-chip`（非 shaking）、`.todo-item`（非 has）这类原型同名规则。
 
-- [ ] **Step 2: 写 extensions.css 的手写部分**
+- [x] **Step 2: 写 extensions.css 的手写部分**
 
 创建 `src/styles/extensions.css`，内容为下面的手写部分 + 第 3 步粘贴的抽取内容 + 第 4 步粘贴的棕褐主题：
 
@@ -792,14 +792,14 @@ textarea,
 /* ═══ 6. 自建组件样式（迁自 components.css@ac81857，2026-09-10，由 .tmp/extract-app-only.mjs 抽取） ═══ */
 ```
 
-- [ ] **Step 3: 粘贴抽取内容**
+- [x] **Step 3: 粘贴抽取内容**
 
 把 `.tmp/app-only.css` 的全部内容追加到第 6 节标题之后。
 
 Run: `cat .tmp/app-only.css >> src/styles/extensions.css && grep -c "^\.\|^#\|^:root\|^\[" src/styles/extensions.css`
 Expected: 数字 ≥ 100（手写规则 + 93 条抽取规则的选择器行）。
 
-- [ ] **Step 4: 追加棕褐主题**
+- [x] **Step 4: 追加棕褐主题**
 
 ```bash
 printf '\n/* ═══ 7. 棕褐主题（项目自建，迁自 themes.css@ac81857，2026-09-10） ═══ */\n' >> src/styles/extensions.css
@@ -808,7 +808,7 @@ tail -5 src/styles/extensions.css
 ```
 Expected: 末尾为棕褐主题块的收尾 `}`；上方可见 `/* 棕褐（参考 images/4.jpg…) */` 与 `:root[data-theme='sepia'] {`。
 
-- [ ] **Step 5: 生成四层并格式化扩展层**
+- [x] **Step 5: 生成四层并格式化扩展层**
 
 ```bash
 pnpm sync:styles
@@ -816,7 +816,7 @@ pnpm exec prettier --write src/styles/extensions.css
 ```
 Expected: 四行 `[sync:styles] …` 输出；`git status --short` 显示 `M src/styles/{tokens,base,components,themes}.css` 与 `?? src/styles/extensions.css`。
 
-- [ ] **Step 6: 调整加载顺序**
+- [x] **Step 6: 调整加载顺序**
 
 把 `src/styles/index.ts` 改为：
 
@@ -847,7 +847,7 @@ import './motion.css'
 import './glass.css'
 ```
 
-- [ ] **Step 7: 选择器覆盖核对**
+- [x] **Step 7: 选择器覆盖核对**
 
 创建一次性脚本 `.tmp/coverage.mjs`（不提交）：
 
@@ -885,7 +885,7 @@ console.log('扩展层与原型同名的选择器：', [...ext].filter((x) => pr
 Run: `node .tmp/coverage.mjs`
 Expected: 第一行 `缺失： 0 []`（演示脚手架段 `#menubar/.context-menu/.menu-*` 等整段丢弃、属性选择器引号差异均已在脚本内排除）；第二行只含 `:root`、`.glass`、`.window-titlebar`、`.te-field input`、`.te-field select`、`.prio-opt`、`.card-confirm-text`、`#todoEditorOverlay`。出现其他同名项说明抽取多带了原型规则，回到第 1 步核对。
 
-- [ ] **Step 8: 静态检查与构建**
+- [x] **Step 8: 静态检查与构建**
 
 ```bash
 pnpm sync:styles --check
@@ -894,7 +894,7 @@ pnpm exec vite build
 ```
 Expected: `--check 通过`；typecheck 零错误；vite build 成功（CSS 语法错误会在此暴露）。
 
-- [ ] **Step 9: 提交**
+- [x] **Step 9: 提交**
 
 ```bash
 git add src/styles/tokens.css src/styles/base.css src/styles/components.css src/styles/themes.css src/styles/extensions.css src/styles/index.ts
@@ -912,7 +912,7 @@ git commit -m "feat(styles): 由新原型生成四层样式，自建样式收拢
 **Interfaces:**
 - Produces: `themes`（32 项，`typewriter` 第一）、`DEFAULT_THEME = 'typewriter'`；`useTheme().applyTheme(key)` 行为不变但任何主题都写 `data-theme`
 
-- [ ] **Step 1: 重写主题清单**
+- [x] **Step 1: 重写主题清单**
 
 把 `src/constants/themes.ts` 整体替换为：
 
@@ -977,7 +977,7 @@ export const themes: readonly ThemeOption[] = [
 export const DEFAULT_THEME = 'typewriter'
 ```
 
-- [ ] **Step 2: 任何主题都写 data-theme**
+- [x] **Step 2: 任何主题都写 data-theme**
 
 在 `src/composables/useTheme.ts` 中，把 `writeToDom` 及其注释替换为：
 
@@ -996,7 +996,7 @@ function writeToDom(key: string): void {
 
 同时把该文件头部注释里的「窗口启动瞬间抢先上主题，避免默认深色闪一下」改为「避免入口 html 上的默认打字机闪一下再切换」。
 
-- [ ] **Step 3: 入口 html 首帧主题**
+- [x] **Step 3: 入口 html 首帧主题**
 
 Run:
 ```bash
@@ -1005,12 +1005,12 @@ grep -c 'data-theme="typewriter"' index.html panel.html pinned.html reminder.htm
 ```
 Expected: 九个文件各输出 `:1`。
 
-- [ ] **Step 4: 排查前端其他写死的默认值**
+- [x] **Step 4: 排查前端其他写死的默认值**
 
 Run: `grep -rn "'dark'" src --include=*.ts --include=*.vue`
 Expected: 无结果。若有（例如 useData 的设置默认值），改为从 `@/constants/themes` 导入 `DEFAULT_THEME` 使用。
 
-- [ ] **Step 5: 验证并提交**
+- [x] **Step 5: 验证并提交**
 
 ```bash
 pnpm typecheck
@@ -1029,7 +1029,7 @@ git commit -m "feat(theme): 打字机为默认主题，主题清单顺序对齐�
 **Interfaces:**
 - Produces: `PRAGMA user_version = 5`；`Store::with_v5(&self) -> Result<(), String>`
 
-- [ ] **Step 1: 写失败的测试**
+- [x] **Step 1: 写失败的测试**
 
 在 `src-tauri/src/data/mod.rs` 的 `mod tests` 末尾（`v3_migration_normalizes_existing_reminders` 之后）加入：
 
@@ -1103,12 +1103,12 @@ git commit -m "feat(theme): 打字机为默认主题，主题清单顺序对齐�
     }
 ```
 
-- [ ] **Step 2: 运行测试，确认失败**
+- [x] **Step 2: 运行测试，确认失败**
 
 Run: `cargo test --manifest-path src-tauri/Cargo.toml v5_migration 2>&1 | tail -20`
 Expected: 编译错误 `no method named `with_v5``。
 
-- [ ] **Step 3: 实现 with_v5 与默认值**
+- [x] **Step 3: 实现 with_v5 与默认值**
 
 在 `src-tauri/src/data/mod.rs` 的 `migrate()` 中 `if version < 4 { … }` 之后、`Ok(())` 之前加入：
 
@@ -1147,7 +1147,7 @@ Expected: 编译错误 `no method named `with_v5``。
 
 把 `src-tauri/src/domain/models.rs` 中 `theme: "dark".into(),` 改为 `theme: "typewriter".into(),`。
 
-- [ ] **Step 4: 运行全部 Rust 测试**
+- [x] **Step 4: 运行全部 Rust 测试**
 
 ```bash
 cargo check --manifest-path src-tauri/Cargo.toml
@@ -1155,7 +1155,7 @@ cargo test --manifest-path src-tauri/Cargo.toml 2>&1 | tail -15
 ```
 Expected: check 零 error；`test result: ok.`，其中含 4 个新用例；现有 `v4_migration_moves_bottom_panel_back_to_top` 仍通过（它只调用 `with_v4`，主题断言 `dark` 不受影响）。
 
-- [ ] **Step 5: 提交**
+- [x] **Step 5: 提交**
 
 ```bash
 git add src-tauri/src/data/mod.rs src-tauri/src/domain/models.rs
@@ -1176,7 +1176,7 @@ git commit -m "feat(data): v5 迁移把旧库默认主题 dark 归到打字机�
   - `staggerIn(container: HTMLElement, targets: HTMLElement[], opts?: { distance?: number }): Promise<boolean>`
   - `pop(el: HTMLElement): Promise<boolean>`、`crossfade(outEl: HTMLElement, inEl: HTMLElement): Promise<boolean>`
 
-- [ ] **Step 1: tokens.ts**
+- [x] **Step 1: tokens.ts**
 
 创建 `src/motion/tokens.ts`：
 
@@ -1255,7 +1255,7 @@ export function readMotionTokens(): MotionTokens {
 }
 ```
 
-- [ ] **Step 2: presets.ts**
+- [x] **Step 2: presets.ts**
 
 创建 `src/motion/presets.ts`：
 
@@ -1417,7 +1417,7 @@ export async function crossfade(outEl: HTMLElement, inEl: HTMLElement): Promise<
 }
 ```
 
-- [ ] **Step 3: index.ts**
+- [x] **Step 3: index.ts**
 
 创建 `src/motion/index.ts`：
 
@@ -1431,12 +1431,12 @@ export { enter, exit, staggerIn, pop, crossfade, type Axis, type SlideOptions } 
 
 （`vStaggerList` 在 Task 9 加入本文件的导出。）
 
-- [ ] **Step 4: 类型检查**
+- [x] **Step 4: 类型检查**
 
 Run: `pnpm typecheck`
 Expected: 零错误。若 `'outBack(1.6)'` 或 `delay: stagger(...)` 报类型错误，说明 animejs 类型与预期不符：`ease` 改为 `'outBack(1.6)' as const`，`delay` 保持 `stagger(tokens.stagger)`（`stagger` 返回的函数是 `delay` 的合法类型）。
 
-- [ ] **Step 5: 提交**
+- [x] **Step 5: 提交**
 
 ```bash
 git add src/motion
@@ -1454,7 +1454,7 @@ git commit -m "feat(motion): animejs 动效模块（令牌读取 + enter/exit/st
 **Interfaces:**
 - Consumes: Task 7 的 `enter / exit`
 
-- [ ] **Step 1: 替换导入**
+- [x] **Step 1: 替换导入**
 
 把 `src/windows/Panel/PanelApp.vue` 第 2 行 `import gsap from 'gsap'` 删除，并在 `import { MAX_HOTKEY_SLOTS, resolvePlugins } from '@/panel-plugins'` 之后加入：
 
@@ -1462,7 +1462,7 @@ git commit -m "feat(motion): animejs 动效模块（令牌读取 + enter/exit/st
 import { enter, exit } from '@/motion'
 ```
 
-- [ ] **Step 2: 改 hide()**
+- [x] **Step 2: 改 hide()**
 
 把 `hide()` 中的
 
@@ -1490,7 +1490,7 @@ import { enter, exit } from '@/motion'
   }
 ```
 
-- [ ] **Step 3: 改 playEnter()**
+- [x] **Step 3: 改 playEnter()**
 
 把 `playEnter()` 及其上方的注释整体替换为：
 
@@ -1508,7 +1508,7 @@ function playEnter(): void {
 
 同时把文件头注释中的 `- 滑入 200ms / 滑出 150ms 的弹性过渡（GSAP）；` 改为 `- 入场 280ms outBack / 收起 180ms inQuad 的弹性过渡（animejs，与原型 showPanel/hidePanel 一致）；`。
 
-- [ ] **Step 4: 卸载 gsap 并验证**
+- [x] **Step 4: 卸载 gsap 并验证**
 
 ```bash
 pnpm remove gsap
@@ -1517,7 +1517,7 @@ pnpm typecheck
 ```
 Expected: grep 无输出且 `exit=1`；typecheck 零错误。
 
-- [ ] **Step 5: 提交**
+- [x] **Step 5: 提交**
 
 ```bash
 git add src/windows/Panel/PanelApp.vue package.json pnpm-lock.yaml
@@ -1537,7 +1537,7 @@ git commit -m "feat(motion): 面板入场收起改用 animejs 并对齐原型时
 - Consumes: Task 7 的 `staggerIn`
 - Produces: `vStaggerList: Directive<HTMLElement>`，模板写法 `v-stagger-list`（无参数）；`TodoTree` 的接入同时覆盖主窗口待办页与面板待办页
 
-- [ ] **Step 1: directive.ts**
+- [x] **Step 1: directive.ts**
 
 创建 `src/motion/directive.ts`：
 
@@ -1585,7 +1585,7 @@ export const vStaggerList: Directive<HTMLElement> = {
 }
 ```
 
-- [ ] **Step 2: 导出指令**
+- [x] **Step 2: 导出指令**
 
 在 `src/motion/index.ts` 末尾加入：
 
@@ -1593,7 +1593,7 @@ export const vStaggerList: Directive<HTMLElement> = {
 export { vStaggerList } from './directive'
 ```
 
-- [ ] **Step 3: 接入五处模板**
+- [x] **Step 3: 接入五处模板**
 
 每个文件在 `<script setup lang="ts">` 的 import 区加入 `import { vStaggerList } from '@/motion'`（`<script setup>` 中以 `v` 开头的导入即可在模板用 `v-stagger-list`），然后改容器：
 
@@ -1603,7 +1603,7 @@ export { vStaggerList } from './directive'
 4. `src/windows/Panel/ClipPage.vue`：`<ul class="clip-list">` 改为 `<ul v-stagger-list class="clip-list">`。
 5. `src/components/card/TodoTree.vue`：`<ul class="todo-list">` 改为 `<ul v-stagger-list class="todo-list">`（只对顶层项与分区标题错落；`.todo-children` 是子级 `<ul>`，不受影响）。
 
-- [ ] **Step 4: 静态检查**
+- [x] **Step 4: 静态检查**
 
 ```bash
 pnpm typecheck
@@ -1611,7 +1611,7 @@ grep -rn "v-stagger-list" src | wc -l
 ```
 Expected: 零错误；计数为 5。
 
-- [ ] **Step 5: 提交**
+- [x] **Step 5: 提交**
 
 ```bash
 git add src/motion/directive.ts src/motion/index.ts src/windows/Main/NotesView.vue src/windows/Main/ClipsView.vue src/windows/Main/DayView.vue src/windows/Panel/ClipPage.vue src/components/card/TodoTree.vue
@@ -1627,14 +1627,14 @@ git commit -m "feat(motion): 列表错落入场指令 v-stagger-list，接入主
 - Modify（仅在发现破损时）: `src/styles/extensions.css` 或 `src/styles/window-fit.css`
 - Create: `docs/superpowers/plans/2026-09-10-prototype-realign-phase1-acceptance.md`
 
-- [ ] **Step 1: 启动应用与原型**
+- [x] **Step 1: 启动应用与原型**
 
 ```bash
 pnpm tauri:dev
 ```
 另开浏览器打开 `docs/index.html`（原型演示），用于并排比对。
 
-- [ ] **Step 2: 逐窗口比对（打字机 + 深色各一遍）**
+- [x] **Step 2: 逐窗口比对（打字机 + 深色各一遍）**
 
 在设置页切换主题，对九个窗口逐一检查并记录到验收文档（每项写「通过 / 问题描述」）：
 
@@ -1652,16 +1652,16 @@ pnpm tauri:dev
 
 额外：Tab 键在主窗口巡检一圈，焦点环可见且不与自建焦点样式叠出双环；卡片删除二次确认浮层（`.card-confirm`）正常弹出。
 
-- [ ] **Step 3: 列表错落与 hover 复位**
+- [x] **Step 3: 列表错落与 hover 复位**
 
 主窗口切换笔记 / 粘贴板 / 待办 / 日期详情四个视图，面板切换粘贴板 / 待办两页：首次进入逐项入场（≤12 项）；搜索词变化时新出现的项入场、原有项不动；动画结束后悬浮卡片仍有抬升（内联样式已清）；打字机主题下无拖影。
 
-- [ ] **Step 4: reduced-motion 与主题切换**
+- [x] **Step 4: reduced-motion 与主题切换**
 
 Windows 设置 → 辅助功能 → 视觉效果 → 关闭「动画效果」，重启应用：面板与列表无动效但内容完整可见。恢复设置。
 设置页主题下拉：顺序与原型一致（打字机第一，棕褐最后），逐套切换无控制台错误（`pnpm tauri:dev` 的 devtools）。
 
-- [ ] **Step 5: 数据库迁移实机**
+- [x] **Step 5: 数据库迁移实机**
 
 ```bash
 sqlite3 "%APPDATA%/com.inkling.app/inkling.db" "PRAGMA user_version; SELECT value FROM settings WHERE key='theme';"
@@ -1669,13 +1669,13 @@ sqlite3 "%APPDATA%/com.inkling.app/inkling.db" "PRAGMA user_version; SELECT valu
 （数据库路径以 `src-tauri/src/data/mod.rs` 中 `data_dir` 的实际取值为准；若本机无 sqlite3，改用设置页「打开数据目录」后以任意 SQLite 工具查看。）
 Expected: `5` 与 `typewriter`（此前为 dark 的旧库）。
 
-- [ ] **Step 6: 修复破损（如有）并回填结论**
+- [x] **Step 6: 修复破损（如有）并回填结论**
 
 发现破损时，只在 `extensions.css`（新开第 8 节「阶段一验收补丁」）或 `window-fit.css` 加最小覆盖，注明「阶段 N 迁移后删除」。把以下两项填入 spec §12：
 - 面板入场 scale .97 在 WebView2 下是否保留（若毛玻璃错位则在 `playEnter` 去掉 `scale: 0.97` 并写明）；
 - 破损补丁清单（文件 / 选择器 / 所属阶段），无则写「无」。
 
-- [ ] **Step 7: 写验收记录并提交**
+- [x] **Step 7: 写验收记录并提交**
 
 创建 `docs/superpowers/plans/2026-09-10-prototype-realign-phase1-acceptance.md`，内容为第 2–5 步的表格化结果（每项：检查点 / 打字机结果 / 深色结果 / 备注）。
 
