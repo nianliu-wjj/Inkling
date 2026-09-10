@@ -178,6 +178,13 @@ impl Store {
                 .pragma_update(None, "user_version", 4)
                 .map_err(db_err)?;
         }
+        if version < 5 {
+            self.with_v5()
+                .map_err(|e| format!("数据库迁移到 v5 失败: {e}"))?;
+            self.db
+                .pragma_update(None, "user_version", 5)
+                .map_err(db_err)?;
+        }
         Ok(())
     }
 
@@ -275,6 +282,25 @@ impl Store {
             .map_err(db_err)?;
         if changed > 0 {
             eprintln!("[data] v4 迁移：面板唤出位置由 bottom 归回 top");
+        }
+        Ok(())
+    }
+
+    /// v5 增量：默认主题由深色改为打字机（对齐新原型 docs/）。
+    ///
+    /// 用户只要保存过一次设置，settings 里就会存下当时的默认值 dark；与 v4 面板位置迁移
+    /// 同一取舍——无法区分「主动选深色」与「保存时带上的默认值」，一律归到新默认，
+    /// 主动偏好深色的用户在设置页重选一次即可。从未写过 theme 行的库不插入任何行。
+    fn with_v5(&self) -> Result<(), String> {
+        let changed = self
+            .db
+            .execute(
+                "UPDATE settings SET value='typewriter' WHERE key='theme' AND value='dark'",
+                [],
+            )
+            .map_err(db_err)?;
+        if changed > 0 {
+            eprintln!("[data] v5 迁移：主题由 dark 归到新默认 typewriter");
         }
         Ok(())
     }
@@ -613,5 +639,72 @@ mod tests {
             assert_eq!(row.2, 0);
             assert_eq!(row.3, None);
         }
+    }
+    /// 建一个只有 settings 表的库，并按需写入 theme 行。
+    fn settings_db(theme: Option<&str>) -> rusqlite::Connection {
+        let db = rusqlite::Connection::open_in_memory().unwrap();
+        db.execute_batch("CREATE TABLE settings (key TEXT PRIMARY KEY, value TEXT NOT NULL);")
+            .unwrap();
+        if let Some(theme) = theme {
+            db.execute("INSERT INTO settings(key, value) VALUES('theme', ?1)", [theme])
+                .unwrap();
+        }
+        db
+    }
+
+    fn theme_rows(store: &Store) -> Vec<String> {
+        let mut stmt = store
+            .db
+            .prepare("SELECT value FROM settings WHERE key='theme'")
+            .unwrap();
+        stmt.query_map([], |r| r.get::<_, String>(0))
+            .unwrap()
+            .map(|r| r.unwrap())
+            .collect()
+    }
+
+    #[test]
+    fn v5_migration_switches_old_default_dark_to_typewriter() {
+        let store = Store {
+            db: settings_db(Some("dark")),
+            data_dir: std::path::PathBuf::from("."),
+        };
+        store.with_v5().unwrap();
+        assert_eq!(theme_rows(&store), vec!["typewriter".to_string()]);
+    }
+
+    #[test]
+    fn v5_migration_keeps_other_themes_untouched() {
+        let store = Store {
+            db: settings_db(Some("neon")),
+            data_dir: std::path::PathBuf::from("."),
+        };
+        store.with_v5().unwrap();
+        assert_eq!(theme_rows(&store), vec!["neon".to_string()]);
+    }
+
+    #[test]
+    fn v5_migration_is_idempotent_and_never_inserts_rows() {
+        // 已迁移过的库再跑一次：结果不变、不报错。
+        let store = Store {
+            db: settings_db(Some("dark")),
+            data_dir: std::path::PathBuf::from("."),
+        };
+        store.with_v5().unwrap();
+        store.with_v5().unwrap();
+        assert_eq!(theme_rows(&store), vec!["typewriter".to_string()]);
+
+        // 从未写过 theme 行的库：迁移不能凭空插入行，默认值交给 Settings::default()。
+        let empty = Store {
+            db: settings_db(None),
+            data_dir: std::path::PathBuf::from("."),
+        };
+        empty.with_v5().unwrap();
+        assert!(theme_rows(&empty).is_empty());
+    }
+
+    #[test]
+    fn default_settings_theme_is_typewriter() {
+        assert_eq!(crate::domain::models::Settings::default().theme(), "typewriter");
     }
 }

@@ -1099,7 +1099,7 @@ git commit -m "feat(theme): 打字机为默认主题，主题清单顺序对齐�
 
     #[test]
     fn default_settings_theme_is_typewriter() {
-        assert_eq!(crate::domain::models::Settings::default().theme, "typewriter");
+        assert_eq!(crate::domain::models::Settings::default().theme(), "typewriter");
     }
 ```
 

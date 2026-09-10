@@ -224,7 +224,7 @@ impl Default for Settings {
             start_on_boot: false,
             shortcut: "Ctrl+Shift+Space".into(),
             remark_style: "mixed".into(),
-            theme: "dark".into(),
+            theme: "typewriter".into(),
             main_acrylic: true,
             panel_position: default_panel_position(),
             panel_plugins: String::new(),
