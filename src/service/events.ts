@@ -30,6 +30,8 @@ export const AppEvents = {
   islandClick: 'inkling://island-click',
   /** 请求面板切换到某个插件页，payload 为插件 id。 */
   panelNavigate: 'inkling://panel-navigate',
+  /** 主窗口已显示（广播）：主窗口据此重播入场动效。 */
+  mainShown: 'inkling://main-shown',
 } as const
 
 export type AppEvent = (typeof AppEvents)[keyof typeof AppEvents]

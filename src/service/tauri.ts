@@ -83,6 +83,8 @@ export const api = {
     status: () => invoke<LauncherStatus>('launcher_status'),
     /** 隐藏搜索窗口。 */
     hide: () => invoke<void>('launcher_hide'),
+    /** 显示搜索窗口（主窗口启动台页的呼出按钮）。 */
+    show: () => invoke<void>('launcher_show'),
     /** 改绑启动器全局快捷键。 */
     rebindShortcut: (combo: string) => invoke<string>('rebind_launcher_shortcut', { combo }),
   },

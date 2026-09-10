@@ -836,6 +836,7 @@ pub fn show_main(app: &AppHandle, view: &str) -> Result<(), String> {
     let _ = main.unminimize();
     let _ = main.set_focus();
     let _ = app.emit(events::NAVIGATE, view.to_string());
+    let _ = app.emit(events::MAIN_SHOWN, ());
     Ok(())
 }
 

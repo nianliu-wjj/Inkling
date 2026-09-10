@@ -712,6 +712,12 @@ pub fn launcher_hide(app: AppHandle) -> Result<(), String> {
     windows::launcher_hide(&app)
 }
 
+/// 显示启动台浮窗（主窗口启动台页的「呼出浮窗启动台」按钮）。
+#[tauri::command]
+pub fn launcher_show(app: AppHandle) -> Result<(), String> {
+    windows::launcher_show(&app)
+}
+
 /// 改绑启动器全局快捷键。
 #[tauri::command]
 pub fn rebind_launcher_shortcut(app: AppHandle, combo: String) -> Result<String, String> {

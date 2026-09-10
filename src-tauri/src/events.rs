@@ -19,3 +19,5 @@ pub const ISLAND_HOVER: &str = "inkling://island-hover";
 pub const ISLAND_CLICK: &str = "inkling://island-click";
 /// 请求面板切换到某个插件页，payload 为插件 id（广播，面板订阅）。
 pub const PANEL_NAVIGATE: &str = "inkling://panel-navigate";
+/// 主窗口已由 show_main 显示（广播）：前端据此重播入场动效。
+pub const MAIN_SHOWN: &str = "inkling://main-shown";

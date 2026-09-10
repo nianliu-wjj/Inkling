@@ -145,6 +145,7 @@ fn main() {
             ipc::launcher_rebuild,
             ipc::launcher_status,
             ipc::launcher_hide,
+            ipc::launcher_show,
             ipc::rebind_launcher_shortcut
         ])
         .run(tauri::generate_context!())
