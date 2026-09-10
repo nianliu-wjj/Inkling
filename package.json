@@ -10,6 +10,7 @@
     "tauri": "tauri",
     "typecheck": "vue-tsc --noEmit",
     "test:scripts": "node --test \"scripts/**/*.test.mjs\"",
+    "sync:styles": "node scripts/sync-prototype-styles.mjs",
     "tauri:dev": "tauri dev --config src-tauri/tauri.conf.json",
     "tauri:build": "tauri build --config src-tauri/tauri.conf.json",
     "format": "prettier --write \"src/**/*.{ts,vue,css}\" \"*.{ts,js,json,md,html}\" \"src-tauri/**/*.json\"",
