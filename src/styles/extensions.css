@@ -763,11 +763,12 @@ body:not(:focus-within) .mac-dot {
   --select-arrow: url("data:image/svg+xml,%3Csvg width='10' height='6' viewBox='0 0 10 6' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1l4 4 4-4' stroke='rgba(240,228,212,.55)' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E");
 }
 
-/* ═══ 8. 阶段一验收补丁（实机发现，阶段四灵动岛对齐原型后删除） ═══
- * island.css 的胶囊底色是固定的深色 rgba(24,26,40,α)，文字却取主题令牌 --text/--text-dim/--wsa；
- * 默认主题改为打字机（浅色）后文字变成深色压在深色胶囊上不可见。这里把胶囊内的三个令牌
- * 钉回浅色值，等阶段四按原型 #dynamicIsland.glass 重做后整节删除。 */
-.island {
+/* ═══ 8. 阶段一验收补丁（实机发现，阶段四灵动岛 / 感应区对齐原型后删除） ═══
+ * island.css 的胶囊与本文件第 6 节的感应区指示器，底色都是固定的深色 rgba(24,26,40,α)，
+ * 文字却取主题令牌 --text/--text-dim/--wsa；默认主题改为打字机（浅色）后文字变成深色压在
+ * 深色底上不可见。这里把两处容器内的三个令牌钉回浅色值，等阶段四按原型重做后整节删除。 */
+.island,
+.hotzone-indicator {
   --text: rgba(255, 255, 255, 0.92);
   --text-dim: rgba(255, 255, 255, 0.5);
   --wsa: 255, 255, 255;
