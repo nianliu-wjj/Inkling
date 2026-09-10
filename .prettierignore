@@ -4,3 +4,4 @@ target
 .git
 *.lock
 src-tauri/gen
+.tmp/
