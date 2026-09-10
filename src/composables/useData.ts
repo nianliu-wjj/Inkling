@@ -1,4 +1,5 @@
 import { ref, type Ref } from 'vue'
+import { DEFAULT_THEME } from '@/constants/themes'
 import { AppEvents, onAppEvent } from '@/service/events'
 import { logger } from '@/service/logger'
 import { api } from '@/service/tauri'
@@ -21,7 +22,7 @@ const DEFAULT_SETTINGS: Settings = {
   start_on_boot: false,
   shortcut: 'Ctrl+Shift+Space',
   remark_style: 'mixed',
-  theme: 'dark',
+  theme: DEFAULT_THEME,
   main_acrylic: true,
   panel_position: 'top',
   panel_plugins: '',

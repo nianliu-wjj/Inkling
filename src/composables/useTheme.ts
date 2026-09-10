@@ -2,7 +2,7 @@ import { ref, type Ref } from 'vue'
 import { DEFAULT_THEME, themes } from '@/constants/themes'
 import { logger } from '@/service/logger'
 
-/** 本地缓存键：用于窗口启动瞬间抢先上主题，避免默认深色闪一下再切换。 */
+/** 本地缓存键：用于窗口启动瞬间抢先上主题，避免入口 html 上的默认打字机闪一下再切换。 */
 const CACHE_KEY = 'inkling-theme'
 
 /** 合法主题标识集合，用于过滤脏数据。 */
@@ -13,20 +13,19 @@ const current = ref<string>(DEFAULT_THEME)
 /**
  * 把主题写进 DOM。
  *
- * 约定：`dark` 是 tokens.css 中 :root 的默认值，不设 data-theme 属性；
- * 其余 29 套通过 :root[data-theme="..."] 覆盖（见 styles/themes.css）。
+ * 与原型 `document.documentElement.dataset.theme = t.id` 一致：任何主题（含 dark）都写
+ * data-theme 属性。dark 没有对应的 [data-theme] 块，直接落到 tokens.css 的 :root 基础令牌；
+ * 其余 31 套由 themes.css / extensions.css 的 :root[data-theme="..."] 覆盖。
  */
 function writeToDom(key: string): void {
-  const root = document.documentElement
-  if (key === DEFAULT_THEME) root.removeAttribute('data-theme')
-  else root.setAttribute('data-theme', key)
+  document.documentElement.setAttribute('data-theme', key)
 }
 
 /**
  * 启动时立即应用本地缓存的主题。
  *
- * 设置的权威来源是 SQLite，但读取需要一次 IPC 往返，期间窗口会先以默认
- * 深色渲染再跳变。因此入口脚本先用 localStorage 的镜像抢先上色，
+ * 设置的权威来源是 SQLite，但读取需要一次 IPC 往返，期间窗口会先以入口 html 上的
+ * 默认打字机渲染再跳变。因此入口脚本先用 localStorage 的镜像抢先上色，
  * 待 settings_get 返回后再以后端值为准校正。
  */
 export function applyCachedTheme(): void {

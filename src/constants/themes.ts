@@ -1,17 +1,17 @@
 /**
  * 主题清单。
  *
- * 31 套主题：默认 `dark` 定义在 styles/tokens.css 的 :root，
- * 其余 30 套定义在 styles/themes.css 的 :root[data-theme="..."]。
- * 色点用于偏好设置页的主题下拉预览（样式 .theme-dots）。
+ * 32 套主题：默认 `typewriter`（打字机）与其余 29 套原型主题定义在 styles/themes.css 的
+ * :root[data-theme="..."]；`dark` 是 styles/tokens.css 的 :root 基础令牌（设 data-theme="dark"
+ * 时没有对应块，直接落到基础令牌）；`sepia`（棕褐）为本项目按 images/4.jpg 新增，
+ * 定义在 styles/extensions.css。色点用于偏好设置页的主题下拉预览（样式 .theme-dots）。
  *
- * 数据来源：doc/app.js:1276-1306 的 THEMES 常量，保持逐字一致；
- * `sepia`（棕褐）为本项目按 images/4.jpg 新增，不在原型 THEMES 内。
+ * 数据来源：docs/app.js 的 THEMES 常量，顺序与色点逐字一致；sepia 追加在末尾。
  */
 
 /** 单套主题的展示信息。 */
 export interface ThemeOption {
-  /** 主题标识，对应 CSS 的 data-theme 值；dark 表示不设该属性。 */
+  /** 主题标识，对应 CSS 的 data-theme 值。 */
   key: string
   /** 中文展示名。 */
   label: string
@@ -20,6 +20,7 @@ export interface ThemeOption {
 }
 
 export const themes: readonly ThemeOption[] = [
+  { key: 'typewriter', label: '打字机', dots: ['#ece7db', '#c62828', '#1a1a1a', '#2e7d32'] },
   { key: 'dark', label: '深色', dots: ['#1e2232', '#6c8cff', '#ffd76e', '#7ee0a8'] },
   { key: 'light', label: '浅色', dots: ['#f2f5fc', '#4c68e0', '#b8860b', '#12805c'] },
   { key: 'cupcake', label: '纸杯蛋糕', dots: ['#fdf0f4', '#e56ba5', '#8fd3c7', '#f5c26b'] },
@@ -53,5 +54,5 @@ export const themes: readonly ThemeOption[] = [
   { key: 'sepia', label: '棕褐', dots: ['#332a20', '#b04a42', '#d6a35c', '#a3b083'] },
 ] as const
 
-/** 默认主题标识。 */
-export const DEFAULT_THEME = 'dark'
+/** 默认主题标识（与原型一致：打字机）。 */
+export const DEFAULT_THEME = 'typewriter'
