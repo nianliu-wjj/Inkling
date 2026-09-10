@@ -7,8 +7,8 @@ import { useToast } from '@/composables/useToast'
 import { logger } from '@/service/logger'
 import { api } from '@/service/tauri'
 import type { Priority, Todo, TodoInput } from '@/typings/domain'
-import { dateKeyOf, formatDateKeyLabel, shiftDateKey, todayKey } from '@/utils/datetime'
-import { isOverdue } from '@/utils/todo'
+import { dateKeyOf, shiftDateKey, todayKey } from '@/utils/datetime'
+import { isOverdue, searchTodos, type TodoNode } from '@/utils/todo'
 
 /**
  * 归档 · 待办页。
@@ -34,7 +34,6 @@ const editor = ref<{
 } | null>(null)
 
 const isToday = computed(() => currentDate.value === todayKey())
-const dateLabel = computed(() => formatDateKeyLabel(currentDate.value))
 /** 搜索态：跨日期查询，日期切换条的日期口径不再生效。 */
 const searching = computed(() => keyword.value.trim().length > 0)
 
@@ -69,17 +68,15 @@ const byDate = computed(() => {
   return [...roots, ...extraRoots, ...children]
 })
 
-/** 搜索态：跨全部日期，含子任务与已完成项；命中子任务时补回父级。 */
-const bySearch = computed(() => {
-  const key = keyword.value.trim().toLowerCase()
-  const matched = todos.value.filter((todo) => todo.content.toLowerCase().includes(key))
+/** 搜索态：跨全部日期（原型 renderTodoList 搜索分支），含子任务与已完成项。 */
+const search = computed(() => searchTodos(todos.value, keyword.value))
 
-  const ids = new Set(matched.map((t) => t.id))
-  const parents = todos.value.filter((t) => !t.parent_id && matched.some((m) => m.parent_id === t.id) && !ids.has(t.id))
-  return [...parents, ...matched]
-})
+/** 树节点摊平回扁平列表：TodoTree 内部会重新组树。 */
+function flatten(nodes: readonly TodoNode[]): Todo[] {
+  return nodes.flatMap((node) => [node.todo, ...node.children])
+}
 
-const visible = computed(() => (searching.value ? bySearch.value : byDate.value))
+const visible = computed(() => (searching.value ? flatten(search.value.nodes) : byDate.value))
 
 function openEditor(
   mode: 'create' | 'edit' | 'child',
@@ -158,14 +155,12 @@ async function removeTodo(todo: Todo): Promise<void> {
       <button type="button" class="btn tiny" title="前一天" @click="currentDate = shiftDateKey(currentDate, -1)">
         ‹
       </button>
-      <span class="todo-date-label">{{ dateLabel }}</span>
+      <span class="todo-date-label">{{ currentDate }}</span>
       <button type="button" class="btn tiny" title="后一天" @click="currentDate = shiftDateKey(currentDate, 1)">
         ›
       </button>
-      <button v-if="!isToday" type="button" class="btn tiny" title="回到今天" @click="currentDate = todayKey()">
-        今天
-      </button>
-      <span class="todo-date-hint">{{ searching ? '搜索跨全部日期' : '逾期未完成自动置顶' }}</span>
+      <button type="button" class="btn tiny" title="回到今天" @click="currentDate = todayKey()">今天</button>
+      <span class="todo-date-hint">逾期未完成自动置顶</span>
 
       <input v-model="keyword" class="search-input todo-search" placeholder="🔍 搜索全部待办（含子任务）…" />
       <button type="button" class="icon-btn todo-new-btn" title="新增待办事项" @click="openEditor('create')">
@@ -179,6 +174,10 @@ async function removeTodo(todo: Todo): Promise<void> {
       :todos="visible"
       :remark-style="settings.remark_style"
       :show-date-chip="searching"
+      :query="keyword"
+      :force-expand="search.forceExpand"
+      :hit-ids="search.hitIds"
+      archive
       @toggle-done="toggleDone"
       @edit="openEditor('edit', $event)"
       @edit-due="openEditor('edit', $event, null, 'due')"
@@ -189,8 +188,8 @@ async function removeTodo(todo: Todo): Promise<void> {
       @delete="removeTodo"
     />
 
-    <div v-if="!visible.length" class="tag-mgr-empty">
-      {{ searching ? '没有匹配的待办' : '该日期没有待办事项' }}
+    <div v-if="!visible.length" class="todo-empty">
+      {{ searching ? `未找到匹配「${keyword.trim()}」的待办事项` : '该日暂无待办事项' }}
     </div>
 
     <TodoEditorModal

@@ -5,17 +5,17 @@ import TodoCard from '@/components/card/TodoCard.vue'
 import PriorityMenu from '@/components/todo/PriorityMenu.vue'
 import { useConfirmDelete } from '@/composables/useConfirmDelete'
 import type { Priority, RemarkStyle, Todo } from '@/typings/domain'
-import { dateKeyOf } from '@/utils/datetime'
+import { dateKeyOf, formatDateKey } from '@/utils/datetime'
 import { buildTodoTree, partitionOverdue, type TodoNode } from '@/utils/todo'
 
 /**
- * 待办列表：逾期置顶分区 + 两层树结构。
+ * 待办列表（原型 renderTodoList）：逾期置顶分区 + 两层树结构。
  *
- * 需求 2.2：
- * - 逾期事项归入顶部「⚠️ 逾期事项」分区并标注项数；
- * - 父待办存在逾期子任务时，整棵树（含已完成子任务）一并归入该分区；
- * - 子任务完成后排在子级列表末尾；
- * - 树连接线与折叠由 CSS 负责（.todo-children 的 ::before/::after）。
+ * - 逾期事项归入顶部「⚠️ 逾期事项」分区并标注项数；父待办存在逾期子任务时整棵树一并归入；
+ * - 子任务完成后排在子级列表末尾；树连接线与折叠由 CSS 负责（.todo-children 的 ::before/::after）；
+ * - 搜索态：`query` 下发给卡片做 <mark> 高亮；`forceExpand` 里的父级强制展开（只命中子任务时）；
+ *   `hitIds` 里的子任务加 search-hit 虚线框；
+ * - `archive`：归档页列表加 todo-arch-list，解除面板列表的 380px 限高。
  */
 const props = withDefaults(
   defineProps<{
@@ -24,8 +24,16 @@ const props = withDefaults(
     remarkStyle?: RemarkStyle
     /** 搜索关键词非空时展示所属日期徽章。 */
     showDateChip?: boolean
+    /** 搜索关键词，用于正文高亮。 */
+    query?: string
+    /** 搜索时需强制展开的父级 id（只命中子任务的情况）。 */
+    forceExpand?: ReadonlySet<string>
+    /** 搜索命中的子任务 id。 */
+    hitIds?: ReadonlySet<string>
+    /** 归档页形态：不限高。 */
+    archive?: boolean
   }>(),
-  { remarkStyle: 'mixed', showDateChip: false },
+  { remarkStyle: 'mixed', showDateChip: false, query: '', forceExpand: undefined, hitIds: undefined, archive: false },
 )
 
 const emit = defineEmits<{
@@ -50,9 +58,12 @@ let priorityTarget: Todo | null = null
 
 const tree = computed<TodoNode[]>(() => buildTodoTree(props.todos))
 const partitioned = computed(() => partitionOverdue(tree.value))
+/** 渲染顺序：逾期分区在前，常规在后；分区标题插在首项之前。 */
+const ordered = computed<TodoNode[]>(() => [...partitioned.value.overdue, ...partitioned.value.normal])
 
+/** 搜索命中子任务时父级强制展开，忽略用户的折叠记录。 */
 function isCollapsed(id: string): boolean {
-  return collapsed.value.has(id)
+  return collapsed.value.has(id) && !props.forceExpand?.has(id)
 }
 
 function toggleCollapse(id: string): void {
@@ -60,6 +71,11 @@ function toggleCollapse(id: string): void {
   if (next.has(id)) next.delete(id)
   else next.add(id)
   collapsed.value = next
+}
+
+/** 搜索态的所属日期徽章文案（原型：日期 + 今天后缀）。 */
+function dateChipOf(todo: Todo): string {
+  return props.showDateChip ? formatDateKey(dateKeyOf(todo.due_at), { todaySuffix: true }) : ''
 }
 
 async function openPriority(todo: Todo, anchor: HTMLElement): Promise<void> {
@@ -84,20 +100,22 @@ function confirmDelete(todo: Todo): void {
 </script>
 
 <template>
-  <ul v-stagger-list class="todo-list">
-    <!-- ⚠️ 逾期分区：标注项数，置于列表顶部 -->
-    <template v-if="partitioned.overdue.length">
-      <li class="todo-section">⚠️ 逾期事项（{{ partitioned.overdue.length }}）</li>
+  <ul v-stagger-list class="todo-list" :class="{ 'todo-arch-list': props.archive }">
+    <template v-for="(node, index) in ordered" :key="node.todo.id">
+      <!-- ⚠️ 逾期分区标题：置于首个逾期项之前 -->
+      <li v-if="index === 0 && partitioned.overdue.length" class="todo-section">
+        ⚠️ 逾期事项 · 按完成时间与优先级置顶（{{ partitioned.overdue.length }} 项）
+      </li>
+
       <TodoCard
-        v-for="node in partitioned.overdue"
-        :key="node.todo.id"
         :todo="node.todo"
-        :is-parent="true"
+        :child-count="node.children.length"
         :has-children="node.children.length > 0"
         :collapsed="isCollapsed(node.todo.id)"
         :remark-style="props.remarkStyle"
         :confirming="confirm.isPending(node.todo.id)"
-        :date-chip="props.showDateChip ? dateKeyOf(node.todo.due_at) : ''"
+        :date-chip="dateChipOf(node.todo)"
+        :query="props.query"
         @toggle-done="emit('toggle-done', node.todo)"
         @toggle-collapse="toggleCollapse(node.todo.id)"
         @open-priority="openPriority(node.todo, $event)"
@@ -120,6 +138,8 @@ function confirmDelete(todo: Todo): void {
               :depth="1"
               :remark-style="props.remarkStyle"
               :confirming="confirm.isPending(child.id)"
+              :query="props.query"
+              :search-hit="props.hitIds?.has(child.id) ?? false"
               @toggle-done="emit('toggle-done', child)"
               @open-priority="openPriority(child, $event)"
               @edit="emit('edit', child)"
@@ -135,54 +155,6 @@ function confirmDelete(todo: Todo): void {
         </template>
       </TodoCard>
     </template>
-
-    <!-- 常规分区 -->
-    <TodoCard
-      v-for="node in partitioned.normal"
-      :key="node.todo.id"
-      :todo="node.todo"
-      :is-parent="true"
-      :has-children="node.children.length > 0"
-      :collapsed="isCollapsed(node.todo.id)"
-      :remark-style="props.remarkStyle"
-      :confirming="confirm.isPending(node.todo.id)"
-      :date-chip="props.showDateChip ? dateKeyOf(node.todo.due_at) : ''"
-      @toggle-done="emit('toggle-done', node.todo)"
-      @toggle-collapse="toggleCollapse(node.todo.id)"
-      @open-priority="openPriority(node.todo, $event)"
-      @edit="emit('edit', node.todo)"
-      @edit-due="emit('edit-due', node.todo)"
-      @edit-remind="emit('edit-remind', node.todo)"
-      @edit-repeat="emit('edit-repeat', node.todo, $event)"
-      @add-sub="emit('add-sub', node.todo)"
-      @open-tags="emit('open-tags', node.todo)"
-      @ask-delete="askDelete(node.todo)"
-      @confirm-delete="confirmDelete(node.todo)"
-      @cancel-delete="confirm.cancel()"
-    >
-      <template #children>
-        <ul v-if="node.children.length && !isCollapsed(node.todo.id)" class="todo-children">
-          <TodoCard
-            v-for="child in node.children"
-            :key="child.id"
-            :todo="child"
-            :depth="1"
-            :remark-style="props.remarkStyle"
-            :confirming="confirm.isPending(child.id)"
-            @toggle-done="emit('toggle-done', child)"
-            @open-priority="openPriority(child, $event)"
-            @edit="emit('edit', child)"
-            @edit-due="emit('edit-due', child)"
-            @edit-remind="emit('edit-remind', child)"
-            @edit-repeat="emit('edit-repeat', child, $event)"
-            @open-tags="emit('open-tags', child)"
-            @ask-delete="askDelete(child)"
-            @confirm-delete="confirmDelete(child)"
-            @cancel-delete="confirm.cancel()"
-          />
-        </ul>
-      </template>
-    </TodoCard>
 
     <PriorityMenu ref="priorityMenu" @select="onPrioritySelected" />
   </ul>
