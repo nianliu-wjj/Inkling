@@ -3,3 +3,4 @@
  */
 export { readMotionTokens, type MotionTokens } from './tokens'
 export { enter, exit, staggerIn, pop, crossfade, type Axis, type SlideOptions } from './presets'
+export { vStaggerList } from './directive'

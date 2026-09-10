@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
+import { vStaggerList } from '@/motion'
 import TodoCard from '@/components/card/TodoCard.vue'
 import PriorityMenu from '@/components/todo/PriorityMenu.vue'
 import { useConfirmDelete } from '@/composables/useConfirmDelete'
@@ -83,7 +84,7 @@ function confirmDelete(todo: Todo): void {
 </script>
 
 <template>
-  <ul class="todo-list">
+  <ul v-stagger-list class="todo-list">
     <!-- ⚠️ 逾期分区：标注项数，置于列表顶部 -->
     <template v-if="partitioned.overdue.length">
       <li class="todo-section">⚠️ 逾期事项（{{ partitioned.overdue.length }}）</li>

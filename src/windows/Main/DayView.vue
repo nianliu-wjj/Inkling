@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
+import { vStaggerList } from '@/motion'
 import ConfirmPopover from '@/components/base/ConfirmPopover.vue'
 import IconBtn from '@/components/base/IconBtn.vue'
 import { useConfirmDelete } from '@/composables/useConfirmDelete'
@@ -100,7 +101,7 @@ async function remove(item: DayDetailItem): Promise<void> {
 
     <div class="day-hint">按时间先后排序（待办取完成时间）· 悬浮卡片可编辑 / 删除</div>
 
-    <div>
+    <div v-stagger-list>
       <div
         v-for="item in visible"
         :key="idOf(item)"

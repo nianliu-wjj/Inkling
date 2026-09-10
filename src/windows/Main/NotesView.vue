@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
+import { vStaggerList } from '@/motion'
 import NoteCard from '@/components/card/NoteCard.vue'
 import NoteEditModal from '@/components/note/NoteEditModal.vue'
 import TagManagerModal from '@/components/tag/TagManagerModal.vue'
@@ -149,7 +150,7 @@ async function saveNote(input: NoteInput): Promise<void> {
       </button>
     </div>
 
-    <div>
+    <div v-stagger-list>
       <NoteCard
         v-for="note in visible"
         :key="note.id"

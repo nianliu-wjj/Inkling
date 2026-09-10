@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
+import { vStaggerList } from '@/motion'
 import ClipCard from '@/components/card/ClipCard.vue'
 import ClipEditorModal from '@/components/clip/ClipEditorModal.vue'
 import { useConfirmDelete } from '@/composables/useConfirmDelete'
@@ -90,7 +91,7 @@ async function remove(entry: ClipboardEntry): Promise<void> {
   <div class="archive-page">
     <input v-model="keyword" class="search-input" placeholder="🔍 搜索粘贴板历史…" />
 
-    <ul>
+    <ul v-stagger-list>
       <ClipCard
         v-for="entry in visible"
         :key="entry.id"
