@@ -187,7 +187,17 @@ export function splitSections(nodes, spec) {
 }
 
 /** 演示脚手架拒绝名单：精确匹配（允许后接 . : [）与前缀匹配。 */
-const DENY_EXACT = ['#desktop', '#menubar', '#clock', '#trayIcon', '#trayMenu', '#fakeApp', '#onboarding', '#demoBar', '.dot']
+const DENY_EXACT = [
+  '#desktop',
+  '#menubar',
+  '#clock',
+  '#trayIcon',
+  '#trayMenu',
+  '#fakeApp',
+  '#onboarding',
+  '#demoBar',
+  '.dot',
+]
 const DENY_PREFIX = ['.tray-icon', '.fake-', '.onboard-', '.demo-', '.menubar-']
 
 function isDeniedCompound(token) {

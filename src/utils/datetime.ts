@@ -91,25 +91,16 @@ export function formatClock(value: string): string {
 }
 
 /**
- * 完成时间徽章文案（需求 2.2）：
- * 当天显示「今天 HH:mm」，其余显示「M/D HH:mm」；昨天/明天额外用自然语言，
- * 便于一眼分辨逾期与临期。
+ * 完成时间徽章文案（需求 2.2，原型 todoItemHTML 的口径）：
+ * 当天显示「今天 HH:mm」，其余一律显示「M/D HH:mm」——不再区分昨天 / 明天。
  */
 export function formatDueLabel(value: string): string {
   const date = parseTime(value)
   if (!date) return ''
 
   const clock = `${pad2(date.getHours())}:${pad2(date.getMinutes())}`
-  switch (dayOffsetFromToday(date)) {
-    case 0:
-      return `今天 ${clock}`
-    case 1:
-      return `明天 ${clock}`
-    case -1:
-      return `昨天 ${clock}`
-    default:
-      return `${date.getMonth() + 1}/${date.getDate()} ${clock}`
-  }
+  if (dayOffsetFromToday(date) === 0) return `今天 ${clock}`
+  return `${date.getMonth() + 1}/${date.getDate()} ${clock}`
 }
 
 /**
@@ -144,4 +135,9 @@ export function formatDateKeyLabel(key: string): string {
   const offset = dayOffsetFromToday(date)
   const suffix = offset === 0 ? '（今天）' : offset === -1 ? '（昨天）' : offset === 1 ? '（明天）' : ''
   return `${year}年${month}月${day}日 周${weekday}${suffix}`
+}
+
+/** 原型口径的日期键展示：原样 YYYY-MM-DD，可选追加「 · 今天」（日期详情页标题）。 */
+export function formatDateKey(key: string, opts: { todaySuffix?: boolean } = {}): string {
+  return opts.todaySuffix && key === todayKey() ? `${key} · 今天` : key
 }

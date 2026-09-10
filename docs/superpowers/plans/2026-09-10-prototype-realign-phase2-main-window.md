@@ -118,7 +118,7 @@ import { register } from 'node:module'
 register('./ts-resolve-hooks.mjs', import.meta.url)
 ```
 
-`package.json` scripts 增加（放在 `test:scripts` 后）：
+`package.json` scripts 增加（放在 `test:scripts` 后）。**实施偏差**：`node:test` 的类型声明不在主 tsconfig 的 `types` 里，单测文件要从 `tsconfig.json` 排除（`exclude: ["src/**/*.test.ts"]`），另建 `tsconfig.test.json`（`extends` 主配置，`types: ["node"]`，只 include 测试与其依赖的纯函数模块）并在 `test:unit` 前先跑 `tsc -p tsconfig.test.json`：
 
 ```json
 "test:unit": "node --import ./scripts/lib/register-ts-hooks.mjs --test \"src/**/*.test.ts\"",

@@ -1,5 +1,5 @@
 import type { Priority, Todo } from '@/typings/domain'
-import { parseTime } from './datetime'
+import { dateKeyOf, parseTime } from './datetime'
 
 /**
  * 待办排序与分区。
@@ -114,4 +114,35 @@ export function belongsToDate(todo: Todo, dateKey: string): boolean {
   const month = String(due.getMonth() + 1).padStart(2, '0')
   const day = String(due.getDate()).padStart(2, '0')
   return `${year}-${month}-${day}` === dateKey
+}
+
+/**
+ * 跨日期搜索（原型 renderTodoList 的搜索分支）：
+ * - 命中父级 → 整棵树；只命中子任务 → 父级进 forceExpand，首个命中子任务进 hitIds；
+ * - 结果按完成日期降序，再按优先级高在前。
+ * 空查询返回空结果（调用方据此切回日期视图）。
+ */
+export function searchTodos(
+  todos: readonly Todo[],
+  query: string,
+): { nodes: TodoNode[]; forceExpand: Set<string>; hitIds: Set<string> } {
+  const needle = query.trim().toLowerCase()
+  const forceExpand = new Set<string>()
+  const hitIds = new Set<string>()
+  if (!needle) return { nodes: [], forceExpand, hitIds }
+
+  const match = (todo: Todo): boolean => todo.content.toLowerCase().includes(needle)
+  const nodes = buildTodoTree(todos).filter((node) => {
+    const parentHit = match(node.todo)
+    const child = node.children.find(match)
+    if (!parentHit && !child) return false
+    if (child) hitIds.add(child.id)
+    if (!parentHit) forceExpand.add(node.todo.id)
+    return true
+  })
+  nodes.sort((a, b) => {
+    const dateDiff = dateKeyOf(b.todo.due_at).localeCompare(dateKeyOf(a.todo.due_at))
+    return dateDiff !== 0 ? dateDiff : weightOf(a.todo.priority) - weightOf(b.todo.priority)
+  })
+  return { nodes, forceExpand, hitIds }
 }

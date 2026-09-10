@@ -1,0 +1,14 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "types": ["node"],
+    "noEmit": true
+  },
+  "include": [
+    "src/**/*.test.ts",
+    "src/utils/**/*.ts",
+    "src/typings/**/*.ts",
+    "src/windows/MindMap/core/persistence.ts"
+  ],
+  "exclude": []
+}
