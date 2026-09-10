@@ -1,12 +1,9 @@
-/* ═══════════════════════════════════════════════════════════════════════
- * Inkling 多主题层：30 套 [data-theme] 覆盖（默认 dark 在 tokens.css）
- * 来源：doc/styles.css:938-1100 与 1132-1872
- * 切换方式：document.documentElement.dataset.theme = <name>；
- *          dark 主题不设该属性（见 src/composables/useTheme.ts）
- * ═══════════════════════════════════════════════════════════════════════ */
+/* 由 scripts/sync-prototype-styles.mjs 从 docs/styles.css 生成，勿手改。
+   重新生成：pnpm sync:styles   校验：pnpm sync:styles --check
+   原型 SHA-256：9b7fb60924cbf3a0019dddd4acc5e593b140be3a438d61375aac2915ef85fb95
+   分段：主题层：30 套 [data-theme]（含打字机） */
 
 /* ═══════════ 多主题系统（设置页切换 · localStorage 持久化 · 默认深色） ═══════════ */
-
 /* light */
 :root[data-theme='light'] {
   --scheme: light;
@@ -43,7 +40,6 @@
   --trend-todo: #12805c;
   --select-arrow: url("data:image/svg+xml,%3Csvg width='10' height='6' viewBox='0 0 10 6' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1l4 4 4-4' stroke='rgba(21,29,46,.55)' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E");
 }
-
 /* cupcake */
 :root[data-theme='cupcake'] {
   --scheme: light;
@@ -80,7 +76,6 @@
   --trend-todo: #2f8f5b;
   --select-arrow: url("data:image/svg+xml,%3Csvg width='10' height='6' viewBox='0 0 10 6' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1l4 4 4-4' stroke='rgba(21,29,46,.55)' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E");
 }
-
 /* bumblebee */
 :root[data-theme='bumblebee'] {
   --scheme: light;
@@ -117,7 +112,6 @@
   --trend-todo: #3d7d2c;
   --select-arrow: url("data:image/svg+xml,%3Csvg width='10' height='6' viewBox='0 0 10 6' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1l4 4 4-4' stroke='rgba(21,29,46,.55)' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E");
 }
-
 /* emerald */
 :root[data-theme='emerald'] {
   --scheme: light;
@@ -154,7 +148,6 @@
   --trend-todo: #0f8f5f;
   --select-arrow: url("data:image/svg+xml,%3Csvg width='10' height='6' viewBox='0 0 10 6' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1l4 4 4-4' stroke='rgba(21,29,46,.55)' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E");
 }
-
 /* business */
 :root[data-theme='business'] {
   --scheme: light;
@@ -191,7 +184,6 @@
   --trend-todo: #1a7d5a;
   --select-arrow: url("data:image/svg+xml,%3Csvg width='10' height='6' viewBox='0 0 10 6' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1l4 4 4-4' stroke='rgba(21,29,46,.55)' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E");
 }
-
 /* neon */
 :root[data-theme='neon'] {
   --scheme: dark;
@@ -228,7 +220,6 @@
   --trend-todo: #22d3ee;
   --select-arrow: url("data:image/svg+xml,%3Csvg width='10' height='6' viewBox='0 0 10 6' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1l4 4 4-4' stroke='rgba(236,224,255,.5)' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E");
 }
-
 /* retro */
 :root[data-theme='retro'] {
   --scheme: light;
@@ -265,7 +256,6 @@
   --trend-todo: #5f7d3a;
   --select-arrow: url("data:image/svg+xml,%3Csvg width='10' height='6' viewBox='0 0 10 6' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1l4 4 4-4' stroke='rgba(21,29,46,.55)' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E");
 }
-
 /* romance */
 :root[data-theme='romance'] {
   --scheme: light;
@@ -302,7 +292,6 @@
   --trend-todo: #7a5cd6;
   --select-arrow: url("data:image/svg+xml,%3Csvg width='10' height='6' viewBox='0 0 10 6' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1l4 4 4-4' stroke='rgba(21,29,46,.55)' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E");
 }
-
 /* halloween */
 :root[data-theme='halloween'] {
   --scheme: dark;
@@ -339,9 +328,93 @@
   --trend-todo: #9ae66e;
   --select-arrow: url("data:image/svg+xml,%3Csvg width='10' height='6' viewBox='0 0 10 6' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1l4 4 4-4' stroke='rgba(240,230,220,.5)' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E");
 }
-
+/* 主题下拉选择器（设置页） */
+.theme-dd {
+  position: relative;
+  width: 240px;
+}
+.theme-dd-trigger {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 7px 12px;
+  border-radius: 9px;
+  cursor: pointer;
+  font-size: 12.5px;
+  color: var(--text);
+  background: rgba(var(--wsa), 0.07);
+  border: 1px solid rgba(var(--wsa), 0.16);
+  transition: border-color 0.15s;
+}
+.theme-dd-trigger:hover {
+  border-color: rgba(var(--accent-rgb), 0.5);
+}
+.theme-dd-trigger .dd-name {
+  flex: 1;
+  text-align: left;
+}
+.theme-dd-trigger .dd-chevron {
+  font-size: 10px;
+  color: var(--text-dim);
+  transition: transform 0.15s;
+}
+.theme-dd.open .dd-chevron {
+  transform: rotate(180deg);
+}
+.theme-dd-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  right: 0;
+  z-index: 40;
+  max-height: 264px;
+  overflow-y: auto;
+  padding: 5px;
+  background: var(--menu-bg);
+  border: 1px solid var(--glass-border);
+  border-radius: 10px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+}
+.theme-dd-opt {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 10px;
+  border-radius: 7px;
+  cursor: pointer;
+  font-size: 12.5px;
+  color: var(--text);
+  transition: background 0.12s;
+}
+.theme-dd-opt:hover {
+  background: rgba(var(--wsa), 0.1);
+}
+.theme-dd-opt.active {
+  background: rgba(var(--accent-rgb), 0.16);
+}
+.theme-dd-opt .dd-check {
+  margin-left: auto;
+  color: rgb(var(--accent-rgb));
+  font-size: 11px;
+  visibility: hidden;
+}
+.theme-dd-opt.active .dd-check {
+  visibility: visible;
+}
+.theme-dots {
+  display: grid;
+  grid-template-columns: repeat(2, 7px);
+  gap: 2px;
+  flex-shrink: 0;
+}
+.theme-dots i {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.12);
+}
 /* ═══ 扩展主题（第 11–30 套） ═══ */
-
 /* 奇幻 */
 :root[data-theme='fantasy'] {
   --scheme: dark;
@@ -378,7 +451,6 @@
   --trend-todo: #86efac;
   --select-arrow: url("data:image/svg+xml,%3Csvg width='10' height='6' viewBox='0 0 10 6' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1l4 4 4-4' stroke='rgba(232,225,255,.55)' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E");
 }
-
 /* 极黑 */
 :root[data-theme='oled'] {
   --scheme: dark;
@@ -415,7 +487,6 @@
   --trend-todo: #66bb6a;
   --select-arrow: url("data:image/svg+xml,%3Csvg width='10' height='6' viewBox='0 0 10 6' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1l4 4 4-4' stroke='rgba(245,245,245,.55)' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E");
 }
-
 /* 奢华 */
 :root[data-theme='luxury'] {
   --scheme: dark;
@@ -452,7 +523,6 @@
   --trend-todo: #a8c686;
   --select-arrow: url("data:image/svg+xml,%3Csvg width='10' height='6' viewBox='0 0 10 6' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1l4 4 4-4' stroke='rgba(238,226,200,.55)' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E");
 }
-
 /* 德古拉 */
 :root[data-theme='dracula'] {
   --scheme: dark;
@@ -489,7 +559,6 @@
   --trend-todo: #50fa7b;
   --select-arrow: url("data:image/svg+xml,%3Csvg width='10' height='6' viewBox='0 0 10 6' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1l4 4 4-4' stroke='rgba(248,248,242,.55)' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E");
 }
-
 /* 印刷色 */
 :root[data-theme='print'] {
   --scheme: light;
@@ -526,7 +595,6 @@
   --trend-todo: #3d7d2c;
   --select-arrow: url("data:image/svg+xml,%3Csvg width='10' height='6' viewBox='0 0 10 6' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1l4 4 4-4' stroke='rgba(26,26,30,.55)' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E");
 }
-
 /* 秋日 */
 :root[data-theme='autumn'] {
   --scheme: light;
@@ -563,7 +631,6 @@
   --trend-todo: #7d8a2c;
   --select-arrow: url("data:image/svg+xml,%3Csvg width='10' height='6' viewBox='0 0 10 6' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1l4 4 4-4' stroke='rgba(82,52,24,.55)' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E");
 }
-
 /* 商务灰 */
 :root[data-theme='businessgray'] {
   --scheme: light;
@@ -600,7 +667,6 @@
   --trend-todo: #4a7c59;
   --select-arrow: url("data:image/svg+xml,%3Csvg width='10' height='6' viewBox='0 0 10 6' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1l4 4 4-4' stroke='rgba(33,37,41,.55)' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E");
 }
-
 /* 迷幻 */
 :root[data-theme='psychedelic'] {
   --scheme: dark;
@@ -637,7 +703,6 @@
   --trend-todo: #3ef98a;
   --select-arrow: url("data:image/svg+xml,%3Csvg width='10' height='6' viewBox='0 0 10 6' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1l4 4 4-4' stroke='rgba(244,238,255,.55)' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E");
 }
-
 /* 柠檬 */
 :root[data-theme='lemon'] {
   --scheme: light;
@@ -674,7 +739,6 @@
   --trend-todo: #5c8a2c;
   --select-arrow: url("data:image/svg+xml,%3Csvg width='10' height='6' viewBox='0 0 10 6' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1l4 4 4-4' stroke='rgba(64,58,10,.55)' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E");
 }
-
 /* 夜色 */
 :root[data-theme='night'] {
   --scheme: dark;
@@ -711,7 +775,6 @@
   --trend-todo: #4ade80;
   --select-arrow: url("data:image/svg+xml,%3Csvg width='10' height='6' viewBox='0 0 10 6' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1l4 4 4-4' stroke='rgba(226,232,245,.55)' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E");
 }
-
 /* 咖啡 */
 :root[data-theme='coffee'] {
   --scheme: dark;
@@ -748,7 +811,6 @@
   --trend-todo: #9caf88;
   --select-arrow: url("data:image/svg+xml,%3Csvg width='10' height='6' viewBox='0 0 10 6' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1l4 4 4-4' stroke='rgba(240,225,210,.55)' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E");
 }
-
 /* 冬日 */
 :root[data-theme='winter'] {
   --scheme: light;
@@ -785,7 +847,6 @@
   --trend-todo: #4d8a6a;
   --select-arrow: url("data:image/svg+xml,%3Csvg width='10' height='6' viewBox='0 0 10 6' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1l4 4 4-4' stroke='rgba(30,45,66,.55)' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E");
 }
-
 /* 深渊 */
 :root[data-theme='abyss'] {
   --scheme: dark;
@@ -822,7 +883,6 @@
   --trend-todo: #34c98e;
   --select-arrow: url("data:image/svg+xml,%3Csvg width='10' height='6' viewBox='0 0 10 6' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1l4 4 4-4' stroke='rgba(220,235,245,.55)' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E");
 }
-
 /* 水色 */
 :root[data-theme='aqua'] {
   --scheme: light;
@@ -859,7 +919,6 @@
   --trend-todo: #2c8a6b;
   --select-arrow: url("data:image/svg+xml,%3Csvg width='10' height='6' viewBox='0 0 10 6' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1l4 4 4-4' stroke='rgba(20,60,72,.55)' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E");
 }
-
 /* 焦糖拿铁 */
 :root[data-theme='latte'] {
   --scheme: light;
@@ -896,7 +955,6 @@
   --trend-todo: #6b8a4a;
   --select-arrow: url("data:image/svg+xml,%3Csvg width='10' height='6' viewBox='0 0 10 6' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1l4 4 4-4' stroke='rgba(70,50,34,.55)' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E");
 }
-
 /* 暗色 */
 :root[data-theme='dim'] {
   --scheme: dark;
@@ -933,7 +991,6 @@
   --trend-todo: #6fbf8f;
   --select-arrow: url("data:image/svg+xml,%3Csvg width='10' height='6' viewBox='0 0 10 6' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1l4 4 4-4' stroke='rgba(228,230,235,.55)' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E");
 }
-
 /* 北极光 */
 :root[data-theme='aurora'] {
   --scheme: dark;
@@ -970,7 +1027,6 @@
   --trend-todo: #34d399;
   --select-arrow: url("data:image/svg+xml,%3Csvg width='10' height='6' viewBox='0 0 10 6' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1l4 4 4-4' stroke='rgba(225,245,240,.55)' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E");
 }
-
 /* 粉彩 */
 :root[data-theme='pastel'] {
   --scheme: light;
@@ -1007,7 +1063,6 @@
   --trend-todo: #6bbf95;
   --select-arrow: url("data:image/svg+xml,%3Csvg width='10' height='6' viewBox='0 0 10 6' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1l4 4 4-4' stroke='rgba(80,60,90,.55)' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E");
 }
-
 /* 日落 */
 :root[data-theme='sunset'] {
   --scheme: dark;
@@ -1044,7 +1099,6 @@
   --trend-todo: #86efac;
   --select-arrow: url("data:image/svg+xml,%3Csvg width='10' height='6' viewBox='0 0 10 6' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1l4 4 4-4' stroke='rgba(255,235,225,.55)' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E");
 }
-
 /* 线框 */
 :root[data-theme='wireframe'] {
   --scheme: light;
@@ -1081,40 +1135,152 @@
   --trend-todo: #4a7c59;
   --select-arrow: url("data:image/svg+xml,%3Csvg width='10' height='6' viewBox='0 0 10 6' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1l4 4 4-4' stroke='rgba(40,40,45,.55)' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E");
 }
-
-/* 棕褐（参考 images/4.jpg：暖棕褐背景 · 米白文字 · 暗红点缀 · 半透明磨砂） */
-:root[data-theme='sepia'] {
-  --scheme: dark;
-  --wsa: 240, 228, 212;
-  --body-bg: linear-gradient(135deg, #3a2f26 0%, #2c241d 100%);
-  --glass-bg: rgba(58, 47, 38, 0.62);
-  --glass-border: rgba(176, 74, 66, 0.26);
-  --glass-shadow: 0 12px 40px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(240, 228, 212, 0.08);
-  --menubar-bg: rgba(44, 36, 29, 0.8);
-  --menu-bg: rgba(44, 36, 29, 0.95);
-  --tip-bg: rgba(44, 36, 29, 0.97);
-  --confirm-bg: rgba(44, 36, 29, 0.96);
-  --toggle-bg: rgb(44, 36, 29);
-  --option-bg: rgb(44, 36, 29);
-  --accent: #b04a42;
-  --accent-rgb: 176, 74, 66;
-  --hm-base: 176, 74, 66;
-  --text: rgba(240, 228, 212, 0.93);
-  --text-dim: rgba(240, 228, 212, 0.55);
-  --text-strong: rgba(240, 228, 212, 0.82);
-  --gold: #d6a35c;
-  --red-soft: #d97a6e;
-  --red: #b04a42;
-  --cyan: #a5b3a8;
-  --blue-soft: #b8a488;
-  --green: #a3b083;
-  --pink: #cf9aa0;
-  --code-green: #a3b083;
-  --c-note: 176, 74, 66;
-  --c-clip: 214, 163, 92;
-  --c-todo: 163, 176, 131;
-  --trend-note: #d97a6e;
-  --trend-clip: #d6a35c;
-  --trend-todo: #a3b083;
-  --select-arrow: url("data:image/svg+xml,%3Csvg width='10' height='6' viewBox='0 0 10 6' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1l4 4 4-4' stroke='rgba(240,228,212,.55)' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E");
+/* ═══ 默认主题：打字机（typewriter）═══
+   参考目标风格：米色纸面 + 白卡黑描边 + 打字机红点缀 + 等宽字体 + 锐利直角。
+   与其他主题不同，本主题除颜色令牌外还覆盖圆角/阴影尺度令牌并关闭毛玻璃模糊，
+   以还原「纸面终端」的硬边质感；全部覆盖均限定在 [data-theme="typewriter"] 作用域内，
+   不影响其余 30 套主题。 */
+:root[data-theme='typewriter'] {
+  --scheme: light;
+  --wsa: 26, 26, 26;
+  --body-bg: linear-gradient(135deg, #efeade 0%, #e8e1d1 100%);
+  --glass-bg: rgba(253, 252, 249, 0.97);
+  --glass-border: rgba(26, 26, 26, 0.85);
+  --glass-shadow: 0 2px 0 rgba(26, 26, 26, 0.05), 0 12px 32px rgba(26, 26, 26, 0.14);
+  --menubar-bg: rgba(244, 240, 230, 0.98);
+  --menu-bg: rgba(253, 252, 249, 0.99);
+  --tip-bg: rgba(253, 252, 249, 0.99);
+  --confirm-bg: rgba(253, 252, 249, 0.99);
+  --toggle-bg: #fdfcf9;
+  --option-bg: #fdfcf9;
+  --accent: #c62828;
+  --accent-rgb: 198, 40, 40;
+  --hm-base: 198, 40, 40;
+  --text: rgba(26, 26, 26, 0.94);
+  --text-dim: rgba(26, 26, 26, 0.52);
+  --text-strong: rgba(26, 26, 26, 0.82);
+  --gold: #9a6a1c;
+  --red-soft: #c62828;
+  --red: #b71c1c;
+  --cyan: #00796b;
+  --blue-soft: #455a64;
+  --green: #2e7d32;
+  --pink: #ad1457;
+  --code-green: #33691e;
+  --c-note: 26, 26, 26;
+  --c-clip: 154, 106, 28;
+  --c-todo: 46, 125, 50;
+  --trend-note: #c62828;
+  --trend-clip: #9a6a1c;
+  --trend-todo: #2e7d32;
+  --bg-deep: #ddd6c4;
+  /* 锐利直角：硬边纸面质感（灵动岛胶囊仍用 --radius-pill，不受影响） */
+  --radius-sm: 2px;
+  --radius-md: 2px;
+  --radius-lg: 3px;
+  --radius: 3px;
+  /* 扁平化投影：去除厚重模糊阴影 */
+  --shadow-sm: 0 1px 2px rgba(26, 26, 26, 0.1);
+  --shadow-md: 0 4px 14px rgba(26, 26, 26, 0.12);
+  --shadow-lg: 0 10px 30px rgba(26, 26, 26, 0.16);
+  --shadow-pop: 0 6px 20px rgba(26, 26, 26, 0.18);
+  /* 思维导图窗口同步纸面 + 红色主色 */
+  --mm-surface: #fdfcf9;
+  --mm-surface-2: #f4f0e6;
+  --mm-surface-3: #e7e1d3;
+  --mm-border: rgba(26, 26, 26, 0.32);
+  --mm-text: rgba(26, 26, 26, 0.94);
+  --mm-text-2: rgba(26, 26, 26, 0.66);
+  --mm-text-dim: rgba(26, 26, 26, 0.48);
+  --mm-primary: #c62828;
+  --mm-primary-soft: #fbe9e7;
+  --mm-danger: #b71c1c;
+  --mm-danger-soft: #fbe9e7;
+  --mm-accent-2: #6d4c41;
+  --mm-accent-2-rgb: 109, 76, 65;
+  --select-arrow: url("data:image/svg+xml,%3Csvg width='10' height='6' viewBox='0 0 10 6' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1l4 4 4-4' stroke='rgba(26,26,26,.6)' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E");
+}
+/* 打字机主题质感补丁：等宽字体（含表单控件）、去毛玻璃、顶栏黑色下划线 */
+[data-theme='typewriter'] body {
+  font-family:
+    ui-monospace, 'SF Mono', 'Cascadia Mono', 'JetBrains Mono', Menlo, Consolas, 'Courier New', 'PingFang SC',
+    'Microsoft YaHei', monospace;
+}
+[data-theme='typewriter'] input,
+[data-theme='typewriter'] select,
+[data-theme='typewriter'] textarea {
+  font-family: inherit;
+}
+[data-theme='typewriter'] .glass,
+[data-theme='typewriter'] .context-menu,
+[data-theme='typewriter'] .prio-group,
+[data-theme='typewriter'] .repeat-menu {
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+/* 卡片立体感：白卡 + 硬边偏移投影，营造「纸卡浮于纸面」的复古层次。
+   悬浮时上浮（投影加大）、按压时下沉（投影收回），提供触觉反馈；
+   待办仅顶层卡片浮起，子任务保持扁平以维持树状层级可读性。 */
+[data-theme='typewriter'] .clip-item,
+[data-theme='typewriter'] .archive-item,
+[data-theme='typewriter'] .day-item,
+[data-theme='typewriter'] .todo-list > .todo-item {
+  background: #ffffff;
+  border: 1px solid rgba(26, 26, 26, 0.7);
+  box-shadow: 3px 3px 0 rgba(26, 26, 26, 0.55);
+  margin-bottom: 8px;
+  transition:
+    transform 0.15s ease,
+    box-shadow 0.15s ease,
+    background 0.15s,
+    border-color 0.15s;
+}
+[data-theme='typewriter'] .clip-item:hover,
+[data-theme='typewriter'] .archive-item:hover,
+[data-theme='typewriter'] .day-item:hover,
+[data-theme='typewriter'] .todo-list > .todo-item:hover {
+  background: #ffffff;
+  border-color: rgba(26, 26, 26, 0.9);
+  transform: translate(-1px, -1px);
+  box-shadow: 4px 4px 0 rgba(26, 26, 26, 0.65);
+}
+[data-theme='typewriter'] .clip-item:active,
+[data-theme='typewriter'] .archive-item:active,
+[data-theme='typewriter'] .day-item:active,
+[data-theme='typewriter'] .todo-list > .todo-item:active {
+  transform: translate(1px, 1px);
+  box-shadow: 2px 2px 0 rgba(26, 26, 26, 0.55);
+}
+/* 置顶卡片：暖金纸面 + 金色投影，与普通卡片拉开层级 */
+[data-theme='typewriter'] .clip-item.pinned,
+[data-theme='typewriter'] .archive-item.pinned {
+  background: #fdf6e0;
+  border-color: rgba(154, 106, 28, 0.75);
+  box-shadow: 3px 3px 0 rgba(154, 106, 28, 0.5);
+}
+[data-theme='typewriter'] .clip-item.pinned:hover,
+[data-theme='typewriter'] .archive-item.pinned:hover {
+  background: #fdf6e0;
+  border-color: rgba(154, 106, 28, 0.9);
+  box-shadow: 4px 4px 0 rgba(154, 106, 28, 0.6);
+}
+/* 日期详情卡片：保留左侧 3px 类别色条（防止被上方整圈描边重置） */
+[data-theme='typewriter'] .day-item {
+  border-left-width: 3px;
+}
+[data-theme='typewriter'] .day-item.note {
+  border-left-color: rgb(var(--c-note));
+}
+[data-theme='typewriter'] .day-item.clip {
+  border-left-color: rgb(var(--c-clip));
+}
+[data-theme='typewriter'] .day-item.todo {
+  border-left-color: rgb(var(--c-todo));
+}
+/* 逾期待办：红色警示底色由 !important 规则保留，此处仅将投影调为红色系 */
+[data-theme='typewriter'] .todo-list > .todo-item.overdue {
+  box-shadow: 3px 3px 0 rgba(183, 28, 28, 0.4);
+}
+[data-theme='typewriter'] .todo-list > .todo-item.overdue:hover {
+  box-shadow: 4px 4px 0 rgba(183, 28, 28, 0.5);
 }

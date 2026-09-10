@@ -1,0 +1,756 @@
+/* ═══════════════════════════════════════════════════════════════════════
+ * Inkling 项目扩展层（手写）
+ *
+ * 生成层（tokens / base / components / themes）由 scripts/sync-prototype-styles.mjs 从
+ * docs/styles.css 生成、勿手改；一切项目自有样式只能写在本文件及其后各层（window-fit / motion / glass）。
+ * 加载顺序：themes 之后、window-fit 之前（见 styles/index.ts）。
+ *
+ * 分节头注明来源与迁入日期；标注「阶段 N 迁移后删除」的分节是过渡桥接，
+ * 对应阶段按新原型重构组件后整节删除。
+ * ═══════════════════════════════════════════════════════════════════════ */
+
+/* ═══ 1. 扩展令牌（迁自 tokens.css@ac81857，2026-09-10） ═══
+ * 原型只定义 --dur-fast/base/slow 与 --ease-out/--ease-spring，以下为项目补充：
+ *   --dur-instant 按下即时反馈；--ease-in-out 往返型过渡；--lift 卡片悬浮抬升；--stagger 列表逐项延迟；
+ *   --glass-* 玻璃质感档位（见 glass.css）。.glass 改为引用玻璃令牌，data-glass 才能覆盖档位。 */
+:root {
+  --dur-instant: 90ms;
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  --lift: 2px;
+  --stagger: 30ms;
+  --glass-blur: 24px;
+  --glass-saturate: 160%;
+  --glass-border-width: 1px;
+}
+.glass {
+  backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+  border-width: var(--glass-border-width);
+}
+/* 尊重系统「减少动态效果」：扩展令牌同样归零（原型令牌由 base.css 的通配规则兜底；
+   JS 动效由 src/motion/tokens.ts 读取 matchMedia 后自行归零）。 */
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --dur-instant: 0.01ms;
+    --stagger: 0ms;
+    --lift: 0px;
+  }
+}
+
+/* ═══ 2. 交互修正与窗口基础（迁自 base.css@ac81857，2026-09-10） ═══ */
+/* tokens.css 的 `* { user-select: none }` 会让输入区无法选中文本，
+   此处对所有可编辑区域恢复，保证笔记编辑器与输入框可正常选词。 */
+input,
+textarea,
+[contenteditable='true'],
+.ProseMirror,
+.cm-editor {
+  user-select: text;
+  -webkit-user-select: text;
+}
+/* 无边框窗口：标题栏整体可拖拽，但其中的按钮需排除，否则点不动。 */
+[data-tauri-drag-region] {
+  app-region: drag;
+  -webkit-app-region: drag;
+}
+[data-tauri-drag-region] button,
+[data-tauri-drag-region] input,
+[data-tauri-drag-region] .no-drag {
+  app-region: no-drag;
+  -webkit-app-region: no-drag;
+}
+/* 主窗口「毛玻璃」开关关闭态：把玻璃令牌降级为不透明实色。
+   .glass 与全部组件无需改动即可退化为实心卡片，32 套主题同样生效。
+   开关实现见 src/windows/Main/SettingsView.vue 与 ipc 命令 set_main_acrylic。 */
+:root[data-acrylic='off'] {
+  --glass-bg: var(--bg-deep);
+  --glass-shadow: 0 12px 40px rgba(0, 0, 0, 0.35);
+}
+:root[data-acrylic='off'] .glass {
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+/* 应用根节点铺满窗口；透明窗口下由 .glass 自身绘制背景。 */
+#app {
+  height: 100vh;
+  overflow: hidden;
+}
+
+/* ═══ 3. 原型同名规则的项目补充声明（迁自 components.css@ac81857，2026-09-10） ═══
+ * 原型同名规则由生成层提供，这里只写项目追加的声明，不重复原型的值。 */
+/* 自绘窗口控制按钮的悬浮层不被标题栏裁切 */
+.window-titlebar {
+  overflow: visible;
+}
+/* 待办编辑栅格内的控件铺满且可收缩 */
+.te-field input,
+.te-field select {
+  width: 100%;
+  min-width: 0;
+}
+/* 优先级菜单项：点击区 ≥ 32px，勾选标记以此为定位锚点 */
+.prio-opt {
+  min-height: 32px;
+  position: relative;
+  outline: none;
+}
+
+/* ═══ 4. 错落入场动画态（新增，2026-09-10） ═══
+ * src/motion 的预设在动画期间给元素加 .is-animating：打字机主题的卡片自带 transform 过渡，
+ * 若不关闭，JS 逐帧写入的 transform 会被 CSS transition 再插值一次，形成拖影。 */
+.is-animating {
+  transition: none !important;
+}
+
+/* ═══ 5. 过渡桥接：旧原型规则（阶段四迁移后整节删除） ═══
+ * ConfirmPopover / TodoEditorModal 目前仍按旧原型结构实现（卡片上方行内确认框、居中遮罩弹窗）；
+ * 新原型改为全局锚定浮层 #cardConfirm 与锚定卡片右侧的 #todoEditorPanel，
+ * 生成层因此不再提供下列规则或改变了 #todoEditorOverlay 的布局。阶段四对齐后删除本节与第 6 节中
+ * 的 .card-confirm / #todoEditorModal 相关规则。 */
+@keyframes confirmIn {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+  }
+}
+.card-confirm-text {
+  flex: 1;
+  font-size: 12px;
+  color: var(--red-soft);
+  text-align: left;
+}
+#todoEditorOverlay {
+  background: rgba(8, 10, 18, 0.45);
+  backdrop-filter: blur(2px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* 圆点导航仍是 emoji 字符（新原型改为 ::before 矢量圆点，阶段三迁移后删除本段）：
+   沿用旧原型的悬浮/激活态，否则激活项与其他项只剩缩放差异。 */
+.nav-dot:hover {
+  opacity: 0.8;
+}
+.nav-dot.active {
+  opacity: 1;
+  filter: none;
+  background: rgba(var(--wsa), 0.1);
+  transform: scale(1.15);
+}
+
+/* ═══ 6. 自建组件样式（迁自 components.css@ac81857，2026-09-10，由 .tmp/extract-app-only.mjs 抽取） ═══ */
+/* ═══ hotzone ═══ */
+:root[data-window='hotzone'],
+:root[data-window='hotzone'] body,
+:root[data-window='hotzone'] #app {
+  background: transparent !important;
+}
+/* 指示器：默认横条形态贴顶居中。入场/静止两种变换用自定义属性表达，
+   各边只需改写这两个属性与定位锚点，动画关键帧不必按边复制四份。 */
+.hotzone-indicator {
+  --hz-rest: translateX(-50%) translateY(-5px) scale(0.94);
+  --hz-in: translateX(-50%) translateY(0) scale(1);
+  position: absolute;
+  top: 8px;
+  left: 50%;
+  display: flex;
+  width: 126px;
+  height: 34px;
+  align-items: center;
+  gap: 7px;
+  padding: 0 10px;
+  border: 1px solid rgba(var(--wsa), 0.16);
+  border-radius: 17px;
+  background: rgba(24, 26, 40, 0.74);
+  box-shadow:
+    0 8px 24px rgba(0, 0, 0, 0.18),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(16px) saturate(140%);
+  opacity: 0;
+  transform: var(--hz-rest);
+  pointer-events: none;
+  transition:
+    opacity 0.2s ease,
+    transform 0.2s ease;
+}
+/* 底部：贴底居中，入场方向反过来（从下方浮起）。 */
+#hotzone[data-edge='bottom'] .hotzone-indicator {
+  --hz-rest: translateX(-50%) translateY(5px) scale(0.94);
+  top: auto;
+  bottom: 8px;
+}
+/* 左/右：竖条形态，垂直居中；文字改竖排，进度条改为纵向增长。 */
+#hotzone[data-edge='left'] .hotzone-indicator,
+#hotzone[data-edge='right'] .hotzone-indicator {
+  --hz-in: translateY(-50%) translateX(0) scale(1);
+  top: 50%;
+  left: 8px;
+  flex-direction: column;
+  width: 34px;
+  height: 126px;
+  padding: 10px 0;
+}
+#hotzone[data-edge='left'] .hotzone-indicator {
+  --hz-rest: translateY(-50%) translateX(-5px) scale(0.94);
+}
+#hotzone[data-edge='right'] .hotzone-indicator {
+  --hz-rest: translateY(-50%) translateX(5px) scale(0.94);
+  left: auto;
+  right: 8px;
+}
+#hotzone[data-edge='left'] .hotzone-indicator-label,
+#hotzone[data-edge='right'] .hotzone-indicator-label {
+  writing-mode: vertical-rl;
+  letter-spacing: 1px;
+}
+#hotzone[data-edge='left'] .hotzone-progress,
+#hotzone[data-edge='right'] .hotzone-progress {
+  width: 3px;
+  height: 38px;
+}
+#hotzone[data-edge='left'] .hotzone-progress-value,
+#hotzone[data-edge='right'] .hotzone-progress-value {
+  width: 100%;
+  height: calc(var(--hz-progress, 0) * 100%);
+  background: linear-gradient(180deg, var(--accent), var(--cyan));
+  transition: height 0.08s linear;
+}
+#hotzone.sensing .hotzone-indicator {
+  opacity: 1;
+  transform: var(--hz-in);
+  animation: hotzoneIndicatorIn 0.24s ease-out both;
+}
+.hotzone-indicator-label {
+  flex: none;
+  color: var(--text-dim);
+  font-size: 10px;
+  letter-spacing: 0.3px;
+  white-space: nowrap;
+}
+.hotzone-progress {
+  position: relative;
+  display: block;
+  width: 38px;
+  height: 3px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgba(var(--wsa), 0.14);
+}
+.hotzone-progress-value {
+  display: block;
+  /* 进度由 hotzone.ts 以 --hz-progress（0~1）下发；横条按宽度增长。 */
+  width: calc(var(--hz-progress, 0) * 100%);
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--accent), var(--cyan));
+  box-shadow: 0 0 8px rgba(var(--accent-rgb), 0.8);
+  transition: width 0.08s linear;
+}
+.hotzone-indicator-dots {
+  color: var(--accent);
+  font-size: 10px;
+  letter-spacing: 1px;
+  animation: hotzoneDots 1s ease-in-out infinite;
+}
+/* 搜索框 + 类型筛选 + 新建导图，一行排布，搜索框占剩余宽度。 */
+.notes-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+.notes-toolbar .search-input {
+  /* 必须显式写 width: auto —— .search-input 基类有 width: 100%，
+     在 flex 容器里它会让搜索框吃掉整行，把筛选与新建按钮挤出可见区。 */
+  flex: 1 1 auto;
+  width: auto;
+  min-width: 0;
+  margin-bottom: 0;
+}
+.notes-toolbar .prio-select {
+  flex-shrink: 0;
+}
+.notes-toolbar .btn.tiny {
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+/* 类型徽章：固定在元数据行首，让两种笔记在混排列表里一眼可辨。 */
+.note-kind {
+  flex-shrink: 0;
+  padding: 1px 7px;
+  border-radius: 999px;
+  font-size: 10.5px;
+  line-height: 1.7;
+  border: 1px solid transparent;
+}
+.kind-text {
+  color: var(--text-dim);
+  background: rgba(var(--wsa), 0.08);
+  border-color: rgba(var(--wsa), 0.12);
+}
+/* 思维导图用笔记类别色（--c-note）着色，与统计图表里的笔记色系一致。 */
+.kind-mindmap {
+  color: rgb(var(--c-note));
+  background: rgba(var(--c-note), 0.12);
+  border-color: rgba(var(--c-note), 0.3);
+}
+/* 卡片左侧留一道同色细边，扫视列表时不必读徽章也能分组。 */
+.archive-item.mindmap {
+  border-left: 2px solid rgba(var(--c-note), 0.55);
+}
+/* 标题栏本体：默认标题在左、控件在右；macOS 下控件在左，标题让位到其右侧。 */
+.window-titlebar .win-controls {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+}
+.window-titlebar.controls-left .win-controls {
+  margin-left: 0;
+  margin-right: 4px;
+}
+.window-titlebar.controls-left .win-title {
+  margin-right: auto;
+}
+/* ── macOS：左上角红黄绿三点 ──
+ * 原生规格：直径 12px、间距 8px；符号平时不显示，指针进入控件组时整组显现。 */
+.win-controls-mac {
+  gap: 8px;
+}
+.mac-dot {
+  width: 12px;
+  height: 12px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  cursor: default;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.mac-dot svg {
+  width: 12px;
+  height: 12px;
+  opacity: 0;
+  stroke: rgba(0, 0, 0, 0.55);
+  stroke-width: 1.2;
+  stroke-linecap: round;
+  fill: none;
+  transition: opacity var(--dur-fast) var(--ease-out);
+}
+/* 悬浮整组才显符号，与系统一致——不是逐个按钮各自显现。 */
+.win-controls-mac:hover .mac-dot svg {
+  opacity: 1;
+}
+.mac-close {
+  background: #ff5f57;
+}
+.mac-min {
+  background: #febc2e;
+}
+.mac-max {
+  background: #28c840;
+}
+.mac-dot:active {
+  filter: brightness(0.85);
+}
+/* 窗口失焦时三点转灰，这是 macOS 的既有行为。 */
+body:not(:focus-within) .mac-dot {
+  background: rgba(var(--wsa), 0.22);
+}
+/* 选择器必须写成 `.window-titlebar .win-controls-win`（0,2,0）：
+   上面的基类规则 `.window-titlebar .win-controls` 也是 0,2,0 且带
+   align-items: center，只写单个 `.win-controls-win`（0,1,0）会被它压住，
+   按钮就撑不满、悬浮底色只剩中间一条。margin-left 显式写 auto，
+   因为这里的 margin 简写会覆盖基类的 margin-left: auto。 */
+.window-titlebar .win-controls-win {
+  gap: 0;
+  align-self: stretch;
+  align-items: stretch;
+  margin: -12px -16px -12px auto;
+}
+/* 双保险：即使父容器的 align-items 又被别处覆盖，按钮自身也撑满。 */
+.window-titlebar .win-controls-win .win-btn {
+  align-self: stretch;
+}
+.win-btn {
+  width: 46px;
+  /* 不设 height：高度由 align-items: stretch 撑满标题栏。 */
+  padding: 0;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  color: var(--text);
+  cursor: default;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: background var(--dur-fast) var(--ease-out);
+}
+.win-btn svg {
+  width: 10px;
+  height: 10px;
+  stroke: currentColor;
+  stroke-width: 1;
+  fill: none;
+  /* 1px 细线在非整数坐标上会跨像素发虚，对齐设备像素网格保持锐利。 */
+  shape-rendering: crispEdges;
+}
+/* 关闭键的 ✕ 比另两个图标略大，与系统一致。 */
+.win-btn-close svg {
+  width: 11px;
+  height: 11px;
+}
+.win-btn:hover {
+  background: rgba(var(--wsa), 0.1);
+}
+.win-btn:active {
+  background: rgba(var(--wsa), 0.16);
+}
+/* 关闭键是系统里唯一带强调色的按钮，配色取自 Windows 11。 */
+.win-btn-close:hover {
+  background: #c42b1c;
+  color: #fff;
+}
+.win-btn-close:active {
+  background: #b2261a;
+  color: #fff;
+}
+/* 最右一个按钮跟随窗口圆角，否则悬浮底色会在圆角外溢出成方角。
+   半径与 window-fit.css 里 #mainWindow 的 8px 保持一致。 */
+.win-controls-win .win-btn:last-child {
+  border-top-right-radius: 8px;
+}
+:root[data-maximized] .win-controls-win .win-btn:last-child {
+  border-top-right-radius: 0;
+}
+/* ═══ 删除二次确认浮层（悬浮于卡片上方，不占满卡片、不推挤布局；笔记/粘贴板/待办统一） ═══ */
+.card-confirm {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 0;
+  right: 0;
+  z-index: 7;
+  background: var(--confirm-bg);
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 95, 87, 0.5);
+  border-radius: 9px;
+  padding: 6px 10px;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.5);
+  animation: confirmIn 0.18s ease;
+}
+/* 确认态下该条目删除按钮保持常显 */
+.todo-item:has(.card-confirm) .todo-del {
+  opacity: 1;
+  pointer-events: auto;
+}
+/* 文本类输入框：上面的规则只覆盖了 select 与 number，
+   SMTP 配置用到 text / password，不补样式会是浏览器默认外观。 */
+.settings-body input[type='text'],
+.settings-body input[type='password'],
+.settings-body input:not([type]) {
+  flex: 1;
+  min-width: 0;
+  background: rgba(var(--wsa), 0.1);
+  border: 1px solid rgba(var(--wsa), 0.15);
+  color: var(--text);
+  border-radius: 6px;
+  padding: 4px 8px;
+  font-size: 12.5px;
+  outline: none;
+}
+.settings-body input[type='text']:focus,
+.settings-body input[type='password']:focus,
+.settings-body input:not([type]):focus {
+  border-color: var(--accent);
+}
+/* 设置页·分区标题与说明文字 */
+.setting-section-title {
+  margin: 18px 0 2px;
+  padding: 0 4px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--text);
+  letter-spacing: 0.3px;
+}
+/* 启动器「文件扫描目录」：整块纵向布局，跳出 setting-row 的左右两列。 */
+.setting-col {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px 4px;
+}
+.setting-col-label {
+  font-size: 12.5px;
+  color: var(--text);
+}
+.launcher-roots {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.launcher-root-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.launcher-root-path {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12px;
+  color: var(--text-dim);
+}
+.launcher-root-depth {
+  width: 56px;
+  flex: none;
+}
+.launcher-root-add {
+  display: flex;
+  gap: 8px;
+}
+.launcher-root-add .search-input {
+  flex: 1;
+  margin-bottom: 0;
+}
+.setting-hint {
+  margin: 0 0 4px;
+  padding: 0 4px;
+  font-size: 11.5px;
+  line-height: 1.6;
+  color: var(--text-dim);
+}
+.setting-hint strong {
+  color: var(--text);
+  font-weight: 600;
+}
+input[type='number'],
+input[type='checkbox'] {
+  accent-color: var(--accent);
+  color-scheme: var(--scheme);
+}
+#todoEditorModal {
+  width: 470px;
+  max-height: 84vh;
+  overflow-y: auto;
+  padding: 14px 16px;
+}
+#todoEditorModal .search-input {
+  margin-bottom: 10px;
+}
+.te-field-date {
+  flex: 1.4;
+}
+.te-field-time {
+  flex: 1;
+}
+.te-field-priority {
+  flex: 0.9;
+}
+/* 编辑弹窗·提醒方式勾选：与左侧下拉同高，勾选项横向排列。 */
+.te-remind-channels {
+  flex: 1.2;
+}
+.te-channel-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  height: 30px;
+}
+.te-channel {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12.5px;
+  color: var(--text);
+  cursor: pointer;
+}
+.te-channel input[type='checkbox'] {
+  width: auto;
+  margin: 0;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+/* 选「不提醒」时整组置灰，表明勾选此刻不起作用。 */
+.te-channel:has(input:disabled) {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.te-channel input[type='checkbox']:disabled {
+  cursor: not-allowed;
+}
+.prio-opt .prio-check {
+  margin-left: auto;
+  font-size: 11px;
+  color: var(--accent);
+  visibility: hidden;
+}
+.prio-opt[aria-selected='true'] {
+  background: rgba(var(--wsa), 0.1);
+  box-shadow: inset 0 0 0 1px rgba(var(--accent-rgb), 0.55);
+}
+.prio-opt[aria-selected='true'] .prio-check {
+  visibility: visible;
+}
+/* 键盘导航的当前项：与鼠标 hover 视觉一致，保证两种输入方式反馈统一。 */
+.prio-opt.active {
+  background: rgba(var(--wsa), 0.16);
+}
+/* v1.2 增补：抖动确认态强制显示 ✕。
+   原型把 .shaking 挂在卡片上（.archive-item.shaking .tag-chip .tag-del），
+   组件化后 .shaking 挂在 chip 自身，需要对应的一条规则，
+   否则鼠标一旦移出 chip，✕ 就随 :hover 消失而无法完成第二次点击。 */
+.tag-chip.shaking .tag-del {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+/* 占位提示：原型的 .editor:empty::before 在 ProseMirror 下不生效
+   （空文档也会渲染 <p><br></p>），改由 placeholder 插件挂 .is-empty 类驱动。 */
+.editor .is-empty::before {
+  content: attr(data-placeholder);
+  color: var(--text-dim);
+  float: left;
+  height: 0;
+  pointer-events: none;
+}
+.editor blockquote {
+  border-left: 2px solid rgba(var(--wsa), 0.25);
+  padding-left: 10px;
+  color: var(--text-dim);
+  margin: 4px 0;
+}
+.editor ul,
+.editor ol {
+  padding-left: 22px;
+  margin: 4px 0;
+}
+.editor hr {
+  border: none;
+  border-top: 1px solid rgba(var(--wsa), 0.15);
+  margin: 10px 0;
+}
+.editor s {
+  color: var(--text-dim);
+}
+/* 代码块容器：CodeMirror 自带的背景与主题被关掉，颜色统一走令牌，
+   保证 30 套主题切换时代码块跟随。 */
+.pm-codeblock {
+  background: rgba(var(--wsa), 0.07);
+  border: 1px solid rgba(var(--wsa), 0.12);
+  border-radius: 8px;
+  margin: 6px 0;
+  overflow: hidden;
+}
+.pm-codeblock .cm-editor {
+  background: transparent;
+  font-size: 13px;
+}
+.pm-codeblock .cm-editor.cm-focused {
+  outline: none;
+}
+.pm-codeblock .cm-content {
+  font-family: 'SF Mono', Menlo, Consolas, monospace;
+  color: var(--code-green);
+  padding: 8px 10px;
+}
+.pm-codeblock .cm-gutters {
+  background: transparent;
+  border-right: 1px solid rgba(var(--wsa), 0.1);
+  color: var(--text-dim);
+}
+.pm-codeblock .cm-activeLine,
+.pm-codeblock .cm-activeLineGutter {
+  background: rgba(var(--wsa), 0.05);
+}
+.pm-codeblock .cm-cursor {
+  border-left-color: var(--text);
+}
+.pm-codeblock .cm-selectionBackground,
+.pm-codeblock .cm-focused .cm-selectionBackground {
+  background: rgba(var(--accent-rgb), 0.25);
+}
+/* 思维导图笔记卡片摘要与编辑器画布 */
+.note-mindmap-summary {
+  color: var(--text);
+  font-weight: 600;
+}
+.mindmap-editor {
+  flex: 1;
+  min-height: 260px;
+  overflow: hidden;
+  position: relative;
+  border-radius: 8px;
+  background: rgba(var(--wsa), 0.035);
+}
+.mindmap-editor .smm-mind-map {
+  background: transparent !important;
+}
+
+/* 感应区指示器关键帧（迁自 components.css@ac81857） */
+@keyframes hotzoneIndicatorIn {
+  from {
+    opacity: 0;
+    transform: var(--hz-rest);
+  }
+  to {
+    opacity: 1;
+    transform: var(--hz-in);
+  }
+}
+@keyframes hotzoneDots {
+  0%,
+  100% {
+    opacity: 0.35;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+/* ═══ 7. 棕褐主题（项目自建，迁自 themes.css@ac81857，2026-09-10） ═══ */
+/* 棕褐（参考 images/4.jpg：暖棕褐背景 · 米白文字 · 暗红点缀 · 半透明磨砂） */
+:root[data-theme='sepia'] {
+  --scheme: dark;
+  --wsa: 240, 228, 212;
+  --body-bg: linear-gradient(135deg, #3a2f26 0%, #2c241d 100%);
+  --glass-bg: rgba(58, 47, 38, 0.62);
+  --glass-border: rgba(176, 74, 66, 0.26);
+  --glass-shadow: 0 12px 40px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(240, 228, 212, 0.08);
+  --menubar-bg: rgba(44, 36, 29, 0.8);
+  --menu-bg: rgba(44, 36, 29, 0.95);
+  --tip-bg: rgba(44, 36, 29, 0.97);
+  --confirm-bg: rgba(44, 36, 29, 0.96);
+  --toggle-bg: rgb(44, 36, 29);
+  --option-bg: rgb(44, 36, 29);
+  --accent: #b04a42;
+  --accent-rgb: 176, 74, 66;
+  --hm-base: 176, 74, 66;
+  --text: rgba(240, 228, 212, 0.93);
+  --text-dim: rgba(240, 228, 212, 0.55);
+  --text-strong: rgba(240, 228, 212, 0.82);
+  --gold: #d6a35c;
+  --red-soft: #d97a6e;
+  --red: #b04a42;
+  --cyan: #a5b3a8;
+  --blue-soft: #b8a488;
+  --green: #a3b083;
+  --pink: #cf9aa0;
+  --code-green: #a3b083;
+  --c-note: 176, 74, 66;
+  --c-clip: 214, 163, 92;
+  --c-todo: 163, 176, 131;
+  --trend-note: #d97a6e;
+  --trend-clip: #d6a35c;
+  --trend-todo: #a3b083;
+  --select-arrow: url("data:image/svg+xml,%3Csvg width='10' height='6' viewBox='0 0 10 6' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1l4 4 4-4' stroke='rgba(240,228,212,.55)' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E");
+}

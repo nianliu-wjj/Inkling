@@ -650,7 +650,7 @@ console.log('rules:', out.filter((n) => n.type === 'rule').length)
 ```
 
 Run: `node .tmp/extract-app-only.mjs && grep -c "" .tmp/app-only.css`
-Expected: `rules: 93`（89 条纯自建 + 4 条旧原型遗留：`.card-confirm`、`.todo-item:has(.card-confirm) .todo-del`、`#todoEditorModal`、`#todoEditorModal .search-input`）。若数字不同，打开 `.tmp/app-only.css` 逐条核对：允许的内容只能是 spec §6 表格列出的分组，不允许出现 `.nav-dot`、`.tag-chip`（非 shaking）、`.todo-item`（非 has）这类原型同名规则。
+Expected: `rules: 95`（89 条纯自建 + 6 条旧原型遗留：`.card-confirm`、`.todo-item:has(.card-confirm) .todo-del`、`#todoEditorModal`、`#todoEditorModal .search-input`、`.nav-dot:hover`、`.nav-dot.active`）。其中两条 `.nav-dot` 规则粘贴后要挪到第 5 节（注明「阶段三迁移后删除」：圆点导航仍是 emoji 字符，需要旧的悬浮/激活态）；另外抽取脚本只取规则不取关键帧，第 6 节末尾需手工补上 `@keyframes hotzoneIndicatorIn` 与 `@keyframes hotzoneDots`（`git show ac81857:src/styles/components.css` 中搜索这两个名字，逐字复制）。若数字不同，打开 `.tmp/app-only.css` 逐条核对：允许的内容只能是 spec §6 表格列出的分组，不允许出现 `.nav-dot`、`.tag-chip`（非 shaking）、`.todo-item`（非 has）这类原型同名规则。
 
 - [ ] **Step 2: 写 extensions.css 的手写部分**
 
@@ -852,27 +852,38 @@ import './glass.css'
 创建一次性脚本 `.tmp/coverage.mjs`（不提交）：
 
 ```js
-// 新原型的每个选择器都应出现在 src/styles 中（被剔除的演示项除外）；自建选择器只应出现在 extensions 及其后各层。
+// 新原型的每个选择器都应出现在生成层中（演示脚手架段与被剔除的演示选择器除外）；
+// 属性选择器按 prettier 风格统一引号后比较。
 import fs from 'node:fs'
-import { parseCss, isDeniedSelector } from '../scripts/lib/css-split.mjs'
-const sels = (css) => {
+import { parseCss, isDeniedSelector, splitSections } from '../scripts/lib/css-split.mjs'
+const norm = (x) => x.replace(/"/g, "'").replace(/\[([\w-]+)=([\w-]+)\]/g, "[$1='$2']")
+const sels = (nodes) => {
   const s = new Set()
-  const walk = (nodes) => nodes.forEach((n) => (n.type === 'rule' ? n.selectors.forEach((x) => s.add(x.replace(/"/g, "'"))) : n.type === 'at' ? walk(n.children) : null))
-  walk(parseCss(css))
+  const walk = (ns) => ns.forEach((n) => (n.type === 'rule' ? n.selectors.forEach((x) => s.add(norm(x))) : n.type === 'at' ? walk(n.children) : null))
+  walk(nodes)
   return s
 }
-const proto = sels(fs.readFileSync('docs/styles.css', 'utf8'))
+const SPEC = [
+  { name: 'tokens', until: '═══ 全局质量层' },
+  { name: 'base', until: '═══ 桌面环境' },
+  { name: null, until: '═══ hotzone ═══' },
+  { name: 'components', until: '多主题系统' },
+  { name: 'themes', until: null },
+]
+const sections = splitSections(parseCss(fs.readFileSync('docs/styles.css', 'utf8')), SPEC)
+const dropped = sels(sections.__drop2)
+const proto = new Set()
+for (const k of ['tokens', 'base', 'components', 'themes']) sels(sections[k]).forEach((x) => proto.add(x))
 const generated = new Set()
-for (const f of ['tokens', 'base', 'components', 'themes']) sels(fs.readFileSync(`src/styles/${f}.css`, 'utf8')).forEach((x) => generated.add(x))
-const missing = [...proto].filter((x) => !generated.has(x) && !isDeniedSelector(x))
+for (const f of ['tokens', 'base', 'components', 'themes']) sels(parseCss(fs.readFileSync(`src/styles/${f}.css`, 'utf8'))).forEach((x) => generated.add(x))
+const missing = [...proto].filter((x) => !generated.has(x) && !isDeniedSelector(x) && !dropped.has(x))
 console.log('新原型选择器在生成层缺失：', missing.length, missing.slice(0, 10))
-const ext = sels(fs.readFileSync('src/styles/extensions.css', 'utf8'))
-const dupInProto = [...ext].filter((x) => proto.has(x))
-console.log('扩展层与原型同名的选择器（应只有第 1/2/3/5 节列出的那几个）：', dupInProto)
+const ext = sels(parseCss(fs.readFileSync('src/styles/extensions.css', 'utf8')))
+console.log('扩展层与原型同名的选择器：', [...ext].filter((x) => proto.has(x)))
 ```
 
 Run: `node .tmp/coverage.mjs`
-Expected: 第一行 `缺失： 0 []`；第二行只含 `:root`、`.glass`、`input`、`textarea`、`.window-titlebar`、`.te-field input`、`.te-field select`、`.prio-opt`、`.card-confirm-text`、`#todoEditorOverlay`、`#app`（`input/textarea/#app` 若原型中不存在则不会出现）。出现其他同名项说明抽取多带了原型规则，回到第 1 步核对。
+Expected: 第一行 `缺失： 0 []`（演示脚手架段 `#menubar/.context-menu/.menu-*` 等整段丢弃、属性选择器引号差异均已在脚本内排除）；第二行只含 `:root`、`.glass`、`.window-titlebar`、`.te-field input`、`.te-field select`、`.prio-opt`、`.card-confirm-text`、`#todoEditorOverlay`。出现其他同名项说明抽取多带了原型规则，回到第 1 步核对。
 
 - [ ] **Step 8: 静态检查与构建**
 

@@ -1,69 +1,81 @@
-/* ═══════════════════════════════════════════════════════════════════════
- * Inkling 全局基础层
- * 职责：修正 tokens.css 中全局规则对交互的副作用、无边框窗口拖拽区、
- *       主窗口毛玻璃开关的降级样式。
- * 注意：滚动条与 select 主题跟随规则仍保留在 components.css 中
- *       （原样跟随原型 doc/styles.css，避免拆分产生漂移）。
- * ═══════════════════════════════════════════════════════════════════════ */
+/* 由 scripts/sync-prototype-styles.mjs 从 docs/styles.css 生成，勿手改。
+   重新生成：pnpm sync:styles   校验：pnpm sync:styles --check
+   原型 SHA-256：9b7fb60924cbf3a0019dddd4acc5e593b140be3a438d61375aac2915ef85fb95
+   分段：全局质量层：焦点环 / 禁用态 / 动效降级 / 滚动条 / 选区 */
 
-/* tokens.css 的 `* { user-select: none }` 会让输入区无法选中文本，
-   此处对所有可编辑区域恢复，保证笔记编辑器与输入框可正常选词。 */
-input,
-textarea,
-[contenteditable='true'],
-.ProseMirror,
-.cm-editor {
-  user-select: text;
-  -webkit-user-select: text;
+/* ═══ 全局质量层：焦点可见 / 禁用态 / 动效降级 / 滚动条 / 选区 ═══ */
+/* 键盘可达性：统一焦点环，仅键盘操作时呈现，不干扰鼠标用户（需求 3.2） */
+button:focus-visible,
+select:focus-visible,
+input:focus-visible,
+textarea:focus-visible,
+[contenteditable]:focus-visible,
+[role='button']:focus-visible,
+[role='tab']:focus-visible,
+[role='menuitem']:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
 }
-
-/* 无边框窗口：标题栏整体可拖拽，但其中的按钮需排除，否则点不动。 */
-[data-tauri-drag-region] {
-  app-region: drag;
-  -webkit-app-region: drag;
+/* 「仅悬浮时显示」的操作按钮对键盘用户不可达，故焦点落入卡片时同样显示（需求 3.2）。
+   以下选择器与各自的 :hover 规则一一对应，保持行为等价。 */
+.clip-item:focus-within .clip-ops,
+.day-item:focus-within .day-ops,
+.archive-item:focus-within .a-ops,
+.clip-item:focus-within .card-close,
+.archive-item:focus-within .card-close,
+.todo-item > .todo-body:focus-within > .todo-del {
+  opacity: 1;
+  pointer-events: auto;
 }
-[data-tauri-drag-region] button,
-[data-tauri-drag-region] input,
-[data-tauri-drag-region] .no-drag {
-  app-region: no-drag;
-  -webkit-app-region: no-drag;
+.tag-chip:focus-within .tag-del {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
-
-/* 主窗口「毛玻璃」开关关闭态：把玻璃令牌降级为不透明实色。
-   .glass 与全部组件无需改动即可退化为实心卡片，30 套主题同样生效。
-   开关实现见 src/windows/Main/SettingsView.vue 与 ipc 命令 set_main_acrylic。 */
-:root[data-acrylic='off'] {
-  --glass-bg: var(--bg-deep);
-  --glass-shadow: 0 12px 40px rgba(0, 0, 0, 0.35);
+#dynamicIsland:focus-within .di-resizer {
+  opacity: 1;
 }
-:root[data-acrylic='off'] .glass {
-  backdrop-filter: none;
-  -webkit-backdrop-filter: none;
+/* 禁用态统一表达，避免各组件各自定义 */
+button:disabled,
+select:disabled,
+input:disabled,
+textarea:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
 }
-
-/* 应用根节点铺满窗口；透明窗口下由 .glass 自身绘制背景。 */
-#app {
-  height: 100vh;
-  overflow: hidden;
-}
-
-/* 尊重系统「减少动态效果」设置：关闭装饰性动画，保留必要的状态反馈。 */
+/* 尊重系统「减少动态效果」偏好，降级为几乎无过渡（需求 2.1 / 3.2） */
 @media (prefers-reduced-motion: reduce) {
-  /* 时长令牌整体归零：新增动画只要引用令牌就自动跟随，不会漏。 */
-  :root {
-    --dur-instant: 0.01ms;
-    --dur-fast: 0.01ms;
-    --dur-base: 0.01ms;
-    --dur-slow: 0.01ms;
-    --stagger: 0ms;
-    --lift: 0px;
-  }
-  /* 兜住仍在使用硬编码时长的历史样式。 */
   *,
   *::before,
   *::after {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
   }
+}
+/* 细滚动条：跟随主题中性色，不打断毛玻璃观感 */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(var(--wsa), 0.22) transparent;
+}
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(var(--wsa), 0.18);
+  border-radius: var(--radius-pill);
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(var(--wsa), 0.34);
+  background-clip: content-box;
+}
+::selection {
+  background: rgba(var(--accent-rgb), 0.35);
 }

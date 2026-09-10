@@ -1,11 +1,9 @@
-/* ═══════════════════════════════════════════════════════════════════════
- * Inkling 设计令牌层
- * 来源：doc/styles.css:1-72（唯一样式源，禁止在此处新增设计语言）
- * 修改原则：如需调整视觉，先改原型再同步回本文件，保持两者一致。
- * 加载顺序：tokens → base → components → themes（见 src/styles/index.ts）
- * ═══════════════════════════════════════════════════════════════════════ */
+/* 由 scripts/sync-prototype-styles.mjs 从 docs/styles.css 生成，勿手改。
+   重新生成：pnpm sync:styles   校验：pnpm sync:styles --check
+   原型 SHA-256：9b7fb60924cbf3a0019dddd4acc5e593b140be3a438d61375aac2915ef85fb95
+   分段：令牌层：尺度令牌 + 深色基础主题令牌 + 导图语义色 + body/.glass/.btn */
 
-/* ═══ Inkling 原型样式（毛玻璃暗色系） ═══ */
+/* ═══ Inkling 原型样式（默认主题：打字机 · 纸面终端风；深色为基础令牌） ═══ */
 * {
   margin: 0;
   padding: 0;
@@ -14,32 +12,67 @@
 }
 :root {
   color-scheme: var(--scheme);
+
+  /* ═══ 尺度令牌（不随主题变化：间距 / 字阶 / 圆角 / 阴影 / 动效 / 层级） ═══
+     新增界面元素必须引用以下令牌，不再写裸数值，以保证全站视觉节奏统一。
+     取值均来自现有实际用值，引入后不产生布局跳变。 */
+  /* 间距阶 */
+  --sp-xs: 4px;
+  --sp-sm: 6px;
+  --sp-md: 10px;
+  --sp-lg: 14px;
+  --sp-xl: 20px;
+  --sp-2xl: 28px;
+  /* 字阶 */
+  --fs-2xs: 10px;
+  --fs-xs: 11px;
+  --fs-sm: 12px;
+  --fs-base: 13px;
+  --fs-md: 13.5px;
+  --fs-lg: 15px;
+  --fs-xl: 18px;
+  /* 行高 */
+  --lh-tight: 1.35;
+  --lh-base: 1.6;
+  --lh-loose: 1.9;
+  /* 圆角阶 */
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 10px;
   --radius: 14px;
-  /* ── 主题令牌（默认 = 深色；其他主题在文件末尾覆盖） ── */
+  --radius-pill: 999px;
+  /* 阴影阶：层级越高扩散越大，形成可感知的空间纵深 */
+  --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.18);
+  --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.28);
+  --shadow-lg: 0 16px 48px rgba(0, 0, 0, 0.42);
+  --shadow-pop: 0 10px 30px rgba(0, 0, 0, 0.5);
+  /* 动效：统一缓动与时长，避免各处自定曲线导致节奏不一 */
+  --ease-out: cubic-bezier(0.22, 0.61, 0.36, 1);
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --dur-fast: 120ms;
+  --dur-base: 180ms;
+  --dur-slow: 280ms;
+  /* 层级规范：现有魔法数字的语义映射，新增元素请引用而非另起数值 */
+  --z-hotzone: 8000;
+  --z-island: 8900;
+  --z-menubar: 9000;
+  --z-panel: 9200;
+  --z-demobar: 9400;
+  --z-menu: 9500;
+  --z-onboard: 9600;
+  --z-modal: 9800;
+  --z-toast: 9990;
+  /* 焦点环：键盘可达性的统一视觉（需求 3.2） */
+  --focus-ring: 0 0 0 2px rgba(var(--accent-rgb), 0.5), 0 0 0 4px rgba(var(--accent-rgb), 0.16);
+
+  /* ── 主题令牌（基础 = 深色；默认主题为「打字机」，由 html[data-theme] 首屏直接生效；
+       其余主题在文件末尾以 [data-theme] 块覆盖以下令牌） ── */
   --scheme: dark;
   --wsa: 255, 255, 255;
   --body-bg: radial-gradient(1200px 800px at 30% 20%, #2b3a67, #151826 70%);
   --glass-bg: rgba(30, 34, 50, 0.55);
   --glass-border: rgba(255, 255, 255, 0.12);
   --glass-shadow: 0 12px 40px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.08);
-  /* 玻璃质感：这里的值即「标准」档，由 styles/glass.css 的 [data-glass] 覆盖为其他档位。
-     抽成令牌是为了让质感与配色正交——同一套配色可轻可厚，不必再复制一套主题。 */
-  /* ═══ 动效令牌 ═══
-     全站动画只引用这些值，不再逐处硬编码时长与曲线：
-     「整体快一点/慢一点」是改一个变量的事，reduced-motion 也只需归零这几个时长。 */
-  --dur-instant: 90ms;
-  --dur-fast: 150ms;
-  --dur-base: 220ms;
-  --dur-slow: 320ms;
-  /* 收尾减速，适合进入类动效；比 ease 更利落。 */
-  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
-  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
-  /* 卡片悬浮抬升距离与列表逐项延迟。 */
-  --lift: 2px;
-  --stagger: 30ms;
-  --glass-blur: 24px;
-  --glass-saturate: 160%;
-  --glass-border-width: 1px;
   --menubar-bg: rgba(20, 22, 32, 0.75);
   --menu-bg: rgba(28, 30, 44, 0.92);
   --tip-bg: rgba(24, 26, 40, 0.97);
@@ -68,6 +101,26 @@
   --trend-todo: #7ee0a8;
   --select-arrow: url("data:image/svg+xml,%3Csvg width='10' height='6' viewBox='0 0 10 6' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1l4 4 4-4' stroke='rgba(255,255,255,.5)' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E");
   --bg-deep: #1a1d29;
+
+  /* ── 思维导图窗口语义色 ──
+     该窗口原先散布 139 处硬编码色值（Ant Design 浅色皮肤），违反「禁止硬编码颜色」
+     的技术约束，且导致它是全站唯一不跟随主题换肤的窗口。
+     本轮先完成令牌化：默认值刻意等于原硬编码值，故视觉零变化、零回归风险。
+     ⚠️ 下一步：在各 [data-theme] 主题块中覆盖以下 13 个令牌，导图窗口即可接入
+     31 套主题换肤（该项已记入需求文档 6.4 待办）。 */
+  --mm-surface: #ffffff;
+  --mm-surface-2: #fafafa;
+  --mm-surface-3: #f0f2f5;
+  --mm-border: #e0e0e0;
+  --mm-text: #333;
+  --mm-text-2: #666;
+  --mm-text-dim: #888;
+  --mm-primary: #1677ff;
+  --mm-primary-soft: #e6f4ff;
+  --mm-danger: #ff4d4f;
+  --mm-danger-soft: #fff1f0;
+  --mm-accent-2: #722ed1;
+  --mm-accent-2-rgb: 114, 46, 209;
 }
 body {
   font-family: -apple-system, 'PingFang SC', 'Microsoft YaHei', sans-serif;
@@ -81,9 +134,9 @@ body {
 }
 .glass {
   background: var(--glass-bg);
-  backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
-  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
-  border: var(--glass-border-width) solid var(--glass-border);
+  backdrop-filter: blur(24px) saturate(160%);
+  -webkit-backdrop-filter: blur(24px) saturate(160%);
+  border: 1px solid var(--glass-border);
   box-shadow: var(--glass-shadow);
   border-radius: var(--radius);
 }
@@ -128,4 +181,7 @@ button {
 .btn.ghost {
   background: transparent;
   border-color: rgba(var(--wsa), 0.2);
+}
+.btn:active {
+  transform: translateY(0.5px);
 }
