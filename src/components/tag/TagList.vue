@@ -3,11 +3,13 @@ import { computed, ref } from 'vue'
 import TagChip from './TagChip.vue'
 
 /**
- * 标签列表。
+ * 标签列表（原型 renderCardTags）。
  *
  * 需求 2.2：
  * - 最多展示 `max` 个，超出以「+N」聚合，点击展开全部；
- * - 无标签时显示置灰「无标签」占位，占位**不可删除**，点击弹标签管理窗。
+ * - 无标签时显示置灰「无标签」占位，占位**不可删除**，点击弹标签管理窗；
+ * - 抖动确认态（`shaking`）下强制展开全部标签，并显示「再次点击 ✕ 确认删除」提示
+ *   （提示的显隐由生成层 `.archive-item.shaking .shake-tip` 控制）。
  *
  * 单个标签的字数上限由数据层保证（笔记 5 字 / 待办 10 字），
  * 视觉上再由 .tag-name 的 max-width + 省略号兜底。
@@ -21,8 +23,10 @@ const props = withDefaults(
     deletable?: boolean
     /** 当前处于抖动确认态的标签名。 */
     shakingTag?: string | null
+    /** 所属卡片处于抖动确认态：展开全部标签并渲染提示。 */
+    shaking?: boolean
   }>(),
-  { max: 3, deletable: false, shakingTag: null },
+  { max: 3, deletable: false, shakingTag: null, shaking: false },
 )
 
 const emit = defineEmits<{
@@ -34,8 +38,8 @@ const emit = defineEmits<{
 /** 展开后不再折叠，直到组件重新挂载。 */
 const expanded = ref(false)
 
-const visibleTags = computed(() => (expanded.value ? props.tags : props.tags.slice(0, props.max)))
-
+const showAll = computed(() => expanded.value || props.shaking)
+const visibleTags = computed(() => (showAll.value ? props.tags : props.tags.slice(0, props.max)))
 const hiddenCount = computed(() => Math.max(0, props.tags.length - props.max))
 </script>
 
@@ -52,13 +56,14 @@ const hiddenCount = computed(() => Math.max(0, props.tags.length - props.max))
         @remove="emit('remove', tag)"
       />
       <span
-        v-if="!expanded && hiddenCount > 0"
+        v-if="!showAll && hiddenCount > 0"
         class="tag-more"
         :title="`展开其余 ${hiddenCount} 个标签`"
         @click.stop="expanded = true"
       >
         +{{ hiddenCount }}
       </span>
+      <span v-if="props.deletable" class="shake-tip">再次点击 ✕ 确认删除</span>
     </template>
 
     <!-- 无标签占位：不可删除，点击进入标签管理。 -->

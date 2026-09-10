@@ -5,29 +5,30 @@ import NoteCard from '@/components/card/NoteCard.vue'
 import NoteEditModal from '@/components/note/NoteEditModal.vue'
 import TagManagerModal from '@/components/tag/TagManagerModal.vue'
 import { useConfirmDelete } from '@/composables/useConfirmDelete'
+import { useShakeConfirm } from '@/composables/useShakeConfirm'
 import { useNotes } from '@/composables/useData'
 import { useToast } from '@/composables/useToast'
 import { logger } from '@/service/logger'
 import { api } from '@/service/tauri'
 import type { Note, NoteInput } from '@/typings/domain'
+import { mindmapAllText } from '@/utils/search'
 
 /**
  * 归档 · 笔记页。
  *
- * 需求 v1.2 变更 #13：笔记搜索覆盖**正文与标签**。
- * 置顶笔记优先排序。
- *
- * 两条编辑入口互不混用（需求 2.2）：
- * - 卡片底部右侧「✏️ 编辑」→ 编辑笔记正文 / 思维导图；
- * - 卡片左侧标签区 → 标签管理弹窗。
+ * 原型 renderArchive / #archive-notes：
+ * - 工具栏 = 搜索框 + 「🧠 思维导图」新建入口（.note-arch-bar）；
+ * - 搜索覆盖正文、标签与思维导图全部节点文本；置顶笔记优先排序；
+ * - 卡片标签 ✕：首次点击进入抖动确认态，再次点击真正删除（写库），3 秒无操作自动退出；
+ * - 两条编辑入口互不混用：「✏️ 编辑」→ 正文 / 导图；标签区 → 标签管理弹窗。
  */
 const { notes } = useNotes()
 const { toast } = useToast()
 const confirm = useConfirmDelete('notes-view')
+/** 标签删除的抖动二次确认：键为「笔记 id:标签名」。 */
+const shake = useShakeConfirm()
 
 const keyword = ref('')
-/** 类型筛选：思维导图与文本笔记混排，需要能只看一类。 */
-const kindFilter = ref<'all' | 'text' | 'mindmap'>('all')
 /** 正在管理标签的笔记。 */
 const tagTarget = ref<Note | null>(null)
 /** 正在编辑正文/思维导图的笔记。 */
@@ -47,27 +48,21 @@ function openMindmap(id?: string): void {
   })
 }
 
-/** 空列表提示：区分「筛没了」与「本来就没有」，否则用户以为数据丢了。 */
-const emptyHint = computed(() => {
-  if (keyword.value.trim()) return '没有匹配的笔记'
-  if (kindFilter.value === 'mindmap') return '还没有思维导图，点右上角「新建导图」开始'
-  if (kindFilter.value === 'text') return '还没有文本笔记'
-  return '还没有归档的念头'
-})
+/** 空列表提示（原型文案）：区分「筛没了」与「本来就没有」。 */
+const emptyHint = computed(() => (keyword.value.trim() ? '未找到匹配的笔记' : '暂无笔记'))
 
 const visible = computed(() => {
   const key = keyword.value.trim().toLowerCase()
   return notes.value
     .filter((note) => {
       if (note.is_draft) return false
-      // 类型筛选：editor_mode 缺省视为文本笔记（v2 迁移前的历史数据）。
-      if (kindFilter.value !== 'all') {
-        const kind = note.editor_mode === 'mindmap' ? 'mindmap' : 'text'
-        if (kind !== kindFilter.value) return false
-      }
       if (!key) return true
-      // 正文 + 标签双重匹配
-      return note.content.toLowerCase().includes(key) || note.tags.some((tag) => tag.toLowerCase().includes(key))
+      // 正文 + 标签 + 思维导图全部节点文本（原型 renderArchive 的匹配口径）
+      return (
+        note.content.toLowerCase().includes(key) ||
+        note.tags.some((tag) => tag.toLowerCase().includes(key)) ||
+        (note.editor_mode === 'mindmap' && mindmapAllText(note.mindmap_data).toLowerCase().includes(key))
+      )
     })
     .sort((a, b) => {
       if (a.pinned !== b.pinned) return a.pinned ? -1 : 1
@@ -94,6 +89,47 @@ async function remove(note: Note): Promise<void> {
   } catch (error) {
     logger.error('notes-view', '删除失败', error)
     toast('删除失败')
+  }
+}
+
+/** 抖动确认键：同一张卡片上只有一个标签处于确认态。 */
+function shakeKey(note: Note, tag: string): string {
+  return `${note.id}:${tag}`
+}
+
+/** 卡片是否处于抖动确认态。 */
+function isShaking(note: Note): boolean {
+  return shake.shakingId.value?.startsWith(`${note.id}:`) ?? false
+}
+
+/** 该卡片上处于确认态的标签名；无则 null。 */
+function shakingTagOf(note: Note): string | null {
+  const id = shake.shakingId.value
+  return id && id.startsWith(`${note.id}:`) ? id.slice(note.id.length + 1) : null
+}
+
+/**
+ * 卡片标签 ✕（原型 data-tagdel）：首次点击进入抖动确认，再次点击真正删除。
+ * 删除是写库操作，与原型一致——抖动确认 + 3 秒超时是唯一防误触。
+ */
+async function removeTag(note: Note, tag: string): Promise<void> {
+  if (!shake.press(shakeKey(note, tag))) {
+    toast('再次点击 ✕ 确认删除该标签')
+    return
+  }
+  try {
+    await api.notes.save({
+      id: note.id,
+      content: note.content,
+      tags: note.tags.filter((item) => item !== tag),
+      editorMode: note.editor_mode,
+      mindmapData: note.mindmap_data,
+      draft: false,
+    })
+    toast(`已删除标签 #${tag}`)
+  } catch (error) {
+    logger.error('notes-view', '删除标签失败', error)
+    toast('删除标签失败')
   }
 }
 
@@ -138,15 +174,10 @@ async function saveNote(input: NoteInput): Promise<void> {
 
 <template>
   <div class="archive-page">
-    <div class="notes-toolbar">
-      <input v-model="keyword" class="search-input" placeholder="🔍 搜索笔记…（正文与标签）" />
-      <select v-model="kindFilter" class="prio-select" title="按类型筛选">
-        <option value="all">全部类型</option>
-        <option value="text">📝 笔记</option>
-        <option value="mindmap">🧠 思维导图</option>
-      </select>
-      <button type="button" class="btn tiny" title="新建思维导图（思维导图只能在此创建）" @click="openMindmap()">
-        🧠 新建导图
+    <div class="note-arch-bar">
+      <input v-model="keyword" class="search-input" placeholder="🔍 搜索笔记…（正文、标签与思维导图节点）" />
+      <button type="button" class="btn tiny" title="新建思维导图（保存后作为笔记卡片入列表）" @click="openMindmap()">
+        <span class="ix">🧠</span> 思维导图
       </button>
     </div>
 
@@ -156,16 +187,17 @@ async function saveNote(input: NoteInput): Promise<void> {
         :key="note.id"
         :note="note"
         :confirming="confirm.isPending(note.id)"
+        :shaking="isShaking(note)"
+        :shaking-tag="shakingTagOf(note)"
         @pin="togglePin(note)"
         @edit="note.editor_mode === 'mindmap' ? openMindmap(note.id) : (editTarget = note)"
         @open-tags="tagTarget = note"
+        @remove-tag="removeTag(note, $event)"
         @ask-delete="confirm.ask(note.id)"
         @confirm-delete="remove(note)"
         @cancel-delete="confirm.cancel()"
       />
-      <div v-if="!visible.length" class="tag-mgr-empty">
-        {{ emptyHint }}
-      </div>
+      <div v-if="!visible.length" class="todo-empty">{{ emptyHint }}</div>
     </div>
 
     <!-- ✏️ 编辑：笔记正文 / 思维导图 -->
