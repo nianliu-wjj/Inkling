@@ -149,6 +149,18 @@ export function pop(el: HTMLElement): Promise<boolean> {
   return run(el, [el], { scale: [0.95, 1], duration: tokens.fast, ease: tokens.easeSpring })
 }
 
+/** 窗口 / 大面板入场：scale .94 → 1 + 淡入，--dur-base，--ease-out（原型 openMainWindow 的 gsap 参数）。 */
+export function popIn(el: HTMLElement): Promise<boolean> {
+  const tokens = readMotionTokens()
+  if (tokens.reduced) {
+    cancelRunning(el)
+    clearInline(el)
+    return Promise.resolve(true)
+  }
+  logger.debug('motion', 'popIn scale .94 → 1')
+  return run(el, [el], { scale: [0.94, 1], opacity: [0, 1], duration: tokens.base, ease: tokens.easeOut })
+}
+
 /** 同容器内容替换：旧元素淡出（--dur-fast），新元素淡入（--dur-base）。 */
 export async function crossfade(outEl: HTMLElement, inEl: HTMLElement): Promise<boolean> {
   const tokens = readMotionTokens()

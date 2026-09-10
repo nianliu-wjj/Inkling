@@ -1,9 +1,6 @@
 <script setup lang="ts">
-import * as echarts from 'echarts/core'
-import { LineChart } from 'echarts/charts'
-import { GridComponent, LegendComponent, TooltipComponent } from 'echarts/components'
-import { CanvasRenderer } from 'echarts/renderers'
-import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, onMounted, ref } from 'vue'
+import TrendChart from '@/components/stats/TrendChart.vue'
 import { logger } from '@/service/logger'
 import { api } from '@/service/tauri'
 import type { ActivityDay, MonthTrend } from '@/typings/domain'
@@ -16,9 +13,8 @@ import { toDateKey } from '@/utils/datetime'
  * - 日历格子热力图（列=周、行=星期），顶部标注月份范围；
  * - 悬浮显示日期与明细（笔记 / 复制项 / 待办含已完成与逾期）；
  * - 存在逾期的日期格子以红色边框标识（.ovd）；
- * - 趋势图为折线图；统计页支持滚动。
+ * - 趋势图为原型的内联 SVG 折线（TrendChart），不再依赖图表库。
  */
-echarts.use([LineChart, GridComponent, TooltipComponent, LegendComponent, CanvasRenderer])
 
 /** 热力图覆盖的天数，与后端 stats_heatmap 的默认值一致。 */
 const HEATMAP_DAYS = 182
@@ -26,13 +22,10 @@ const HEATMAP_DAYS = 182
 const activity = ref<ActivityDay[]>([])
 const trend = ref<MonthTrend[]>([])
 
-const trendHost = ref<HTMLElement | null>(null)
-let chart: echarts.ECharts | null = null
-
 /** 悬浮提示：位置与内容。 */
 const tip = ref<{ x: number; y: number; day: ActivityDay } | null>(null)
 
-/** 读取主题令牌，保证图表颜色跟随 30 套主题。 */
+/** 读取主题令牌，保证图表颜色跟随 32 套主题。 */
 function themeVar(name: string, fallback: string): string {
   const value = getComputedStyle(document.documentElement).getPropertyValue(name).trim()
   return value || fallback
@@ -88,58 +81,6 @@ function showTip(event: MouseEvent, day: ActivityDay | null, key: string): void 
   }
 }
 
-/** 渲染折线趋势图。 */
-function renderTrend(): void {
-  if (!trendHost.value) return
-  chart ??= echarts.init(trendHost.value)
-
-  const axisColor = themeVar('--text-dim', 'rgba(255,255,255,.5)')
-  chart.setOption({
-    grid: { left: 38, right: 16, top: 28, bottom: 24 },
-    tooltip: { trigger: 'axis' },
-    legend: {
-      data: ['笔记', '粘贴板', '待办'],
-      textStyle: { color: axisColor },
-      right: 0,
-      top: 0,
-    },
-    xAxis: {
-      type: 'category',
-      data: trend.value.map((m) => m.month),
-      axisLine: { lineStyle: { color: axisColor } },
-      axisLabel: { color: axisColor },
-    },
-    yAxis: {
-      type: 'value',
-      splitLine: { lineStyle: { color: 'rgba(128,128,128,.15)' } },
-      axisLabel: { color: axisColor },
-    },
-    series: [
-      {
-        name: '笔记',
-        type: 'line',
-        smooth: true,
-        data: trend.value.map((m) => m.notes),
-        itemStyle: { color: themeVar('--trend-note', '#ff8a8a') },
-      },
-      {
-        name: '粘贴板',
-        type: 'line',
-        smooth: true,
-        data: trend.value.map((m) => m.clips),
-        itemStyle: { color: themeVar('--trend-clip', '#ffd76e') },
-      },
-      {
-        name: '待办',
-        type: 'line',
-        smooth: true,
-        data: trend.value.map((m) => m.todos),
-        itemStyle: { color: themeVar('--trend-todo', '#7ee0a8') },
-      },
-    ],
-  })
-}
-
 async function load(): Promise<void> {
   try {
     const [days, months] = await Promise.all([api.stats.heatmap(HEATMAP_DAYS), api.stats.trend()])
@@ -151,23 +92,7 @@ async function load(): Promise<void> {
   }
 }
 
-function onResize(): void {
-  chart?.resize()
-}
-
-onMounted(async () => {
-  await load()
-  renderTrend()
-  window.addEventListener('resize', onResize)
-})
-
-watch(trend, renderTrend)
-
-onBeforeUnmount(() => {
-  window.removeEventListener('resize', onResize)
-  chart?.dispose()
-  chart = null
-})
+onMounted(load)
 </script>
 
 <template>
@@ -200,7 +125,7 @@ onBeforeUnmount(() => {
     </div>
 
     <div class="stats-legend">近 6 个月趋势（各模块使用量折线）</div>
-    <div ref="trendHost" class="trend-chart" style="height: 220px" />
+    <TrendChart :months="trend" />
 
     <!-- 悬浮明细 -->
     <div
