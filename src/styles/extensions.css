@@ -142,6 +142,19 @@ textarea,
   transform: scale(1.15);
 }
 
+/* 圆点导航仍是 emoji 字符时，屏蔽原型的 ::before 矢量圆点：它在 22px 的 grid 盒里占一行，
+   把 emoji 挤到下方、激活态的圆形底色随之错位（阶段三改为矢量圆点后删除）。 */
+.nav-dot::before {
+  content: none;
+}
+/* 主窗口粘贴板列表仍用裸 <ul>（原型主窗口为 <div>，只有面板 .clip-list 关掉了项目符号），
+   新原型的 .clip-item 不再是 flex 盒子，于是露出「•」（阶段二主窗口对齐后删除）。 */
+.archive-page > ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
 /* ═══ 6. 自建组件样式（迁自 components.css@ac81857，2026-09-10，由 .tmp/extract-app-only.mjs 抽取） ═══ */
 /* ═══ hotzone ═══ */
 :root[data-window='hotzone'],
@@ -748,4 +761,14 @@ body:not(:focus-within) .mac-dot {
   --trend-clip: #d6a35c;
   --trend-todo: #a3b083;
   --select-arrow: url("data:image/svg+xml,%3Csvg width='10' height='6' viewBox='0 0 10 6' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1l4 4 4-4' stroke='rgba(240,228,212,.55)' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E");
+}
+
+/* ═══ 8. 阶段一验收补丁（实机发现，阶段四灵动岛对齐原型后删除） ═══
+ * island.css 的胶囊底色是固定的深色 rgba(24,26,40,α)，文字却取主题令牌 --text/--text-dim/--wsa；
+ * 默认主题改为打字机（浅色）后文字变成深色压在深色胶囊上不可见。这里把胶囊内的三个令牌
+ * 钉回浅色值，等阶段四按原型 #dynamicIsland.glass 重做后整节删除。 */
+.island {
+  --text: rgba(255, 255, 255, 0.92);
+  --text-dim: rgba(255, 255, 255, 0.5);
+  --wsa: 255, 255, 255;
 }

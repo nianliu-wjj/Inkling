@@ -395,12 +395,14 @@ async function openDataDir(): Promise<void> {
 
       <div class="setting-row">
         <span>主题</span>
-        <div class="theme-dd">
+        <!-- 结构与原型 renderThemeDD 一致：色点 → 名称(.dd-name 撑满) → 箭头/勾选靠右（.dd-check 靠 margin-left:auto 排最后） -->
+        <div class="theme-dd" :class="{ open: themeMenuOpen }">
           <button type="button" class="theme-dd-trigger" @click="themeMenuOpen = !themeMenuOpen">
             <span class="theme-dots">
               <i v-for="dot in currentTheme.dots" :key="dot" :style="{ background: dot }" />
             </span>
-            <span>{{ currentTheme.label }}</span>
+            <span class="dd-name">{{ currentTheme.label }}</span>
+            <span class="dd-chevron">▾</span>
           </button>
           <div v-if="themeMenuOpen" class="theme-dd-menu">
             <div
@@ -410,11 +412,11 @@ async function openDataDir(): Promise<void> {
               :class="{ active: option.key === settings.theme }"
               @click="pickTheme(option.key)"
             >
-              <span class="dd-check">✓</span>
               <span class="theme-dots">
                 <i v-for="dot in option.dots" :key="dot" :style="{ background: dot }" />
               </span>
-              <span>{{ option.label }}</span>
+              <span class="dd-name">{{ option.label }}</span>
+              <span class="dd-check">✓</span>
             </div>
           </div>
         </div>
