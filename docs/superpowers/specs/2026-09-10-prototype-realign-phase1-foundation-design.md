@@ -98,7 +98,7 @@
 
 若任一标题找不到，脚本报错退出，不产出半成品。
 
-**演示脚手架过滤**（对全部四段生效）：按规则逐条解析 `selector-list { ... }`，对逗号分隔的选择器逐个匹配拒绝名单：`#desktop #menubar #clock #trayIcon #trayMenu .tray-icon #fakeApp .fake-* .dot .dot.* #onboarding .onboard-* #demoBar .demo-*`。匹配时以选择器的**起始复合选择器**判断：`.dot` 只匹配 `.dot`、`.dot.red` 这类以 `.dot` 起始的项，`.nav-dot.dot-note` 不受影响。逗号列表中只删除匹配项，其余保留；整条规则的选择器全部被删时整条丢弃。`@keyframes`、`@media` 块内部同样递归处理。已知需要保留的两处：灰度列表（原型 :802）删 `.onboard-title` 后其余保留；打字机主题的 `backdrop-filter: none` 列表删 `#demoBar` 后其余保留，`[data-theme="typewriter"] #menubar` 整条丢弃。
+**演示脚手架过滤**（对全部四段生效）：按规则逐条解析 `selector-list { ... }`，对逗号分隔的选择器逐个匹配拒绝名单——精确项 `#desktop #menubar #clock #trayIcon #trayMenu #fakeApp #onboarding #demoBar .dot`（允许后接 `.`/`:`/`[`）与前缀项 `.tray-icon .fake- .onboard- .demo- .menubar-`。匹配时把选择器按组合符切成复合选择器，**任一复合选择器命中即删**：这样 `[data-theme="typewriter"] #demoBar` 也能被识别；而 `.nav-dot.dot-note`、`.di-dot.high` 的复合选择器以 `.nav-dot`/`.di-dot` 起始，不受 `.dot` 影响。逗号列表中只删除匹配项，其余保留；整条规则的选择器全部被删时整条丢弃。`@media` 块内部递归处理。已知需要保留的两处：灰度列表（原型 :802）删 `.onboard-title` 后其余保留；打字机主题的 `backdrop-filter: none` 列表删 `#demoBar` 后其余保留，`[data-theme="typewriter"] #menubar` 整条丢弃。
 
 **规范化**：输出经 prettier（项目 `.prettierrc.json`）格式化，与仓库其他 CSS 一致。
 
@@ -127,21 +127,15 @@
 
 | 分节 | 迁自 | 内容 |
 |---|---|---|
-| 交互修正 | 现 `base.css` | 输入区 / `.ProseMirror` / `.cm-editor` 恢复 `user-select: text`；`[data-tauri-drag-region]` 拖拽区与 `no-drag`；`#app` 铺满窗口 |
-| 毛玻璃开关 | 现 `base.css` | `:root[data-acrylic='off']` 令牌降级与 `.glass` 去模糊 |
-| 动效扩展令牌 | 现 `tokens.css` | `:root { --dur-instant: 90ms; --ease-in-out; --lift: 2px; --stagger: 30ms }`；reduced-motion 下这四个也归零（现 `base.css` 的对应块迁来） |
-| 感应区指示器 | 现 `components.css` :47–:130 附近 | `:root[data-window='hotzone']`、`.hotzone-indicator*`、`#hotzone[data-edge=…]`、`.hotzone-progress*` |
-| 笔记工具栏与类型徽章 | 现 `components.css` :528–:579 | `.notes-toolbar*`、`.note-kind`、`.kind-text`、`.kind-mindmap`、`.archive-item.mindmap` |
-| 窗口控制按钮 | 现 `components.css` :580–:700 附近 | `.win-controls*`、`.win-controls-mac`、`.mac-dot*`、`.win-controls-win`、`.win-btn*`、`:root[data-maximized]` |
-| 设置页扩展控件 | 现 `components.css` :1428–:1540 附近 | `.settings-body input[type=…]`、`.setting-section-title`、`.setting-col*`、`.launcher-roots*`、`.setting-hint*`、`input[type='number']`、`input[type='checkbox']` |
-| 待办编辑器扩展 | 现 `components.css` :2653–:2700 附近 | `.te-field-date/time/priority`、`.te-remind-channels`、`.te-channel*` |
-| 优先级菜单勾选态 | 现 `components.css` :2876 附近 | `.prio-opt .prio-check`、`[aria-selected='true']`、`.prio-opt.active` |
-| 标签抖动补丁 | 现 `components.css` :1888、:2898 | `.tag-chip.shaking*` |
-| 编辑器与代码块 | 现 `components.css` :2913–:2996 | `.editor .is-empty::before`、`.editor blockquote/ul/ol/hr/s`、`.pm-codeblock*`、`.note-mindmap-summary`、`.mindmap-editor*` |
-| 错落动画态 | 新增 | `.is-animating { transition: none !important; }`（JS 动效期间禁用 CSS transition，避免拖影） |
-| 棕褐主题 | 现 `themes.css` :1086–末 | `:root[data-theme='sepia'] { … }` 原样迁入 |
+| 1. 扩展令牌 | 现 `tokens.css` | `:root { --dur-instant: 90ms; --ease-in-out; --lift: 2px; --stagger: 30ms; --glass-blur: 24px; --glass-saturate: 160%; --glass-border-width: 1px }`；`.glass` 改为引用玻璃令牌（否则 `glass.css` 的 data-glass 三档失效）；reduced-motion 下扩展时长归零 |
+| 2. 交互修正与窗口基础 | 现 `base.css` | 输入区 / `.ProseMirror` / `.cm-editor` 恢复 `user-select: text`；`[data-tauri-drag-region]` 拖拽区与 `no-drag`；`:root[data-acrylic='off']` 令牌降级与 `.glass` 去模糊；`#app` 铺满窗口 |
+| 3. 同名规则的项目补充声明 | 现 `components.css` | 只写项目追加的声明，不重复原型的值：`.window-titlebar { overflow: visible }`、`.te-field input/select { width: 100%; min-width: 0 }`、`.prio-opt { min-height: 32px; position: relative; outline: none }` |
+| 4. 错落动画态 | 新增 | `.is-animating { transition: none !important; }`（JS 动效期间禁用 CSS transition，避免拖影） |
+| 5. 过渡桥接（阶段四迁移后删除） | 旧原型 `doc/styles.css` | ConfirmPopover / TodoEditorModal 仍按旧原型结构实现，新原型已改为全局 `#cardConfirm` 与锚定的 `#todoEditorPanel`：桥接 `@keyframes confirmIn`、`.card-confirm-text`、`#todoEditorOverlay` 的居中遮罩声明，以及随第 6 节抽取进来的 `.card-confirm`、`.todo-item:has(.card-confirm) .todo-del`、`#todoEditorModal`、`#todoEditorModal .search-input` |
+| 6. 自建组件样式 | 现 `components.css`（脚本抽取：所有选择器都不在新原型里的规则，共 93 条） | 感应区指示器 `:root[data-window='hotzone']`、`.hotzone-indicator*`、`#hotzone[data-edge=…]`；笔记工具栏与类型徽章 `.notes-toolbar*`、`.note-kind`、`.kind-*`、`.archive-item.mindmap`；窗口控制按钮 `.win-controls*`、`.mac-dot*`、`.win-btn*`、`:root[data-maximized]`；设置页扩展控件 `.settings-body input[type=…]`、`.setting-section-title`、`.setting-col*`、`.launcher-roots*`、`.setting-hint*`、`input[type='number']`、`input[type='checkbox']`；待办编辑器扩展 `.te-field-date/time/priority`、`.te-remind-channels`、`.te-channel*`；优先级菜单勾选态 `.prio-opt .prio-check`、`[aria-selected='true']`、`.prio-opt.active`；标签抖动补丁 `.tag-chip.shaking*`；编辑器与代码块 `.editor .is-empty::before`、`.editor blockquote/ul/ol/hr/s`、`.pm-codeblock*`、`.note-mindmap-summary`、`.mindmap-editor*` |
+| 7. 棕褐主题 | 现 `themes.css` :1085–末 | `:root[data-theme='sepia'] { … }` 原样迁入 |
 
-迁移原则：**逐字搬运，不改值**；每个分节头注明「迁自 <文件>:<行>（2026-09-10）」。若发现某条自建规则的目的已被新原型覆盖（例如新原型已有等价的 focus-within 规则），删除自建条目并在提交信息中列出。
+迁移原则：**逐字搬运，不改值**；每个分节头注明「迁自 <文件>@ac81857（2026-09-10）」。当前 `components.css` 里与原型同名但取值属于旧原型的规则（如 `.nav-dot`、`.tag-chip` 的 padding、`.todo-item` 的 display、`.settings-body select` 的配色）一律不迁，由新原型的生成层接管。
 
 ---
 
@@ -208,9 +202,9 @@
 4. 每个视图同一时刻最多 1–2 个动效元素；退出时长为入场的 60–70%；动效可被后续操作打断。
 
 ### 8.4 列表错落指令 `v-stagger-list`
-- 用法：`<ul v-stagger-list="listKey">`，`listKey` 为能代表「列表内容换了一批」的字符串（如 `${view}:${query}`）。
-- 行为：`mounted` 与 `updated`（且 `listKey` 变化）时，取容器**直接子元素**的前 12 个执行 `staggerIn`，其余保持静止；动画期间给参与元素加 `.is-animating`，完成 / 取消后移除并清内联样式。
-- 同一容器再次触发时先取消进行中的动画。
+- 用法：`<ul v-stagger-list>`，无参数。
+- 行为：`mounted` 与宿主组件每次 `updated` 后检查容器的**直接子元素**，只对**首次出现**的子元素（以 WeakSet 记录）取前 12 个执行 `staggerIn`，已出现过的不动、超出 12 个的立即显示。keyed `v-for` 复用的 DOM 节点不算新出现，因此删除、重排、搜索过滤中保留下来的项不会重播；异步加载后新填充的项会自然入场。
+- 同一容器再次触发时先取消进行中的动画；动画期间给参与元素加 `.is-animating`，完成 / 取消后移除并清内联样式。
 - reduced-motion 下不做任何 DOM 写入。
 - 不使用 `<TransitionGroup>`：它依赖 CSS 类与 fill 态，违反硬约束 2。
 
@@ -220,16 +214,15 @@
 - 位移轴与方向仍按 `panel_position` 推导（`motionAxis`/`motionDistance` 保留）。
 - 删除 `import gsap`；`pnpm remove gsap`；全仓 `grep -r gsap src` 必须为空。
 
-### 8.6 错落接入点（六处）
+### 8.6 错落接入点（五处模板，覆盖六个列表）
 
-| 位置 | 容器 | listKey |
-|---|---|---|
-| `windows/Main/NotesView.vue` | 卡片列表容器 | `notes:${query}` |
-| `windows/Main/ClipsView.vue` | `<ul>` | `clips:${query}` |
-| `components/card/TodoTree.vue` | 顶层 `<ul class="todo-list">`（只对顶层项错落，`.todo-children` 不接） | 由父视图传入 `todos:${date}:${query}:${prio}` |
-| `windows/Main/DayView.vue` | 日期详情列表容器 | `day:${date}:${filter}:${query}` |
-| `windows/Panel/ClipPage.vue` | `<ul class="clip-list">` | `panel-clips:${query}` |
-| `windows/Panel/TodoPage.vue` | 经 TodoTree 接入 | `panel-todos:${query}:${prio}` |
+| 位置 | 容器 |
+|---|---|
+| `windows/Main/NotesView.vue` | 包住 NoteCard 的列表容器 `<div v-stagger-list>` |
+| `windows/Main/ClipsView.vue` | `<ul v-stagger-list>` |
+| `windows/Main/DayView.vue` | 日期详情列表容器 `<div v-stagger-list>` |
+| `windows/Panel/ClipPage.vue` | `<ul v-stagger-list class="clip-list">` |
+| `components/card/TodoTree.vue` | 顶层 `<ul v-stagger-list class="todo-list">`——同时覆盖主窗口待办页与面板待办页；只对顶层项与分区标题错落，子级 `.todo-children` 不接 |
 
 启动台结果列表不接（键盘即时响应优先，原型亦无此动效）。
 
