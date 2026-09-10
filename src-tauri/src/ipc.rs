@@ -128,8 +128,13 @@ pub fn quit_app(app: AppHandle) -> Result<(), String> {
     Ok(())
 }
 
+/// 创建置顶浮窗。
+///
+/// 必须是 **async** 命令（与 `editor_open` / `mindmap_open` 同款）：同步命令跑在主线程上，
+/// 而 `build()` 需要主线程的事件循环去处理，两边互等——窗口句柄建出来了但 WebView 永不初始化，
+/// 且此后该窗口发起的所有 invoke 全部挂起（2026-09-10 阶段一验收实机复现）。
 #[tauri::command]
-pub fn pin_create(app: AppHandle, kind: String, id: String) -> Result<(), String> {
+pub async fn pin_create(app: AppHandle, kind: String, id: String) -> Result<(), String> {
     windows::pin_create(&app, &kind, &id)
 }
 
