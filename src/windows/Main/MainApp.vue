@@ -6,6 +6,7 @@ import { controlsOnLeft } from '@/constants/platform'
 import { useClips, useNotes, useSettings, useTodos } from '@/composables/useData'
 import { applyCachedGlass, useGlass } from '@/composables/useGlass'
 import { applyCachedTheme, useTheme } from '@/composables/useTheme'
+import { popIn } from '@/motion'
 import { AppEvents, onAppEvent } from '@/service/events'
 import { logger } from '@/service/logger'
 import { api } from '@/service/tauri'
@@ -13,6 +14,8 @@ import type { ActivityDay, View } from '@/typings/domain'
 import { todayKey } from '@/utils/datetime'
 import ClipsView from './ClipsView.vue'
 import DayView from './DayView.vue'
+import IslandPageView from './IslandPageView.vue'
+import LauncherPageView from './LauncherPageView.vue'
 import NotesView from './NotesView.vue'
 import Sidebar from './Sidebar.vue'
 import SettingsView from './SettingsView.vue'
@@ -20,13 +23,14 @@ import StatsView from './StatsView.vue'
 import TodosView from './TodosView.vue'
 
 /**
- * 归档主窗口（v1.2 变更 #4：单窗口左右结构）。
+ * 归档主窗口（原型 #mainWindow：单窗口左右结构）。
  *
- * 左侧边栏切换视图，右侧主内容区展示；统计与偏好设置也在同一窗口内，
- * 不再弹独立窗口。响应托盘/快捷键发来的 inkling://navigate 事件。
+ * 左侧边栏切换视图，右侧主内容区展示八个视图：笔记 / 粘贴板 / 待办 / 启动台 / 灵动岛 /
+ * 统计 / 偏好设置 / 日期详情。响应托盘 / 快捷键发来的 inkling://navigate 事件；
+ * 每次由后端 show_main 显示时（inkling://main-shown）重播入场动效（原型 openMainWindow）。
  */
 
-// 启动瞬间先用缓存主题上色，避免闪一下默认深色。
+// 启动瞬间先用缓存主题上色，避免闪一下默认主题。
 applyCachedTheme()
 applyCachedGlass()
 
@@ -37,15 +41,28 @@ const { settings } = useSettings()
 const { applyTheme } = useTheme()
 const { applyGlass } = useGlass()
 
+const root = ref<HTMLElement | null>(null)
 const view = ref<View | 'day'>('notes')
 const selectedDate = ref('')
 const activity = ref<ActivityDay[]>([])
 
-/** 侧边栏计数徽章：草稿不计入笔记数，子任务不计入待办数。 */
+/** 视图集合：用于校验外部（托盘 / 启动台）请求的视图名。 */
+const VIEWS: ReadonlySet<string> = new Set([
+  'notes',
+  'clips',
+  'todos',
+  'launcher',
+  'island',
+  'stats',
+  'settings',
+  'day',
+])
+
+/** 侧边栏计数徽章（原型口径）：笔记不计草稿；粘贴板总数；待办含子任务与已完成。 */
 const counts = computed(() => ({
   notes: notes.value.filter((n) => !n.is_draft).length,
   clips: clips.value.length,
-  todos: todos.value.filter((t) => !t.parent_id && t.status === 'open').length,
+  todos: todos.value.length,
 }))
 
 /** 主题跟随设置变化。 */
@@ -53,13 +70,13 @@ watch(() => settings.value.theme, applyTheme, { immediate: true })
 // 玻璃质感与主题同源：后端设置变化时一并同步。
 watch(() => settings.value.glass_level, applyGlass, { immediate: true })
 
-/** 毛玻璃开关：同步根属性，供 base.css 的降级规则使用。 */
+/** 毛玻璃开关：同步根属性，供 extensions.css 的降级规则使用。 */
 watch(
   () => settings.value.main_acrylic,
   (enabled) => {
-    const root = document.documentElement
-    if (enabled) root.removeAttribute('data-acrylic')
-    else root.setAttribute('data-acrylic', 'off')
+    const rootEl = document.documentElement
+    if (enabled) rootEl.removeAttribute('data-acrylic')
+    else rootEl.setAttribute('data-acrylic', 'off')
   },
   { immediate: true },
 )
@@ -73,9 +90,13 @@ async function loadActivity(): Promise<void> {
   }
 }
 
-function navigate(next: View | 'day'): void {
+function navigate(next: string): void {
+  if (!VIEWS.has(next)) {
+    logger.warn('main', `未知视图 ${next}，忽略`)
+    return
+  }
   logger.info('main', `切换视图 → ${next}`)
-  view.value = next
+  view.value = next as View | 'day'
 }
 
 function pickDate(dateKey: string): void {
@@ -83,15 +104,21 @@ function pickDate(dateKey: string): void {
   view.value = 'day'
 }
 
+/** 入场动效：原型 openMainWindow 的 scale .94 → 1 + 淡入；窗口每次显示都重播。 */
+function playEnter(): void {
+  if (root.value) void popIn(root.value)
+}
+
 onMounted(() => {
   void loadActivity()
+  playEnter()
 
   // 托盘菜单 / 快捷键请求切换视图。
   void onAppEvent<string>(AppEvents.navigate, (target) => {
-    if (!target) return
-    navigate(target as View)
+    if (target) navigate(target)
   })
-
+  // 后端每次 show_main 都广播，据此重播入场动效。
+  void onAppEvent(AppEvents.mainShown, playEnter)
   // 数据变化后刷新热力图。
   void onAppEvent(AppEvents.statsChanged, () => void loadActivity())
 
@@ -100,7 +127,7 @@ onMounted(() => {
 </script>
 
 <template>
-  <div id="mainWindow" class="app-window glass">
+  <div id="mainWindow" ref="root" class="app-window glass">
     <!-- 标题栏：控件位置随平台——macOS 三点在左，Windows 三键在右（见 constants/platform.ts）。
          整条是拖拽区，控件内部用 .no-drag 排除。 -->
     <div class="window-titlebar" :class="{ 'controls-left': controlsOnLeft }" data-tauri-drag-region>
@@ -123,6 +150,8 @@ onMounted(() => {
         <NotesView v-if="view === 'notes'" />
         <ClipsView v-else-if="view === 'clips'" />
         <TodosView v-else-if="view === 'todos'" />
+        <LauncherPageView v-else-if="view === 'launcher'" />
+        <IslandPageView v-else-if="view === 'island'" />
         <StatsView v-else-if="view === 'stats'" />
         <SettingsView v-else-if="view === 'settings'" />
         <DayView v-else-if="view === 'day'" :date-key="selectedDate || todayKey()" />

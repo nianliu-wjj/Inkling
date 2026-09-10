@@ -1,4 +1,4 @@
-export type View = 'notes' | 'clips' | 'todos' | 'stats' | 'settings'
+export type View = 'notes' | 'clips' | 'todos' | 'launcher' | 'island' | 'stats' | 'settings'
 export type CaptureMode = 'note' | 'clipboard' | 'todo'
 export type Priority = 'high' | 'medium' | 'low'
 
