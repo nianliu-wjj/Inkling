@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { useSettings } from '@/composables/useData'
+import { useShortcutRecorder } from '@/composables/useShortcutRecorder'
 import { useToast } from '@/composables/useToast'
 import { useGlass } from '@/composables/useGlass'
 import { useTheme } from '@/composables/useTheme'
@@ -9,7 +10,7 @@ import { builtinPlugins, resolvePlugins, serializePlugins } from '@/panel-plugin
 import { builtinIslandPlugins, resolveIslandPlugins, serializeIslandPlugins } from '@/island-plugins'
 import { themes } from '@/constants/themes'
 import { logger } from '@/service/logger'
-import { api, type LauncherStatus } from '@/service/tauri'
+import { api } from '@/service/tauri'
 import type { CollapsePolicy, GlassLevel, PanelPosition, RemarkStyle, Settings } from '@/typings/domain'
 
 /**
@@ -27,11 +28,6 @@ const { applyGlass } = useGlass()
 const { toast } = useToast()
 
 const themeMenuOpen = ref(false)
-/** 快捷键录制态：录制期间捕获所有按键。 */
-const recording = ref(false)
-/** 正在录制哪个快捷键：面板还是启动器。 */
-const recordTarget = ref<'panel' | 'launcher'>('panel')
-
 const currentTheme = computed(() => themes.find((t) => t.key === settings.value.theme) ?? themes[0])
 
 /** 统一的保存入口：局部覆盖后整体写回。 */
@@ -73,124 +69,12 @@ watch(
 )
 
 /** 录制全局快捷键：把按键组合规范化为 Tauri 接受的格式。 */
-function onRecordKeydown(event: KeyboardEvent): void {
-  if (!recording.value) return
-  event.preventDefault()
-
-  // 只按下修饰键时继续等待主键。
-  const key = event.key
-  if (['Control', 'Shift', 'Alt', 'Meta'].includes(key)) return
-
-  const parts: string[] = []
-  if (event.ctrlKey) parts.push('Ctrl')
-  if (event.shiftKey) parts.push('Shift')
-  if (event.altKey) parts.push('Alt')
-  if (event.metaKey) parts.push('Super')
-  parts.push(key === ' ' ? 'Space' : key.length === 1 ? key.toUpperCase() : key)
-
-  const combo = parts.join('+')
-  recording.value = false
-  void rebind(combo)
-}
-
-async function rebind(combo: string): Promise<void> {
-  const target = recordTarget.value
-  logger.info('settings', `重新绑定${target === 'panel' ? '面板' : '启动器'}快捷键 ${combo}`)
-  try {
-    if (target === 'panel') {
-      const applied = await api.shortcut.rebind(combo)
-      await patch({ shortcut: applied })
-      toast(`面板快捷键已设为 ${applied}`)
-    } else {
-      const applied = await api.launcher.rebindShortcut(combo)
-      await patch({ launcher_shortcut: applied })
-      toast(`启动器快捷键已设为 ${applied}`)
-    }
-  } catch (error) {
-    logger.error('settings', '快捷键绑定失败', error)
-    toast(`快捷键绑定失败：${String(error)}`)
-  }
-}
-
-function startRecording(target: 'panel' | 'launcher' = 'panel'): void {
-  recordTarget.value = target
-  recording.value = true
-  toast('请按下新的快捷键组合')
-  window.addEventListener('keydown', onRecordKeydown, { once: false })
-}
-
-/** 启动器索引状态（设置页展示 + 重建）。 */
-const launcherStatus = ref<LauncherStatus | null>(null)
-const rebuilding = computed(() => launcherStatus.value?.rebuilding ?? false)
-
-async function refreshLauncherStatus(): Promise<void> {
-  try {
-    launcherStatus.value = await api.launcher.status()
-  } catch (error) {
-    logger.error('settings', '读取启动器状态失败', error)
-  }
-}
-
-async function rebuildLauncher(): Promise<void> {
-  try {
-    await api.launcher.rebuild()
-    toast('已开始重建索引')
-    // 重建在后台，稍后刷新状态
-    setTimeout(() => void refreshLauncherStatus(), 1500)
-  } catch (error) {
-    logger.error('settings', '重建索引失败', error)
-    toast('重建索引失败')
-  }
-}
-
-/** 切换全盘文件索引：持久化后立即重建（索引来源变化）。 */
-async function toggleFullDiskIndex(value: boolean): Promise<void> {
-  await patch({ launcher_full_disk_index: value })
-  void rebuildLauncher()
-}
-
-/** 修改额外排除目录：持久化（下次重建生效，用户可手动「立即重建」）。 */
-async function setExtraExcludes(value: string): Promise<void> {
-  await patch({ launcher_extra_excludes: value })
-}
-
-/** 启动器根目录：以 JSON 存 Settings.launcher_roots，UI 上按行编辑「路径|深度」。 */
-interface LauncherRootRow {
-  path: string
-  depth: number
-  excludes: string[]
-}
-const launcherRoots = computed<LauncherRootRow[]>(() => {
-  const raw = settings.value.launcher_roots.trim()
-  if (!raw) return []
-  try {
-    const parsed = JSON.parse(raw) as LauncherRootRow[]
-    return Array.isArray(parsed) ? parsed : []
-  } catch {
-    return []
-  }
+/** 面板全局快捷键录制：改绑成功后持久化到 settings.shortcut。 */
+const { recording, start: startRecording } = useShortcutRecorder({
+  label: '面板',
+  apply: (combo) => api.shortcut.rebind(combo),
+  persist: (applied) => patch({ shortcut: applied }),
 })
-
-function saveLauncherRoots(rows: LauncherRootRow[]): void {
-  void patch({ launcher_roots: JSON.stringify(rows) }).then(() => void rebuildLauncher())
-}
-
-const newRootPath = ref('')
-function addLauncherRoot(): void {
-  const path = newRootPath.value.trim()
-  if (!path) return
-  saveLauncherRoots([...launcherRoots.value, { path, depth: 4, excludes: ['node_modules', '.git'] }])
-  newRootPath.value = ''
-}
-function removeLauncherRoot(index: number): void {
-  saveLauncherRoots(launcherRoots.value.filter((_, i) => i !== index))
-}
-function setRootDepth(index: number, depth: number): void {
-  const clamped = Math.min(8, Math.max(1, Math.round(depth) || 4))
-  saveLauncherRoots(launcherRoots.value.map((row, i) => (i === index ? { ...row, depth: clamped } : row)))
-}
-
-onMounted(() => void refreshLauncherStatus())
 
 /** 测试邮件发送中的状态，避免重复点击。 */
 const mailTesting = ref(false)
@@ -354,8 +238,8 @@ async function openDataDir(): Promise<void> {
 
       <label class="setting-row">
         <span>全局快捷键（面板）</span>
-        <kbd>{{ recording && recordTarget === 'panel' ? '按下组合键…' : settings.shortcut }}</kbd>
-        <button type="button" class="btn tiny" :disabled="recording" @click="startRecording('panel')">重新录制</button>
+        <kbd>{{ recording ? '按下组合键…' : settings.shortcut }}</kbd>
+        <button type="button" class="btn tiny" :disabled="recording" @click="startRecording">重新录制</button>
       </label>
 
       <label class="setting-row">
@@ -521,72 +405,6 @@ async function openDataDir(): Promise<void> {
           @change="toggleIslandPlugin(plugin.id, ($event.target as HTMLInputElement).checked)"
         />
       </label>
-
-      <div class="setting-section-title">启动器搜索</div>
-      <p class="setting-hint">
-        全局快捷键呼出搜索框，本地检索程序、UWP 应用、文件与文件夹（拼音 / 首字母 / 拼写纠错）。
-        全部在本地完成，不联网、不上传。
-      </p>
-      <label class="setting-row">
-        <span>全局快捷键（启动器）</span>
-        <kbd>{{ recording && recordTarget === 'launcher' ? '按下组合键…' : settings.launcher_shortcut }}</kbd>
-        <button type="button" class="btn tiny" :disabled="recording" @click="startRecording('launcher')">
-          重新录制
-        </button>
-      </label>
-      <label class="setting-row">
-        <span>全盘文件索引（搜索所有文件 / 文件夹）</span>
-        <input
-          type="checkbox"
-          :checked="settings.launcher_full_disk_index"
-          @change="toggleFullDiskIndex(($event.target as HTMLInputElement).checked)"
-        />
-      </label>
-      <div class="setting-col">
-        <span class="setting-col-label">额外排除目录（逗号分隔目录名）</span>
-        <input
-          class="search-input"
-          type="text"
-          :value="settings.launcher_extra_excludes"
-          placeholder="如 tmp, backup, dist"
-          @change="setExtraExcludes(($event.target as HTMLInputElement).value)"
-        />
-      </div>
-      <div class="setting-row">
-        <span>索引</span>
-        <span class="clip-editor-hint">
-          {{ launcherStatus ? `${launcherStatus.count} 项` : '加载中…' }}{{ rebuilding ? ' · 重建中' : '' }}
-        </span>
-        <button type="button" class="btn tiny" :disabled="rebuilding" @click="rebuildLauncher">立即重建</button>
-      </div>
-      <div class="setting-col">
-        <span class="setting-col-label">文件扫描目录</span>
-        <div class="launcher-roots">
-          <div v-for="(root, index) in launcherRoots" :key="index" class="launcher-root-row">
-            <span class="launcher-root-path" :title="root.path">{{ root.path }}</span>
-            <input
-              class="launcher-root-depth"
-              type="number"
-              min="1"
-              max="8"
-              :value="root.depth"
-              title="扫描深度"
-              @change="setRootDepth(index, Number(($event.target as HTMLInputElement).value))"
-            />
-            <button type="button" class="btn tiny" @click="removeLauncherRoot(index)">移除</button>
-          </div>
-          <div v-if="!launcherRoots.length" class="clip-editor-hint">未配置，使用默认（文档 / 下载 / 桌面 / 图片）</div>
-          <div class="launcher-root-add">
-            <input
-              v-model="newRootPath"
-              class="search-input"
-              placeholder="粘贴文件夹绝对路径后点添加"
-              @keydown.enter="addLauncherRoot"
-            />
-            <button type="button" class="btn tiny" @click="addLauncherRoot">添加</button>
-          </div>
-        </div>
-      </div>
 
       <div class="setting-section-title">邮件提醒</div>
       <p class="setting-hint">请填写邮箱的<strong>应用专用密码</strong>而非主账号密码。配置保存在本地数据库中。</p>
