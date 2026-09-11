@@ -44,6 +44,20 @@ impl Store {
         }
     }
 
+    /// 按 id 读取笔记（含标签）；不存在返回 `None` 而非错误，供面板回显前判断。
+    pub fn get_note(&self, id: &str) -> Result<Option<Note>, String> {
+        let exists = self
+            .db
+            .query_row("SELECT 1 FROM notes WHERE id=?", [id], |_| Ok(()))
+            .optional()
+            .map_err(db_err)?
+            .is_some();
+        if !exists {
+            return Ok(None);
+        }
+        self.note(id).map(Some)
+    }
+
     fn write_large_note(&self, id: &str, content: &str) -> Result<String, String> {
         let relative = format!("notes/{id}.md");
         let target = self.data_dir.join(&relative);

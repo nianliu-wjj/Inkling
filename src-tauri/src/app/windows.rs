@@ -3,6 +3,7 @@
 //! 定位约定：以鼠标所在显示器为基准（多屏），统一在物理像素上换算逻辑尺寸；
 //! panel 贴屏幕顶部居中，pinned 右下角级联，reminder 右上角纵向堆叠。
 
+use std::sync::atomic::{AtomicBool, Ordering};
 use tauri::{
     AppHandle, Emitter, LogicalSize, Manager, PhysicalPosition, PhysicalSize, WebviewUrl,
     WebviewWindowBuilder,
@@ -697,15 +698,30 @@ pub fn island_expand(app: &AppHandle, expanded: bool) -> Result<(), String> {
 
 /// 呼出面板并要求它切到指定插件页（灵动岛点击使用）。
 ///
-/// 目标页先存进 AppState，再 show 面板；面板在 panel-shown 事件后主动来取。
+/// 意图 `{"page":…}` 先存进 AppState，再 show 面板；面板在 panel-shown 事件后主动来取。
 /// 顺带广播一次 PANEL_NAVIGATE，面板若已可见能立即响应。
 pub fn panel_show_page(app: &AppHandle, page: &str) -> Result<(), String> {
     eprintln!("[panel] 带页呼出 page={page}");
+    let intent = serde_json::json!({ "page": page }).to_string();
     app.state::<AppState>()
-        .set_pending_panel_page(Some(page.to_string()));
+        .set_pending_panel_intent(Some(intent));
     panel_show(app)?;
     let _ = app.emit(events::PANEL_NAVIGATE, page.to_string());
     Ok(())
+}
+
+/// 把一条笔记回显到面板编辑（主窗口笔记列表 / 日期详情的 ✏️，spec D16）。
+///
+/// 顺序与原型 `openNoteInPanel` 一致：先隐藏主窗口，再呼出面板；意图带 noteId，
+/// 面板取走后切到笔记页并调用 `loadNote`。面板已可见时 `panel_show` 仍会广播 PANEL_SHOWN，
+/// 前端每次都取意图，因此隐藏 / 可见两种情况走同一条路径。
+pub fn panel_open_note(app: &AppHandle, note_id: &str) -> Result<(), String> {
+    eprintln!("[panel] 回显笔记到面板 note_id={note_id}");
+    let intent = serde_json::json!({ "page": "note", "noteId": note_id }).to_string();
+    app.state::<AppState>()
+        .set_pending_panel_intent(Some(intent));
+    hide_main(app)?;
+    panel_show(app)
 }
 
 /// 面板从显示器四边中点唤出的左上角坐标（**物理像素**）。
@@ -736,6 +752,46 @@ fn panel_logical_height() -> f64 {
         .lock()
         .map(|h| *h)
         .unwrap_or(PANEL_MAX_HEIGHT)
+}
+
+/// 面板是否处于 Zen 专注模式（spec D15）：窗口铺满光标所在屏工作区，退出时按逻辑高度还原。
+static PANEL_ZEN: AtomicBool = AtomicBool::new(false);
+
+/// 进入 / 退出 Zen 专注模式。
+///
+/// 进入：记录状态，把面板窗口放大到**光标所在屏**的工作区（物理像素，不遮任务栏）；
+/// 退出：清状态，按 `PANEL_LOGICAL_HEIGHT` 与当前唤出位置重新 `place_panel`。
+/// 只取进入时的光标屏；多屏下退出时按当时光标屏重摆（spec §8 风险项的应对）。
+pub fn panel_set_zen(app: &AppHandle, on: bool) -> Result<(), String> {
+    let panel = app.get_webview_window("panel").ok_or("面板窗口未初始化")?;
+    let monitor = cursor_monitor(app).ok_or("未找到可用显示器")?;
+    let work = WorkArea::of(&monitor);
+    PANEL_ZEN.store(on, Ordering::SeqCst);
+    if on {
+        eprintln!(
+            "[panel] 进入 Zen，铺满工作区 left={} top={} w={} h={}",
+            work.left, work.top, work.width, work.height
+        );
+        let _ = panel.set_size(PhysicalSize::new(
+            work.width.round() as u32,
+            work.height.round() as u32,
+        ));
+        let _ = panel.set_position(PhysicalPosition::new(
+            work.left.round() as i32,
+            work.top.round() as i32,
+        ));
+    } else {
+        let position = app
+            .state::<AppState>()
+            .lock_store()?
+            .get_settings()?
+            .panel_position()
+            .clone();
+        let height = panel_logical_height();
+        eprintln!("[panel] 退出 Zen，按逻辑高度 {height} 还原到 {position} 边");
+        place_panel(&panel, &work, height, &position);
+    }
+    Ok(())
 }
 
 /// 把面板按逻辑尺寸摆到目标屏的目标边（物理像素落位）。
@@ -802,8 +858,13 @@ pub fn panel_show(app: &AppHandle) -> Result<(), String> {
     Ok(())
 }
 
-/// 收起面板。
+/// 收起面板。Zen 态先还原窗口尺寸（原型 hidePanel 的 setZenMode(false)），否则下次呼出仍是全屏窗口。
 pub fn panel_hide(app: &AppHandle) -> Result<(), String> {
+    if PANEL_ZEN.load(Ordering::SeqCst) {
+        if let Err(error) = panel_set_zen(app, false) {
+            eprintln!("[panel] 收起前退出 Zen 失败: {error}");
+        }
+    }
     if let Some(panel) = app.get_webview_window("panel") {
         let _ = panel.hide();
     }
@@ -812,11 +873,16 @@ pub fn panel_hide(app: &AppHandle) -> Result<(), String> {
 }
 
 /// 面板高度自适应（前端测量内容后调用）。
+///
+/// Zen 态只记录逻辑高度不动窗口：窗口此刻铺满工作区，退出 Zen 时按记录值还原。
 pub fn panel_resize(app: &AppHandle, height: f64) -> Result<(), String> {
     let panel = app.get_webview_window("panel").ok_or("面板窗口未初始化")?;
     let clamped = height.clamp(PANEL_MIN_HEIGHT, PANEL_MAX_HEIGHT);
     if let Ok(mut h) = PANEL_LOGICAL_HEIGHT.lock() {
         *h = clamped;
+    }
+    if PANEL_ZEN.load(Ordering::SeqCst) {
+        return Ok(());
     }
     let monitor = cursor_monitor(app).ok_or("未找到可用显示器")?;
     let position = app

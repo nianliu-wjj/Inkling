@@ -31,6 +31,26 @@ export interface LauncherStatus {
   rebuilding: boolean
 }
 
+/** 面板呼出意图（对应 Rust `pending_panel_intent` 的 JSON）：切到哪一页，可选要回显的笔记 id。 */
+export interface PanelIntent {
+  page: string
+  noteId?: string
+}
+
+/** 解析后端返回的意图 JSON；格式不合法时视为无意图。 */
+function parsePanelIntent(raw: string | null): PanelIntent | null {
+  if (!raw) return null
+  try {
+    const parsed: unknown = JSON.parse(raw)
+    if (typeof parsed !== 'object' || parsed === null) return null
+    const record = parsed as Record<string, unknown>
+    if (typeof record.page !== 'string') return null
+    return { page: record.page, noteId: typeof record.noteId === 'string' ? record.noteId : undefined }
+  } catch {
+    return null
+  }
+}
+
 export const api = {
   windows: {
     panelShow: () => invoke<void>('panel_show'),
@@ -61,8 +81,13 @@ export const api = {
     pinClose: (label: string) => invoke<void>('pin_close', { label }),
     pinSetEditing: (label: string, expanded: boolean) => invoke<void>('pin_set_editing', { label, expanded }),
     reminderClose: (todoId: string) => invoke<void>('reminder_close', { todoId }),
-    /** 面板显示后取走「本次应切到的插件页」（灵动岛点击写入），无则 null。 */
-    panelTakePage: () => invoke<string | null>('panel_take_page'),
+    /** 面板显示后取走本次呼出意图（灵动岛点击 / 主窗口 ✏️ 回显写入），无则 null。 */
+    panelTakeIntent: (): Promise<PanelIntent | null> =>
+      invoke<string | null>('panel_take_intent').then(parsePanelIntent),
+    /** 把笔记回显到面板编辑：后端隐藏主窗口并呼出面板。 */
+    panelOpenNote: (noteId: string) => invoke<void>('panel_open_note', { noteId }),
+    /** 进入 / 退出 Zen 专注模式（面板窗口放大到工作区 / 还原）。 */
+    panelSetZen: (on: boolean) => invoke<void>('panel_set_zen', { on }),
   },
   /** 灵动岛。 */
   island: {
@@ -94,6 +119,8 @@ export const api = {
   notes: {
     list: () => invoke<Note[]>('notes_list'),
     draft: () => invoke<Note | null>('note_draft'),
+    /** 按 id 读取单条笔记；不存在返回 null。 */
+    get: (id: string) => invoke<Note | null>('note_get', { id }),
     save: (input: NoteInput) => invoke<Note>('note_save', { input }),
     remove: (id: string) => invoke<void>('note_delete', { id }),
     pin: (id: string, pinned: boolean) => invoke<Note>('note_set_pinned', { id, pinned }),

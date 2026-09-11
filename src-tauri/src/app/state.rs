@@ -25,10 +25,12 @@ pub struct AppState {
     pub hotzone_rects: Mutex<std::collections::HashMap<String, (f64, f64, f64, f64)>>,
     /// 灵动岛窗口的物理像素矩形 (left, top, right, bottom)；未显示时为 None。
     pub island_rect: Mutex<Option<(f64, f64, f64, f64)>>,
-    /// 面板下一次显示时应切到的插件页（灵动岛点击写入，面板 panel-shown 后取走）。
+    /// 面板下一次显示时应执行的呼出意图（JSON 字符串）。
     ///
+    /// 形如 `{"page":"todo"}`（灵动岛点击）或 `{"page":"note","noteId":"…"}`（主窗口 ✏️ 回显）。
+    /// 由 `windows::panel_show_page` / `panel_open_note` 写入，面板收到 panel-shown 后取走。
     /// 不直接向隐藏的面板 emit：WebView2 在窗口 hide 后被挂起，此时投递的事件会丢。
-    pub pending_panel_page: Mutex<Option<String>>,
+    pub pending_panel_intent: Mutex<Option<String>>,
 }
 
 impl AppState {
@@ -40,7 +42,7 @@ impl AppState {
             mindmap_payloads: Mutex::new(std::collections::HashMap::new()),
             hotzone_rects: Mutex::new(std::collections::HashMap::new()),
             island_rect: Mutex::new(None),
-            pending_panel_page: Mutex::new(None),
+            pending_panel_intent: Mutex::new(None),
         }
     }
 
@@ -54,15 +56,15 @@ impl AppState {
         self.island_rect.lock().ok().and_then(|slot| *slot)
     }
 
-    pub fn set_pending_panel_page(&self, page: Option<String>) {
-        if let Ok(mut slot) = self.pending_panel_page.lock() {
-            *slot = page;
+    pub fn set_pending_panel_intent(&self, intent: Option<String>) {
+        if let Ok(mut slot) = self.pending_panel_intent.lock() {
+            *slot = intent;
         }
     }
 
-    /// 取走并清空待切换的面板页。
-    pub fn take_pending_panel_page(&self) -> Option<String> {
-        self.pending_panel_page
+    /// 取走并清空待执行的呼出意图。
+    pub fn take_pending_panel_intent(&self) -> Option<String> {
+        self.pending_panel_intent
             .lock()
             .ok()
             .and_then(|mut slot| slot.take())

@@ -183,6 +183,12 @@ pub fn note_draft(state: State<'_, AppState>) -> Result<Option<Note>, String> {
     state.lock_store()?.active_draft()
 }
 
+/// 按 id 读取单条笔记（面板回显使用）；不存在返回 None。
+#[tauri::command]
+pub fn note_get(state: State<'_, AppState>, id: String) -> Result<Option<Note>, String> {
+    state.lock_store()?.get_note(&id)
+}
+
 #[tauri::command]
 pub fn note_save(
     app: AppHandle,
@@ -623,10 +629,27 @@ pub fn island_expand(app: AppHandle, expanded: bool) -> Result<(), String> {
     windows::island_expand(&app, expanded)
 }
 
-/// 面板显示后取走「本次应切到的插件页」（灵动岛点击写入）；没有则返回 None。
+/// 面板显示后取走本次呼出意图（JSON：`{"page":…,"noteId"?:…}`）；没有则返回 None。
 #[tauri::command]
-pub fn panel_take_page(state: State<'_, AppState>) -> Option<String> {
-    state.take_pending_panel_page()
+pub fn panel_take_intent(state: State<'_, AppState>) -> Option<String> {
+    state.take_pending_panel_intent()
+}
+
+/// 把笔记回显到面板编辑：隐藏主窗口 → 呼出面板 → 面板取意图后载入笔记。
+///
+/// 不建窗，但走 hide_main + panel_show 的窗口序列；与 `launcher_show` 同款用 async，
+/// 避免同步命令占住主线程与事件循环互等。
+#[tauri::command]
+pub async fn panel_open_note(app: AppHandle, note_id: String) -> Result<(), String> {
+    windows::panel_open_note(&app, &note_id)
+}
+
+/// 进入 / 退出 Zen 专注模式（面板窗口放大到工作区 / 还原）。
+///
+/// 几何序列（set_size + set_position）且退出后前端紧接可能调用 panel_hide，按 async 写以免阻塞主线程。
+#[tauri::command]
+pub async fn panel_set_zen(app: AppHandle, on: bool) -> Result<(), String> {
+    windows::panel_set_zen(&app, on)
 }
 
 // ═══ 启动器搜索 ═══

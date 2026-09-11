@@ -329,9 +329,9 @@ onMounted(() => {
     clearCollapseTimer()
     playEnter()
     void api.windows
-      .panelTakePage()
-      .then((page) => navigateTo(page))
-      .catch((error) => logger.error('panel', '读取待切换页失败', error))
+      .panelTakeIntent()
+      .then((intent) => navigateTo(intent?.page))
+      .catch((error) => logger.error('panel', '读取呼出意图失败', error))
   })
 
   // 面板已可见时其他窗口请求切页（灵动岛点击、后续插件），直接响应。
