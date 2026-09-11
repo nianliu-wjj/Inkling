@@ -78,7 +78,7 @@ src-tauri/src/{events.rs, app/windows.rs, ipc.rs, main.rs}   MAIN_SHOWN / launch
   - `searchTodos(todos: readonly Todo[], query: string): { nodes: TodoNode[]; forceExpand: Set<string>; hitIds: Set<string> }`
   - `pnpm test:unit`、`pnpm test`
 
-- [ ] **Step 1: 解析钩子**
+- [x] **Step 1: 解析钩子**
 
 `scripts/lib/ts-resolve-hooks.mjs`：
 
@@ -125,7 +125,7 @@ register('./ts-resolve-hooks.mjs', import.meta.url)
 "test": "pnpm test:scripts && pnpm test:unit",
 ```
 
-- [ ] **Step 2: 写失败的测试（四个文件）**
+- [x] **Step 2: 写失败的测试（四个文件）**
 
 `src/utils/heatmap.test.ts`：
 
@@ -266,12 +266,12 @@ test('searchTodos：无命中返回空；空查询返回空', () => {
 })
 ```
 
-- [ ] **Step 3: 运行，确认失败**
+- [x] **Step 3: 运行，确认失败**
 
 Run: `pnpm test:unit`
 Expected: 4 个文件均失败（模块或导出不存在）。
 
-- [ ] **Step 4: 实现 heatmap.ts**
+- [x] **Step 4: 实现 heatmap.ts**
 
 ```ts
 import type { ActivityDay } from '@/typings/domain'
@@ -392,7 +392,7 @@ export function buildRangeGrid(
 }
 ```
 
-- [ ] **Step 5: 实现 search.ts**
+- [x] **Step 5: 实现 search.ts**
 
 ```ts
 import { parseMindMapData, type MindMapRoot } from '@/windows/MindMap/core/persistence'
@@ -446,7 +446,7 @@ export function mindmapRootText(json: string | null | undefined, fallback = '未
 
 （`persistence.ts` 是纯函数模块、无 Vue 依赖，钩子能直接解析。）
 
-- [ ] **Step 6: datetime.ts 与 todo.ts**
+- [x] **Step 6: datetime.ts 与 todo.ts**
 
 `datetime.ts`：把 `formatDueLabel` 的 `switch` 改为只保留 `case 0: return \`今天 ${clock}\``，其余 `return \`${date.getMonth() + 1}/${date.getDate()} ${clock}\``；注释改为「当天显示「今天 HH:mm」，其余显示「M/D HH:mm」（原型口径）」。在 `formatDateKeyLabel` 之后新增：
 
@@ -494,7 +494,7 @@ export function searchTodos(
 
 （`todo.ts` 顶部 `import { parseTime } from './datetime'` 改为 `import { dateKeyOf, parseTime } from './datetime'`。）
 
-- [ ] **Step 7: 验证并提交**
+- [x] **Step 7: 验证并提交**
 
 ```bash
 pnpm test:unit
@@ -519,7 +519,7 @@ Expected: `pass 9 / fail 0`；typecheck 零错误。
 - `TrendChart`：`props.months: readonly MonthTrend[]`
 - `popIn(el: HTMLElement): Promise<boolean>`
 
-- [ ] **Step 1: Icon.vue**
+- [x] **Step 1: Icon.vue**
 
 ```vue
 <script setup lang="ts">
@@ -555,7 +555,7 @@ defineProps<{ name: IconName }>()
 </template>
 ```
 
-- [ ] **Step 2: popIn 预设**
+- [x] **Step 2: popIn 预设**
 
 `src/motion/presets.ts` 在 `pop` 之后加入：
 
@@ -575,7 +575,7 @@ export function popIn(el: HTMLElement): Promise<boolean> {
 
 `src/motion/index.ts` 的 presets 导出行加入 `popIn`。
 
-- [ ] **Step 3: HeatTip.vue**
+- [x] **Step 3: HeatTip.vue**
 
 ```vue
 <script setup lang="ts">
@@ -633,7 +633,7 @@ onMounted(async () => {
 
 （`enter` 的 4px 位移 + `--dur-slow` 比原型 150ms 略长；本阶段接受，动效令牌是全站统一节奏。）
 
-- [ ] **Step 4: MiniHeatmap.vue**
+- [x] **Step 4: MiniHeatmap.vue**
 
 ```vue
 <script setup lang="ts">
@@ -691,7 +691,7 @@ function dayOf(cell: { key: string; day: ActivityDay | null }): ActivityDay {
 </template>
 ```
 
-- [ ] **Step 5: TrendChart.vue**
+- [x] **Step 5: TrendChart.vue**
 
 ```vue
 <script setup lang="ts">
@@ -777,7 +777,7 @@ const monthLabel = (month: string) => `${Number(month.slice(5))}月`
 </template>
 ```
 
-- [ ] **Step 6: 卸载 ECharts 并验证**
+- [x] **Step 6: 卸载 ECharts 并验证**
 
 ```bash
 pnpm remove echarts
@@ -803,7 +803,7 @@ git commit -m "feat(main): 共享件 Icon / HeatTip / MiniHeatmap / TrendChart �
 **Files:**
 - Modify: `src-tauri/src/events.rs`、`src-tauri/src/app/windows.rs:833-840`、`src-tauri/src/ipc.rs`、`src-tauri/src/main.rs`、`src/service/events.ts`、`src/service/tauri.ts`
 
-- [ ] **Step 1: Rust**
+- [x] **Step 1: Rust**
 
 `events.rs` 末尾：
 ```rust
@@ -822,11 +822,11 @@ pub fn launcher_show(app: AppHandle) -> Result<(), String> {
 ```
 `main.rs` 命令列表 `ipc::launcher_hide,` 之后加 `ipc::launcher_show,`。
 
-- [ ] **Step 2: 前端契约**
+- [x] **Step 2: 前端契约**
 
 `events.ts` 的 `AppEvents` 加 `/** 主窗口已显示（广播）：主窗口据此重播入场动效。 */ mainShown: 'inkling://main-shown',`；`tauri.ts` 的 `launcher` 对象加 `show: () => invoke<void>('launcher_show'),`。
 
-- [ ] **Step 3: 验证并提交**
+- [x] **Step 3: 验证并提交**
 
 ```bash
 cargo fmt --manifest-path src-tauri/Cargo.toml --check && cargo check --manifest-path src-tauri/Cargo.toml && cargo test --manifest-path src-tauri/Cargo.toml 2>&1 | grep "^test result"
@@ -842,7 +842,7 @@ git commit -m "feat(ipc): 主窗口 main-shown 事件与 launcher_show 命令"
 **Files:**
 - Modify: `src/typings/domain.ts:1`、`src/constants/navigation.ts`、`src/windows/Main/MainApp.vue`、`src/windows/Main/Sidebar.vue`
 
-- [ ] **Step 1: 类型与常量**
+- [x] **Step 1: 类型与常量**
 
 `domain.ts`：`export type View = 'notes' | 'clips' | 'todos' | 'launcher' | 'island' | 'stats' | 'settings'`。
 
@@ -871,7 +871,7 @@ export const navigationItems: readonly NavigationItem[] = [
 ]
 ```
 
-- [ ] **Step 2: Sidebar.vue**
+- [x] **Step 2: Sidebar.vue**
 
 脚本：删除本地 `NAV` 与整段迷你热力图逻辑（`heatBackground`、`monthGrid`、`monthLabel`、`toDateKey` 导入）；导入 `navigationItems`、`MiniHeatmap`、`HeatTip`；新增：
 
@@ -917,14 +917,14 @@ function onKeyActivate(event: KeyboardEvent, view: View): void {
 ```
 底部两个按钮的 emoji 包一层 `<span class="ix">`（原型）。头注释更新为五页签。
 
-- [ ] **Step 3: MainApp.vue**
+- [x] **Step 3: MainApp.vue**
 
 - `view` 类型 `View | 'day'`，新增 `LauncherPageView`、`IslandPageView` 分支（组件在 Task 9/10 创建；本任务先建两个最小占位文件，内容仅 `<div class="archive-page"><div class="page-title">🚀 启动台</div></div>` / `🏝️ 灵动岛`）。
 - 计数：`notes = notes.filter(n => !n.is_draft).length`、`clips = clips.length`、`todos = todos.length`。
 - 入场：`const root = ref<HTMLElement | null>(null)`；`onMounted` 里 `if (root.value) void popIn(root.value)`；订阅 `AppEvents.mainShown` 同样 `popIn`。模板根 `<div id="mainWindow" ref="root" ...>`。
 - `navigate()` 收到未知值时 `logger.warn` 并忽略。
 
-- [ ] **Step 4: 验证并提交**
+- [x] **Step 4: 验证并提交**
 
 ```bash
 pnpm typecheck
@@ -939,11 +939,11 @@ git commit -m "feat(main): 侧边栏五页签与迷你热力图悬浮明细，�
 **Files:**
 - Modify: `src/components/tag/TagList.vue`、`src/components/card/NoteCard.vue`、`src/windows/Main/NotesView.vue`
 
-- [ ] **Step 1: TagList 支持抖动态**
+- [x] **Step 1: TagList 支持抖动态**
 
 props 新增 `shaking?: boolean`（默认 false）：为 true 时 `visibleTags = props.tags`（全部展开）且渲染 `<span class="shake-tip">再次点击 ✕ 确认删除</span>`；`shakingTag` 仍按标签名传给 `TagChip`。
 
-- [ ] **Step 2: NoteCard 按原型**
+- [x] **Step 2: NoteCard 按原型**
 
 props 新增 `shaking?: boolean`、`shakingTag?: string | null`；emits 新增 `(e: 'remove-tag', tag: string)`。模板：
 
@@ -967,14 +967,14 @@ props 新增 `shaking?: boolean`、`shakingTag?: string | null`；emits 新增 `
 ```
 `html`：导图笔记为 `renderMarkdownInline(mindmapRootText(note.mindmap_data))`，文本笔记为 `renderMarkdown(note.content)`。删除 `.note-kind` 徽章与 `mindmapLabel`。
 
-- [ ] **Step 3: NotesView**
+- [x] **Step 3: NotesView**
 
 - 删除 `kindFilter` 与工具栏下拉；工具栏改为 `<div class="note-arch-bar"><input class="search-input" placeholder="🔍 搜索笔记…（正文、标签与思维导图节点）" /><button class="btn tiny" title="新建思维导图（保存后作为笔记卡片入列表）" @click="openMindmap()"><span class="ix">🧠</span> 思维导图</button></div>`。
 - `visible` 过滤补 `|| (note.editor_mode === 'mindmap' && mindmapAllText(note.mindmap_data).toLowerCase().includes(key))`。
 - 标签直删：`const shake = useShakeConfirm()`；`shakeKey(note, tag) = \`${note.id}:${tag}\``；`removeTag(note, tag)`：`if (!shake.press(shakeKey)) { toast('再次点击 ✕ 确认删除该标签'); return }` → `api.notes.save({ id, content, tags: note.tags.filter(t => t !== tag), editorMode, mindmapData, draft: false })`，成功 toast `已删除标签 #tag`。卡片属性：`:shaking="shake.shakingId?.startsWith(note.id + ':')"`、`:shaking-tag="shake.shakingId?.startsWith(note.id + ':') ? shake.shakingId.slice(note.id.length + 1) : null"`（用 computed 封装成函数 `shakingTagOf(note)`）。
 - 空提示：`keyword ? '未找到匹配的笔记' : '暂无笔记'`，类名 `todo-empty`。
 
-- [ ] **Step 4: 验证并提交**
+- [x] **Step 4: 验证并提交**
 
 ```bash
 pnpm typecheck
@@ -990,7 +990,7 @@ git commit -m "feat(main): 笔记页对齐原型（工具栏 / 导图卡片 / �
 - Create: `src/components/card/ClipArchiveCard.vue`
 - Modify: `src/windows/Main/ClipsView.vue`、`src/styles/extensions.css`
 
-- [ ] **Step 1: ClipArchiveCard.vue**
+- [x] **Step 1: ClipArchiveCard.vue**
 
 ```vue
 <script setup lang="ts">
@@ -1042,11 +1042,11 @@ const isLink = computed(() => props.entry.content_type === 'link')
 </template>
 ```
 
-- [ ] **Step 2: ClipsView 换卡片、容器改 div、删桥接**
+- [x] **Step 2: ClipsView 换卡片、容器改 div、删桥接**
 
 模板 `<ul v-stagger-list>` → `<div v-stagger-list>`，`ClipCard` → `ClipArchiveCard`（去掉 `archive` 属性），空提示 `<div class="todo-empty">{{ keyword ? '未找到匹配的条目' : '暂无粘贴板条目' }}</div>`；搜索框 placeholder `🔍 搜索粘贴板历史…`。`extensions.css` 删除 §5 中 `.archive-page > ul` 规则及其注释。
 
-- [ ] **Step 3: 验证并提交**
+- [x] **Step 3: 验证并提交**
 
 ```bash
 pnpm typecheck && pnpm exec prettier --check src/styles/extensions.css
@@ -1061,7 +1061,7 @@ git commit -m "feat(main): 粘贴板页归档卡片对齐原型，删除裸 ul �
 **Files:**
 - Modify: `src/components/card/TodoCard.vue`、`src/components/card/TodoTree.vue`、`src/windows/Main/TodosView.vue`
 
-- [ ] **Step 1: TodoCard 结构与高亮**
+- [x] **Step 1: TodoCard 结构与高亮**
 
 - props 新增 `query?: string`（默认 ''）、`childCount?: number`（默认 0）；`isParent` 语义改为「深度 0」。
 - 文本：`<span class="todo-text"><template v-for="(seg, i) in highlight(props.todo.content, props.query)" :key="i"><mark v-if="seg.hit">{{ seg.text }}</mark><template v-else>{{ seg.text }}</template></template></span>`。
@@ -1070,18 +1070,18 @@ git commit -m "feat(main): 粘贴板页归档卡片对齐原型，删除裸 ul �
 - `＋子任务`：`v-if="props.depth === 0 && props.childCount < 5"`，title `添加子任务（${childCount}/5）` + 已完成时追加 ` · 新建后自动恢复为未完成`；`⏰` 与 `✏️` 仅未完成显示（`v-if="!done"`），✏️ 用 `<Icon name="edit" />`。
 - 头注释更新。
 
-- [ ] **Step 2: TodoTree**
+- [x] **Step 2: TodoTree**
 
 props 新增 `query?: string`、`forceExpand?: ReadonlySet<string>`、`hitIds?: ReadonlySet<string>`、`archive?: boolean`；`isCollapsed(id)` 改为 `collapsed.has(id) && !props.forceExpand?.has(id)`；根 `<ul v-stagger-list class="todo-list" :class="{ 'todo-arch-list': props.archive }">`；给每个 `TodoCard` 传 `:query`、`:child-count="node.children.length"`、`:search-hit="props.hitIds?.has(todo.id)"`（子任务用 `child.id`）；逾期分区标题改为 `⚠️ 逾期事项 · 按完成时间与优先级置顶（N 项）`。
 
-- [ ] **Step 3: TodosView**
+- [x] **Step 3: TodosView**
 
 - 日期条：`‹` `{{ currentDate }}` `›` `今天`（常显）`<span class="todo-date-hint">逾期未完成自动置顶</span>` 搜索框 `todo-new-btn`（`<Icon>` 不适用，保留原有 SVG ＋）。
 - 搜索态：`const search = computed(() => searchTodos(todos.value, keyword.value))`；`visible` 非搜索态不变；`<TodoTree :todos="searching ? flatten(search.nodes) : visible" :query="keyword" :force-expand="search.forceExpand" :hit-ids="search.hitIds" :show-date-chip="searching" archive ...>`，其中 `flatten(nodes) = nodes.flatMap(n => [n.todo, ...n.children])`。
 - 空提示按原型：搜索态 `未找到匹配「q」的待办事项`，否则 `该日暂无待办事项`。
 - 删除 `formatDateKeyLabel` 导入。
 
-- [ ] **Step 4: 验证并提交**
+- [x] **Step 4: 验证并提交**
 
 ```bash
 pnpm typecheck
@@ -1096,7 +1096,7 @@ git commit -m "feat(main): 待办页对齐原型（卡片底栏结构 / 日期�
 **Files:**
 - Modify: `src/windows/Main/DayView.vue`、`src/windows/Main/StatsView.vue`
 
-- [ ] **Step 1: DayView**
+- [x] **Step 1: DayView**
 
 - 标题 `formatDateKey(props.dateKey, { todaySuffix: true })`。
 - 筛选 chip：`role="button" tabindex="0" :aria-pressed="filter === option.key"`，Enter/Space 触发；标签用 `<span class="ix">📝</span> 笔记` 形式。
@@ -1105,7 +1105,7 @@ git commit -m "feat(main): 待办页对齐原型（卡片底栏结构 / 日期�
 - 编辑：`editTarget` 三态 —— 笔记文本 → `NoteEditModal`；导图 → `api.windows.mindmapOpen(id)`；粘贴板 → `ClipEditorModal`（保存走 `api.clipboard.update`）；待办 → `TodoEditorModal mode="edit"`（已完成 toast「已完成的待办不允许修改」）。保存后 `await load()`。
 - 空提示 `todo-empty`：搜索态 `未找到匹配「q」的记录`，否则 `该日暂无记录/笔记/粘贴板条目/待办事项`。
 
-- [ ] **Step 2: StatsView 热力图**
+- [x] **Step 2: StatsView 热力图**
 
 用 `buildRangeGrid(activity)` 替换本地 `grid`；格子 `:style` 用 `alphaOf(cell.level)` 拼 `rgba(--hm-base, α)`；悬浮改为 `HeatTip`（`Teleport to="body"`，`@mouseenter` 传 `getBoundingClientRect()`，容器 `@mouseleave` 清空）；月份标签 `left = column * 17`；图例：
 
@@ -1116,7 +1116,7 @@ git commit -m "feat(main): 待办页对齐原型（卡片底栏结构 / 日期�
 </div>
 ```
 
-- [ ] **Step 3: 验证并提交**
+- [x] **Step 3: 验证并提交**
 
 ```bash
 pnpm typecheck
@@ -1132,7 +1132,7 @@ git commit -m "feat(main): 日期详情页与统计热力图对齐原型（周�
 - Create: `src/composables/useLauncherSearch.ts`、`src/composables/useLauncherSettings.ts`
 - Modify: `src/windows/Main/LauncherPageView.vue`、`src/windows/Main/SettingsView.vue`
 
-- [ ] **Step 1: useLauncherSearch.ts**
+- [x] **Step 1: useLauncherSearch.ts**
 
 ```ts
 import { computed, ref, watch, type Ref } from 'vue'
@@ -1203,19 +1203,19 @@ export function useLauncherSearch(): {
 }
 ```
 
-- [ ] **Step 2: useLauncherSettings.ts**
+- [x] **Step 2: useLauncherSettings.ts**
 
 把 `SettingsView.vue` 中 `launcherStatus / rebuilding / refreshLauncherStatus / rebuildLauncher / toggleFullDiskIndex / setExtraExcludes / LauncherRootRow / launcherRoots / saveLauncherRoots / newRootPath / addLauncherRoot / removeLauncherRoot / setRootDepth` 原样搬入，签名 `useLauncherSettings(patch: (p: Partial<Settings>) => Promise<void>)`，返回这些成员；`onMounted(refreshLauncherStatus)` 由调用方负责。
 
-- [ ] **Step 3: LauncherPageView.vue**
+- [x] **Step 3: LauncherPageView.vue**
 
 按 spec §4.2：`.page-title` 🚀 启动台 → `.stats-legend` 说明 → `.launcher-page-hero > [.launcher-input-row(.launcher-ico 🚀 + input#launcherPageInput), .launcher-list(.launcher-item(.active) > .li-ico .li-name(+small path) .li-cat | .launcher-empty), .launcher-footer]` → `.page-title.page-sub-title` ⚙️ 启动台设置 → `.settings-body`：快捷键行（录制逻辑：从 SettingsView 抽出 `recording/recordTarget/startRecording/rebind` 到本页与设置页各自一份，设置页只保留面板快捷键，`recordTarget` 简化）、全盘索引开关、排除目录、索引状态与重建、扫描根目录、`<div class="setting-row"><span>浮窗启动台</span><button class="btn tiny" @click="api.launcher.show()">呼出浮窗启动台</button></div>`。页脚：有结果 `↑↓ 导航 · ↵ 执行 · 点击直接执行 · 共 N 项`，无结果 `.launcher-empty` `未找到匹配项`。空查询时列表显示常用项（后端已支持）。`onMounted(refreshLauncherStatus)`。
 
-- [ ] **Step 4: SettingsView 移除启动器分节**
+- [x] **Step 4: SettingsView 移除启动器分节**
 
 删除「启动器搜索」分节模板与相关脚本（改用 `useLauncherSettings` 后本页不再需要）、`LauncherStatus` 导入；快捷键录制只保留面板一项。
 
-- [ ] **Step 5: 验证并提交**
+- [x] **Step 5: 验证并提交**
 
 ```bash
 pnpm typecheck
@@ -1230,7 +1230,7 @@ git commit -m "feat(main): 启动台页（内嵌搜索 + 启动器设置迁入 +
 **Files:**
 - Modify: `src/windows/Main/IslandPageView.vue`、`src/windows/Main/SettingsView.vue`
 
-- [ ] **Step 1: IslandPageView.vue**
+- [x] **Step 1: IslandPageView.vue**
 
 脚本：`useSettings`、`useTodos`、`pickTodayTodos`、`formatClock`（`@/utils/datetime`）、`isOverdue`；`first = computed(() => pickTodayTodos(todos.value)[0] ?? null)`；`count = pickTodayTodos(...).length`；灵动岛设置逻辑（`ISLAND_LIMITS / clampNumber / patchIslandNumber / enabledIslandPluginIds / toggleIslandPlugin`）从 SettingsView 搬入；`patch` 同设置页写法。
 
@@ -1261,11 +1261,11 @@ git commit -m "feat(main): 启动台页（内嵌搜索 + 启动器设置迁入 +
 </div>
 ```
 
-- [ ] **Step 2: SettingsView 重排**
+- [x] **Step 2: SettingsView 重排**
 
 删除「灵动岛」分节；`settings-body` 行序：失焦自动收起 → 粘贴板保留天数 → 开机静默自启动 → 全局快捷键 → 备注展示样式 → 主题 → 面板唤出位置 → 窗口毛玻璃 → 玻璃质感 → 数据目录 → 面板插件 → 邮件提醒。头注释更新。
 
-- [ ] **Step 3: 验证并提交**
+- [x] **Step 3: 验证并提交**
 
 ```bash
 pnpm typecheck && pnpm exec vite build 2>&1 | grep -E "built in|error"
@@ -1281,9 +1281,9 @@ git commit -m "feat(main): 灵动岛页（预览 + 灵动岛设置迁入）与�
 - Create: `docs/superpowers/plans/2026-09-10-prototype-realign-phase2-acceptance.md`
 - Modify: spec §9；必要时 `src/styles/extensions.css`（新开分节注明阶段）
 
-- [ ] **Step 1**：`pnpm tauri:dev`（后台，沿用 `.tmp/win.ps1` 驱动），按 spec §6 十一项在打字机 / 深色各跑一遍并截图。
-- [ ] **Step 2**：入场 scale 是否露边、`main-*.js` 体积对比、补丁清单回填 spec §9。
-- [ ] **Step 3**：全部静态检查 `pnpm sync:styles --check && pnpm typecheck && pnpm test && cargo test`，写验收记录，提交 `docs(design): 阶段二实机验收记录与结论回填`。
+- [x] **Step 1**（打字机已跑，深色与部分条目未跑，见验收记录 §6）：`pnpm tauri:dev`（后台，沿用 `.tmp/win.ps1` 驱动），按 spec §6 十一项在打字机 / 深色各跑一遍并截图。
+- [x] **Step 2**：入场 scale 是否露边、`main-*.js` 体积对比、补丁清单回填 spec §9。
+- [x] **Step 3**：全部静态检查 `pnpm sync:styles --check && pnpm typecheck && pnpm test && cargo test`，写验收记录，提交 `docs(design): 阶段二实机验收记录与结论回填`。
 
 ---
 

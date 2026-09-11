@@ -193,8 +193,10 @@ src-tauri/src/
 | `formatDueLabel` 改动影响面板与提醒卡片文案 | 全局一致即原型口径，接受 |
 | Node 直接运行 TS 测试对 `import type` 之外的别名不支持 | 工具模块只用相对导入；测试不 import Vue 组件 |
 
-## 9. 实机结论（实施后填写）
+## 9. 实机结论（2026-09-11 回填，详见 `../plans/2026-09-10-prototype-realign-phase2-acceptance.md`）
 
-- 主窗口入场 scale .94 是否保留：待填。
-- 卸载 ECharts 前后 `main-*.js` 体积：待填。
-- 补丁清单：待填。
+- 主窗口入场 scale .94 是否保留：**保留**。逐帧连拍 +169ms 为缩放半透明态、+219ms 到位，缩放边带透出的是窗口后方内容，无 Mica / Acrylic 底衬露边（150% 缩放、毛玻璃开）。
+- 卸载 ECharts 前后 `main-*.js` 体积：556 KB → 59.2 KB（gzip 20.5 KB）。
+- 补丁清单：`extensions.css` §9 `#launcherPageInput`（原型只定义了浮窗 `#launcherInput`，原型遗漏，原型补上后删）；`LauncherPageView.vue` 说明文案改脚本内拼接（模板换行在中文间引入空格）；`IslandPageView.vue` 「点击穿透」说明对齐实际行为；`ipc::launcher_show` 改 async（同步命令建窗死锁，与 `pin_create` 同款）。
+- 验收覆盖：打字机主题跑完大部分条目；**深色主题一轮与若干需造数据的条目未验证**，清单见验收记录 §6。
+- 既有缺陷记入阶段四：`settings_save` 同步建窗（灵动岛关→开死锁）、启动期间偶发原生崩溃（全盘索引扫描期间，三次）、启动台索引计数未含全盘文件。
