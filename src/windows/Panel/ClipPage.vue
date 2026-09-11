@@ -109,6 +109,22 @@ async function remove(entry: ClipboardEntry): Promise<void> {
     toast('删除失败')
   }
 }
+
+/** 关闭本页浮层：待确认删除 → 取消；编辑弹窗 → 关闭。关了任一项返回 true。 */
+function dismissOverlays(): boolean {
+  let dismissed = false
+  if (confirm.pendingId.value) {
+    confirm.cancel()
+    dismissed = true
+  }
+  if (editing.value) {
+    closeEdit()
+    dismissed = true
+  }
+  return dismissed
+}
+
+defineExpose({ dismissOverlays })
 </script>
 
 <template>

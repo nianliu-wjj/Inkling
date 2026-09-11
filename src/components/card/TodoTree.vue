@@ -97,6 +97,15 @@ function askDelete(todo: Todo): void {
 function confirmDelete(todo: Todo): void {
   if (confirm.confirm()) emit('delete', todo)
 }
+
+/** 取消待确认的删除（面板 Esc 链 / 切页副作用用）；有待确认项返回 true。 */
+function dismissConfirm(): boolean {
+  if (!confirm.pendingId.value) return false
+  confirm.cancel()
+  return true
+}
+
+defineExpose({ dismissConfirm })
 </script>
 
 <template>

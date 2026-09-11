@@ -166,6 +166,12 @@ watch(
   { immediate: true },
 )
 
+/** 切页副作用（原型 switchMode 的 clearPendingDelete）：关掉各页的删除确认与浮层——目标列表已隐藏。 */
+watch(activeId, (_next, prev) => {
+  if (!prev) return
+  for (const page of Object.values(pageRefs)) page?.dismissOverlays?.()
+})
+
 /** 后端设置变化时同步主题。 */
 watch(
   () => settings.value.theme,
@@ -359,6 +365,11 @@ function onKeydown(event: KeyboardEvent): void {
       void setZen(false)
       return
     }
+    // 原型 Esc 链：有删除确认 / 浮层先只关它，不收面板。
+    if (pageRefs[activeId.value]?.dismissOverlays?.()) {
+      logger.debug('panel', 'Esc 关闭当前页浮层')
+      return
+    }
     void hide()
     return
   }
@@ -413,12 +424,20 @@ function reportHeight(): void {
   })
 }
 
+/** 鼠标回到面板：取消待执行的收起（原型 panel.mouseenter）。 */
 function onPointerEnter(): void {
   pointerInside.value = true
+  clearCollapseTimer()
 }
 
+/**
+ * 鼠标离开面板：按策略计时收起（原型 panel.mouseleave），与窗口 blur 并存（spec D17）。
+ * Zen 铺满屏幕，鼠标离开即离开屏幕，不应收起；弹窗 / 独立编辑窗口期间同样忽略。
+ */
 function onPointerLeave(): void {
   pointerInside.value = false
+  if (zen.value || modalDepth.value > 0 || externalEditorOpen.value) return
+  scheduleCollapse()
 }
 
 onMounted(() => {

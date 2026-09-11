@@ -30,6 +30,8 @@ const { toast } = useToast()
 
 const keyword = ref('')
 const priorityFilter = ref<'all' | Priority>('all')
+/** 待办树实例：删除确认态在它内部，Esc 链 / 切页副作用经它取消。 */
+const tree = ref<InstanceType<typeof TodoTree> | null>(null)
 
 /**
  * 当日可见集合：
@@ -151,6 +153,13 @@ async function removeTodo(todo: Todo): Promise<void> {
     toast(String(error))
   }
 }
+
+/** 关闭本页浮层：删除确认在 TodoTree 内部，转调它。 */
+function dismissOverlays(): boolean {
+  return tree.value?.dismissConfirm() ?? false
+}
+
+defineExpose({ dismissOverlays })
 </script>
 
 <template>
@@ -167,14 +176,20 @@ async function removeTodo(todo: Todo): Promise<void> {
         📅
       </button>
     </div>
+    <!-- 原型 .todo-panel-hint：操作提示行 -->
+    <div class="todo-panel-hint">
+      搜索 / 优先级过滤当日待办 · 逾期事项自动置顶 · 点击优先级徽章可调整 · 点击 📅 新增待办
+    </div>
 
     <TodoTree
+      ref="tree"
       :todos="filtered"
       :remark-style="settings.remark_style"
       @toggle-done="toggleDone"
       @edit="openEditor('edit', $event)"
       @edit-due="openEditor('edit', $event, null, 'due')"
       @edit-remind="openEditor('edit', $event, null, 'remind')"
+      @edit-repeat="openEditor('edit', $event, null, 'remind')"
       @add-sub="openEditor('child', null, $event)"
       @open-tags="openEditor('edit', $event)"
       @priority="changePriority"
