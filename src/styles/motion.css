@@ -55,19 +55,6 @@
     border-color var(--dur-fast) var(--ease-out);
 }
 
-/* ── 圆点导航：选中与悬浮的缩放反馈 ── */
-.nav-dot {
-  transition:
-    transform var(--dur-fast) var(--ease-out),
-    opacity var(--dur-fast) var(--ease-out);
-}
-.nav-dot:hover {
-  transform: scale(1.12);
-}
-.nav-dot.active {
-  transform: scale(1.18);
-}
-
 /* ── 按钮：按下即时反馈 ── */
 .btn,
 .icon-btn {

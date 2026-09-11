@@ -21,8 +21,12 @@ export interface PanelPlugin {
   id: string
   /** 圆点导航的展示名。 */
   label: string
-  /** 圆点导航的图标（emoji）。 */
-  dot: string
+  /**
+   * 圆点导航的颜色类名（原型 `.nav-dot.dot-note / .dot-clip / .dot-todo`）。
+   * 生成层用 `--dot-c` 令牌绘制 ::before 矢量圆；新插件若没有对应令牌，
+   * 会落到 extensions.css §3 `.nav-dots { --dot-c: var(--accent-rgb) }` 的兜底色。
+   */
+  dotClass: string
   /** 页面组件。约定只使用既有 CSS 令牌，类名以插件 id 为前缀。 */
   component: Component
 }
@@ -34,9 +38,9 @@ export interface PanelPlugin {
  * 由顺序决定则天然唯一。
  */
 export const builtinPlugins: readonly PanelPlugin[] = [
-  { id: 'note', label: '笔记', dot: '🔴', component: NotePage },
-  { id: 'clipboard', label: '粘贴板', dot: '🟡', component: ClipPage },
-  { id: 'todo', label: '待办', dot: '🟢', component: TodoPage },
+  { id: 'note', label: '笔记', dotClass: 'dot-note', component: NotePage },
+  { id: 'clipboard', label: '粘贴板', dotClass: 'dot-clip', component: ClipPage },
+  { id: 'todo', label: '待办', dotClass: 'dot-todo', component: TodoPage },
 ] as const
 
 /** 快捷键上限：⌃1..⌃9，超出的插件只能用圆点点击切换。 */

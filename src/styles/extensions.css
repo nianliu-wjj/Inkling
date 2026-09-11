@@ -94,6 +94,12 @@ textarea,
   position: relative;
   outline: none;
 }
+/* 圆点导航兜底色：生成层 .nav-dot::before 用 rgb(var(--dot-c)) 上色，内置三页在 .dot-* 上声明了 --dot-c；
+   第三方 / 新增插件没有对应令牌时变量缺失会让圆点不可见。自定义属性向下继承，
+   元素自身 .dot-* 的声明优先于此处父级值，不受加载顺序影响。 */
+.nav-dots {
+  --dot-c: var(--accent-rgb);
+}
 
 /* ═══ 4. 错落入场动画态（新增，2026-09-10） ═══
  * src/motion 的预设在动画期间给元素加 .is-animating：打字机主题的卡片自带 transform 过渡，
@@ -128,24 +134,6 @@ textarea,
   display: flex;
   align-items: center;
   justify-content: center;
-}
-
-/* 圆点导航仍是 emoji 字符（新原型改为 ::before 矢量圆点，阶段三迁移后删除本段）：
-   沿用旧原型的悬浮/激活态，否则激活项与其他项只剩缩放差异。 */
-.nav-dot:hover {
-  opacity: 0.8;
-}
-.nav-dot.active {
-  opacity: 1;
-  filter: none;
-  background: rgba(var(--wsa), 0.1);
-  transform: scale(1.15);
-}
-
-/* 圆点导航仍是 emoji 字符时，屏蔽原型的 ::before 矢量圆点：它在 22px 的 grid 盒里占一行，
-   把 emoji 挤到下方、激活态的圆形底色随之错位（阶段三改为矢量圆点后删除）。 */
-.nav-dot::before {
-  content: none;
 }
 
 /* ═══ 6. 自建组件样式（迁自 components.css@ac81857，2026-09-10，由 .tmp/extract-app-only.mjs 抽取） ═══ */

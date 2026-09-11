@@ -8,4 +8,7 @@ import { createApp } from 'vue'
 import PanelApp from './Panel/PanelApp.vue'
 import '@/styles'
 
+// window-fit.css 的面板整页化弹窗规则以 :root[data-window='panel'] 为前缀（与 editor / mindmap 同款）。
+document.documentElement.dataset.window = 'panel'
+
 createApp(PanelApp).mount('#app')

@@ -7,7 +7,7 @@ import { applyCachedTheme, useTheme } from '@/composables/useTheme'
 import { AppEvents, onAppEvent } from '@/service/events'
 import { logger } from '@/service/logger'
 import { api } from '@/service/tauri'
-import { MAX_HOTKEY_SLOTS, resolvePlugins } from '@/panel-plugins'
+import { MAX_HOTKEY_SLOTS, resolvePlugins, type PanelPlugin } from '@/panel-plugins'
 import { enter, exit } from '@/motion'
 
 /**
@@ -361,6 +361,11 @@ onBeforeUnmount(() => {
 })
 
 const activeLabel = computed(() => plugins.value.find((plugin) => plugin.id === activeId.value)?.label ?? '')
+
+/** 圆点 title：前 9 个带 ⌃N 序号（原型 `title="笔记 (⌃1)"`）。 */
+function hotkeyTitle(plugin: PanelPlugin, index: number): string {
+  return index < MAX_HOTKEY_SLOTS ? `${plugin.label} (⌃${index + 1})` : plugin.label
+}
 </script>
 
 <template>
@@ -372,17 +377,23 @@ const activeLabel = computed(() => plugins.value.find((plugin) => plugin.id === 
     :class="{ 'modal-open': modalDepth > 0 }"
     :aria-label="`Inkling 呼出面板 · ${activeLabel}`"
   >
-    <!-- 插件圆点导航：序号即 ⌃N 快捷键 -->
+    <!-- 插件圆点导航（原型 .nav-dots）：矢量圆由生成层 ::before 绘制，序号即 ⌃N 快捷键 -->
     <div class="panel-nav">
-      <span
-        v-for="(plugin, index) in plugins"
-        :key="plugin.id"
-        class="nav-dot"
-        :class="{ active: activeId === plugin.id }"
-        :title="index < MAX_HOTKEY_SLOTS ? `${plugin.label} (⌃${index + 1})` : plugin.label"
-        @click="activeId = plugin.id"
-        >{{ plugin.dot }}</span
-      >
+      <div class="nav-dots" role="tablist" aria-label="捕获模式切换">
+        <button
+          v-for="(plugin, index) in plugins"
+          :key="plugin.id"
+          type="button"
+          class="nav-dot"
+          :class="[plugin.dotClass, { active: activeId === plugin.id }]"
+          :data-mode="plugin.id"
+          role="tab"
+          :aria-selected="activeId === plugin.id"
+          :aria-label="`${plugin.label}模式`"
+          :title="hotkeyTitle(plugin, index)"
+          @click="navigateTo(plugin.id)"
+        />
+      </div>
       <span class="panel-hint">Esc 收起</span>
     </div>
 

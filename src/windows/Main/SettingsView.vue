@@ -276,7 +276,7 @@ async function openDataDir(): Promise<void> {
       <div class="setting-section-title">面板插件</div>
       <p class="setting-hint">控制呼出面板显示哪些能力页。勾选顺序固定，序号即 <strong>⌃N</strong> 快捷键。</p>
       <label v-for="plugin in builtinPlugins" :key="plugin.id" class="setting-row">
-        <span>{{ plugin.dot }} {{ plugin.label }}</span>
+        <span>{{ plugin.label }}</span>
         <input
           type="checkbox"
           :checked="enabledPluginIds.has(plugin.id)"
