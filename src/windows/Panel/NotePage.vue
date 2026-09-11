@@ -114,7 +114,11 @@ void loadDraft()
 /** 暂存草稿（不广播 notes-changed，后端对草稿不发事件）。编辑态不暂存。 */
 async function persistDraft(): Promise<void> {
   if (editingNoteId.value) return
-  if (!content.value.trim() && !tags.value.length) return
+  if (!content.value.trim() && !tags.value.length) {
+    // 正文与标签都已清空：无需落库，但要把 watch 打上的「输入中…」复位，否则底栏会一直脉动。
+    saveState.value = 'idle'
+    return
+  }
   try {
     const note = await api.notes.save({
       id: draftId.value,
