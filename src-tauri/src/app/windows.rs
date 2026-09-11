@@ -759,28 +759,19 @@ static PANEL_ZEN: AtomicBool = AtomicBool::new(false);
 
 /// 进入 / 退出 Zen 专注模式。
 ///
-/// 进入：记录状态，把面板窗口放大到**光标所在屏**的工作区（物理像素，不遮任务栏）；
-/// 退出：清状态，按 `PANEL_LOGICAL_HEIGHT` 与当前唤出位置重新 `place_panel`。
-/// 只取进入时的光标屏；多屏下退出时按当时光标屏重摆（spec §8 风险项的应对）。
+/// 进入：把面板窗口放大到光标所在屏的工作区（物理像素，不遮任务栏），再置 `PANEL_ZEN`；
+/// 退出：按 `PANEL_LOGICAL_HEIGHT` 与当前唤出位置重新 `place_panel`，成功后才清 `PANEL_ZEN`。
+/// 进入与退出各自取**当时**光标所在屏（多屏下退出时可能落到另一块屏，spec §8 已知风险）。
+///
+/// 标志统一在几何成功应用之后再写：若退出时读设置失败就提前返回，标志仍为 true，
+/// 窗口也仍铺满工作区，二者保持一致；否则会出现「标志已清、窗口还是全屏」的错位。
 pub fn panel_set_zen(app: &AppHandle, on: bool) -> Result<(), String> {
     let panel = app.get_webview_window("panel").ok_or("面板窗口未初始化")?;
-    let monitor = cursor_monitor(app).ok_or("未找到可用显示器")?;
-    let work = WorkArea::of(&monitor);
-    PANEL_ZEN.store(on, Ordering::SeqCst);
     if on {
-        eprintln!(
-            "[panel] 进入 Zen，铺满工作区 left={} top={} w={} h={}",
-            work.left, work.top, work.width, work.height
-        );
-        let _ = panel.set_size(PhysicalSize::new(
-            work.width.round() as u32,
-            work.height.round() as u32,
-        ));
-        let _ = panel.set_position(PhysicalPosition::new(
-            work.left.round() as i32,
-            work.top.round() as i32,
-        ));
+        fill_work_area(app, &panel)?;
     } else {
+        let monitor = cursor_monitor(app).ok_or("未找到可用显示器")?;
+        let work = WorkArea::of(&monitor);
         let position = app
             .state::<AppState>()
             .lock_store()?
@@ -791,6 +782,30 @@ pub fn panel_set_zen(app: &AppHandle, on: bool) -> Result<(), String> {
         eprintln!("[panel] 退出 Zen，按逻辑高度 {height} 还原到 {position} 边");
         place_panel(&panel, &work, height, &position);
     }
+    // 几何已成功应用，此时再写标志，保证标志与窗口实际状态一致。
+    PANEL_ZEN.store(on, Ordering::SeqCst);
+    Ok(())
+}
+
+/// 把面板窗口铺满**光标所在屏**的工作区（物理像素，不遮任务栏）。
+///
+/// Zen 态的几何来源，`panel_set_zen(true)` 与 Zen 态下的 `reposition_panel` 共用，
+/// 保证两条路径算出的矩形一致。
+fn fill_work_area(app: &AppHandle, panel: &tauri::WebviewWindow) -> Result<(), String> {
+    let monitor = cursor_monitor(app).ok_or("未找到可用显示器")?;
+    let work = WorkArea::of(&monitor);
+    eprintln!(
+        "[panel] Zen 铺满工作区 left={} top={} w={} h={}",
+        work.left, work.top, work.width, work.height
+    );
+    let _ = panel.set_size(PhysicalSize::new(
+        work.width.round() as u32,
+        work.height.round() as u32,
+    ));
+    let _ = panel.set_position(PhysicalPosition::new(
+        work.left.round() as i32,
+        work.top.round() as i32,
+    ));
     Ok(())
 }
 
@@ -824,8 +839,17 @@ pub fn set_main_acrylic(app: &AppHandle, enabled: bool) -> Result<(), String> {
 }
 
 /// 根据当前偏好将已创建的面板移动到对应屏幕边缘。
+///
+/// Zen 态下改为重新铺满光标所在屏工作区而不是按逻辑高度 `place_panel`：
+/// 面板可见且处于 Zen 时，`panel_show_page` / `panel_open_note` 仍会经 `panel_show` 走到这里，
+/// 若此时按逻辑高度缩小窗口，`PANEL_ZEN` 却仍为 true，后续 `panel_resize` 全部被跳过，
+/// 前端也仍认为自己在 Zen——窗口与状态就此错位。
 pub fn reposition_panel(app: &AppHandle) -> Result<(), String> {
     let panel = app.get_webview_window("panel").ok_or("面板窗口未初始化")?;
+    if PANEL_ZEN.load(Ordering::SeqCst) {
+        eprintln!("[panel] Zen 态重摆：保持铺满工作区");
+        return fill_work_area(app, &panel);
+    }
     let monitor = cursor_monitor(app).ok_or("未找到可用显示器")?;
     let settings = app.state::<AppState>().lock_store()?.get_settings()?;
     place_panel(

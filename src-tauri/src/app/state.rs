@@ -56,6 +56,7 @@ impl AppState {
         self.island_rect.lock().ok().and_then(|slot| *slot)
     }
 
+    /// 写入（或用 `None` 清空）待执行的呼出意图，覆盖上一条未被取走的意图。
     pub fn set_pending_panel_intent(&self, intent: Option<String>) {
         if let Ok(mut slot) = self.pending_panel_intent.lock() {
             *slot = intent;
