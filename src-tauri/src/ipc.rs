@@ -713,8 +713,11 @@ pub fn launcher_hide(app: AppHandle) -> Result<(), String> {
 }
 
 /// 显示启动台浮窗（主窗口启动台页的「呼出浮窗启动台」按钮）。
+///
+/// 必须是 async 命令：首次呼出要 `WebviewWindowBuilder::build()` 建窗，同步命令跑在主线程上会与
+/// 事件循环互等（窗口句柄建出但 WebView 永不初始化，整个应用冻结），与 `editor_open` / `pin_create` 同款。
 #[tauri::command]
-pub fn launcher_show(app: AppHandle) -> Result<(), String> {
+pub async fn launcher_show(app: AppHandle) -> Result<(), String> {
     windows::launcher_show(&app)
 }
 
