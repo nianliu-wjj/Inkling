@@ -25,8 +25,13 @@ const props = withDefaults(
     shakingTag?: string | null
     /** 所属卡片处于抖动确认态：展开全部标签并渲染提示。 */
     shaking?: boolean
+    /**
+     * 「+N」的行为：`expand` 就地展开（卡片）；`open` 不拦截点击，冒泡给父级 `.tag-preview` 打开标签管理
+     * （面板右下角，原型 renderPanelTags 的 +N 冒泡到 tagPreview）。
+     */
+    moreAction?: 'expand' | 'open'
   }>(),
-  { max: 3, deletable: false, shakingTag: null, shaking: false },
+  { max: 3, deletable: false, shakingTag: null, shaking: false, moreAction: 'expand' },
 )
 
 const emit = defineEmits<{
@@ -41,6 +46,13 @@ const expanded = ref(false)
 const showAll = computed(() => expanded.value || props.shaking)
 const visibleTags = computed(() => (showAll.value ? props.tags : props.tags.slice(0, props.max)))
 const hiddenCount = computed(() => Math.max(0, props.tags.length - props.max))
+
+/** `expand` 才拦截点击并展开；`open` 让事件冒泡到父级。 */
+function onMore(event: MouseEvent): void {
+  if (props.moreAction !== 'expand') return
+  event.stopPropagation()
+  expanded.value = true
+}
 </script>
 
 <template>
@@ -58,8 +70,8 @@ const hiddenCount = computed(() => Math.max(0, props.tags.length - props.max))
       <span
         v-if="!showAll && hiddenCount > 0"
         class="tag-more"
-        :title="`展开其余 ${hiddenCount} 个标签`"
-        @click.stop="expanded = true"
+        :title="props.moreAction === 'open' ? '查看全部标签' : `展开其余 ${hiddenCount} 个标签`"
+        @click="onMore"
       >
         +{{ hiddenCount }}
       </span>

@@ -56,9 +56,10 @@ const pageRefs = shallowReactive<Record<string, PanelPageExpose | null>>({})
 const zen = ref(false)
 /**
  * 前端认为面板是否处于显示中（Zen 入口显隐用）：panelShown 置 true，hide() 置 false。
- * 窗口是预建隐藏的，挂载时并不可见；初值 true 只是为了让首次 panelShown 之前的状态与「未收起」一致。
+ * 窗口是预建隐藏的，挂载时并不可见，因此初值为 false——否则首次 panelShown(wasHidden=true)
+ * 会被误判为「后端直接收起」而多跑一次清理并打出误导性的 warn。
  */
-const visible = ref(true)
+const visible = ref(false)
 
 /** 模板 `:ref` 回调：v-for 里的组件实例按插件 id 记账。 */
 function setPageRef(id: string, instance: Element | ComponentPublicInstance | null): void {
@@ -317,6 +318,12 @@ function onExternalEditorOpen(): void {
   logger.debug('panel', '独立编辑窗口已打开，暂停失焦收起')
 }
 
+/** 笔记归档 / 保存修改成功：原型 250ms 后收面板，让 toast 先被看到。 */
+function onArchived(): void {
+  logger.debug('panel', '归档完成，250ms 后收起')
+  setTimeout(() => void hide(), 250)
+}
+
 /** 取走后端暂存的呼出意图：切页；带 noteId 则让目标页回显该笔记。 */
 async function consumeIntent(): Promise<void> {
   let intent: PanelIntent | null
@@ -326,6 +333,8 @@ async function consumeIntent(): Promise<void> {
     logger.error('panel', '读取呼出意图失败', error)
     return
   }
+  // 原型 showPanel：显示 100ms 后 editor.focus()。当前页非笔记页时 focus 不存在，自然跳过。
+  setTimeout(() => pageRefs[activeId.value]?.focus?.(), 100)
   if (!intent) return
   logger.info('panel', `呼出意图 page=${intent.page} noteId=${intent.noteId ?? '-'}`)
   navigateTo(intent.page)
@@ -537,6 +546,7 @@ function hotkeyTitle(plugin: PanelPlugin, index: number): string {
       :ref="(el: Element | ComponentPublicInstance | null) => setPageRef(plugin.id, el)"
       @modal="onModalToggle"
       @external-editor="onExternalEditorOpen"
+      @archived="onArchived"
       @zen-exit="setZen(false)"
     />
 

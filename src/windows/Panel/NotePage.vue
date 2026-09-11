@@ -25,6 +25,8 @@ const emit = defineEmits<{
   (e: 'modal', open: boolean): void
   /** 用户点击底栏「退出 Zen」。 */
   (e: 'zen-exit'): void
+  /** 归档 / 保存修改成功：PanelApp 据此在 250ms 后收面板（原型 archiveNote 的 setTimeout(hidePanel, 250)）。 */
+  (e: 'archived'): void
 }>()
 
 const { toast } = useToast()
@@ -39,22 +41,27 @@ const editingNoteId = ref<string | null>(null)
 /** 回显时的笔记快照：保存修改时把 editor_mode / mindmap_data 原样带回，避免被清空。 */
 const editingSnapshot = ref<Note | null>(null)
 const showTagManager = ref(false)
-const saveState = ref<'idle' | 'saving' | 'saved'>('idle')
+/** 暂存状态：idle「已暂存」（初始 / 恢复草稿后）· typing「输入中…」· saved「已暂存 SQLite」· failed「暂存失败」。 */
+const saveState = ref<'idle' | 'typing' | 'saved' | 'failed'>('idle')
 
 /** 是否处于回显编辑态（供 PanelApp 决定 Zen 入口显隐）。 */
 const isEditing = computed(() => editingNoteId.value !== null)
 /** 底栏主按钮文案（原型 #btnArchive）。 */
 const archiveLabel = computed(() => (isEditing.value ? '保存修改 ✓' : '归档念头 ↵'))
+/** 标签管理弹窗副标题（原型 openTagManager 的 draft / note 两种目标）。 */
+const tagSubtitle = computed(() => (isEditing.value ? '当前笔记的标签' : '当前正在编写的念头（未归档）的标签'))
 
 /** 500ms 防抖的暂存定时器。 */
 let debounceTimer: ReturnType<typeof setTimeout> | null = null
 /** 程序性写入 content / tags 时置位，让紧随其后的 watch 回调跳过自动暂存。 */
 let suppressAutosave = false
 
+/** 底栏暂存文案（原型 #saveState 的三段：已暂存 → 输入中… → 已暂存 SQLite；失败态为项目扩展）。 */
 const saveLabel = computed(() => {
-  if (saveState.value === 'saving') return '暂存中…'
-  if (saveState.value === 'saved') return '已暂存'
-  return '未保存'
+  if (saveState.value === 'typing') return '输入中…'
+  if (saveState.value === 'saved') return '已暂存 SQLite'
+  if (saveState.value === 'failed') return '暂存失败'
+  return '已暂存'
 })
 
 function cancelPendingAutosave(): void {
@@ -91,7 +98,8 @@ async function loadDraft(): Promise<void> {
     }
     draftId.value = draft.id
     await setLocal(draft.content, [...draft.tags])
-    saveState.value = 'saved'
+    // 恢复草稿后显示初始文案「已暂存」，与原型一致。
+    saveState.value = 'idle'
     logger.info('panel-note', `恢复草稿 id=${draft.id}`)
   } catch (error) {
     logger.error('panel-note', '加载草稿失败', error)
@@ -107,7 +115,6 @@ void loadDraft()
 async function persistDraft(): Promise<void> {
   if (editingNoteId.value) return
   if (!content.value.trim() && !tags.value.length) return
-  saveState.value = 'saving'
   try {
     const note = await api.notes.save({
       id: draftId.value,
@@ -121,7 +128,7 @@ async function persistDraft(): Promise<void> {
     saveState.value = 'saved'
     logger.debug('panel-note', `草稿已暂存 id=${note.id}`)
   } catch (error) {
-    saveState.value = 'idle'
+    saveState.value = 'failed'
     logger.error('panel-note', '暂存失败', error)
   }
 }
@@ -130,7 +137,8 @@ async function persistDraft(): Promise<void> {
 watch([content, tags], () => {
   if (suppressAutosave) return
   if (editingNoteId.value) return
-  saveState.value = 'idle'
+  // 原型：一有输入就切「输入中…」+ .saving，落库后再切「已暂存 SQLite」。
+  saveState.value = 'typing'
   cancelPendingAutosave()
   debounceTimer = setTimeout(() => {
     debounceTimer = null
@@ -163,7 +171,7 @@ async function loadNote(id: string): Promise<void> {
   editingNoteId.value = id
   editingSnapshot.value = note
   await setLocal(note.content, [...note.tags])
-  // 编辑态不自动暂存，底栏不能沿用草稿的「已暂存」；改成中性的「未保存」。
+  // 编辑态不自动暂存，底栏回到初始文案「已暂存」（描述的是草稿已落库，不是本次修改）。
   saveState.value = 'idle'
   toast('内容已回显，修改后点击「保存修改」')
   focus()
@@ -202,6 +210,7 @@ async function archive(): Promise<void> {
     await loadDraft()
     exitEditing()
     toast('修改已保存 ✔')
+    emit('archived')
     return
   }
 
@@ -225,6 +234,7 @@ async function archive(): Promise<void> {
   await setLocal('', [])
   saveState.value = 'idle'
   toast('念头已归档 ✔')
+  emit('archived')
 }
 
 /** 面板即将隐藏：编辑态视为放弃修改，恢复草稿（原型 hidePanel）。 */
@@ -271,11 +281,11 @@ defineExpose({ archive, focus, dismissOverlays, loadNote, onPanelHide, isEditing
     <NoteEditor ref="editor" v-model="content" editor-mode="text" :show-mode-bar="false" @submit="archive" />
 
     <div class="editor-footer">
-      <span class="save-state" :class="{ saving: saveState === 'saving' }">{{ saveLabel }}</span>
+      <span class="save-state" :class="{ saving: saveState === 'typing' }">{{ saveLabel }}</span>
       <div class="editor-actions">
         <!-- 标签区位于归档按钮左侧（需求 2.2 指定的两处展示位置之一） -->
-        <div class="tag-preview" title="点击管理标签">
-          <TagList :tags="tags" :max="3" @open="openTagManager" />
+        <div class="tag-preview" title="点击管理标签" @click="openTagManager">
+          <TagList :tags="tags" :max="3" more-action="open" />
         </div>
         <!-- 原型 #zenExit：显隐由生成层按 #panel.zen-mode 控制，不传 prop -->
         <button id="zenExit" type="button" class="btn ghost" title="退出 Zen 专注模式（Esc）" @click="emit('zen-exit')">
@@ -289,7 +299,7 @@ defineExpose({ archive, focus, dismissOverlays, loadNote, onPanelHide, isEditing
       v-if="showTagManager"
       :tags="tags"
       :max-length="5"
-      subtitle="当前笔记的标签"
+      :subtitle="tagSubtitle"
       @save="saveTags"
       @close="closeTagManager"
     />
