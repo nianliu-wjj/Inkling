@@ -863,6 +863,9 @@ pub fn reposition_panel(app: &AppHandle) -> Result<(), String> {
 
 /// 呼出面板：定位到光标所在屏顶部居中，show + focus。
 /// 面板可见期间 hotzone_watcher 会自动停止感应，无需在此屏蔽感应区。
+///
+/// 广播 PANEL_SHOWN，payload 为 bool：本次显示前面板是否处于隐藏态；
+/// 前端据此判断是否漏掉了一次前端侧收起清理（快捷键 / 粘贴走的是后端直接 hide）。
 pub fn panel_show(app: &AppHandle) -> Result<(), String> {
     eprintln!("[panel] 收到呼出请求");
     let panel = app.get_webview_window("panel").ok_or("面板窗口未初始化")?;
@@ -870,6 +873,8 @@ pub fn panel_show(app: &AppHandle) -> Result<(), String> {
         eprintln!("[panel] 定位面板失败: {error}");
         return Err(error);
     }
+    // 必须在 show() 之前取样：显示后再问永远是 true。
+    let was_hidden = !panel.is_visible().unwrap_or(false);
     let _ = panel.show();
     let _ = panel.unminimize();
     let _ = panel.set_focus();
@@ -878,7 +883,7 @@ pub fn panel_show(app: &AppHandle) -> Result<(), String> {
         panel.is_visible().ok(),
         panel.outer_position().ok().map(|p| (p.x, p.y))
     );
-    let _ = app.emit(events::PANEL_SHOWN, ());
+    let _ = app.emit(events::PANEL_SHOWN, was_hidden);
     Ok(())
 }
 

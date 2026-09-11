@@ -95,6 +95,10 @@ async function loadDraft(): Promise<void> {
     logger.info('panel-note', `恢复草稿 id=${draft.id}`)
   } catch (error) {
     logger.error('panel-note', '加载草稿失败', error)
+    // 拉取失败也要把编辑区清掉：调用方多半刚退出编辑态，不能让旧笔记的正文留在「归档念头」按钮下。
+    draftId.value = undefined
+    await setLocal('', [])
+    saveState.value = 'idle'
   }
 }
 void loadDraft()
@@ -159,6 +163,8 @@ async function loadNote(id: string): Promise<void> {
   editingNoteId.value = id
   editingSnapshot.value = note
   await setLocal(note.content, [...note.tags])
+  // 编辑态不自动暂存，底栏不能沿用草稿的「已暂存」；改成中性的「未保存」。
+  saveState.value = 'idle'
   toast('内容已回显，修改后点击「保存修改」')
   focus()
 }
@@ -191,8 +197,10 @@ async function archive(): Promise<void> {
       toast('保存失败')
       return
     }
-    exitEditing()
+    // 先把草稿换进编辑区再退出编辑态：setLocal 无论编辑态与否都抑制自动暂存，
+    // 而反过来先退出会让 watch 在草稿写入前的窗口期把笔记正文当成新草稿。
     await loadDraft()
+    exitEditing()
     toast('修改已保存 ✔')
     return
   }
@@ -223,8 +231,9 @@ async function archive(): Promise<void> {
 async function onPanelHide(): Promise<void> {
   if (!editingNoteId.value) return
   logger.info('panel-note', `收面板，丢弃未保存修改 id=${editingNoteId.value}`)
-  exitEditing()
+  // 同 archive：先恢复草稿再退出编辑态，见那里的说明。
   await loadDraft()
+  exitEditing()
 }
 
 /** 把光标放进编辑器（呼出 / 回显 / 进入 Zen 后）。 */

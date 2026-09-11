@@ -54,7 +54,10 @@ const modalDepth = ref(0)
 const pageRefs = shallowReactive<Record<string, PanelPageExpose | null>>({})
 /** Zen 专注模式：为真时根元素带 .zen-mode，窗口已由后端放大到工作区。 */
 const zen = ref(false)
-/** 面板窗口是否可见：挂载即可见，hide 完成后 false，panelShown 后 true（Zen 入口显隐用）。 */
+/**
+ * 前端认为面板是否处于显示中（Zen 入口显隐用）：panelShown 置 true，hide() 置 false。
+ * 窗口是预建隐藏的，挂载时并不可见；初值 true 只是为了让首次 panelShown 之前的状态与「未收起」一致。
+ */
 const visible = ref(true)
 
 /** 模板 `:ref` 回调：v-for 里的组件实例按插件 id 记账。 */
@@ -119,6 +122,10 @@ async function setZen(on: boolean): Promise<void> {
     await api.windows.panelSetZen(on)
   } catch (error) {
     logger.error('panel', 'Zen 窗口切换失败', error)
+    // 退出失败：后端语义上窗口仍是全屏，把提前去掉的类加回去，让状态与窗口一致；
+    // 此时 zen.value 回到 true，下次再调 setZen(false) 不会被首行守卫挡住，可重试。
+    // 进入失败：类尚未加上，保持 false 即可。
+    if (!on) zen.value = true
     return
   }
   zen.value = on
@@ -189,6 +196,14 @@ function motionDistance(distance: number): number {
   return position === 'bottom' || position === 'right' ? distance : -distance
 }
 
+/**
+ * 通知各页面板即将收起（笔记页据此丢弃未保存的回显修改并恢复草稿）。
+ * hide() 与「补跑清理」（见 panelShown 处理）共用，保证两条路径的清理内容一致。
+ */
+function runPagesHide(): Promise<void> {
+  return Promise.all(Object.values(pageRefs).map((page) => page?.onPanelHide?.())).then(() => undefined)
+}
+
 async function hide(): Promise<void> {
   clearCollapseTimer()
   logger.info('panel', '收起面板')
@@ -203,12 +218,14 @@ async function hide(): Promise<void> {
       return
     }
   }
-  // 收起即丢弃：通知各页（笔记页据此丢弃未保存的回显修改并恢复草稿）。
+  // 收起即丢弃：通知各页。
   // 必须在窗口隐藏之前等它完成——WebView2 在窗口 hide 后挂起，此后的 IPC 回包要等下次显示。
-  await Promise.all(Object.values(pageRefs).map((page) => page?.onPanelHide?.()))
+  await runPagesHide()
+  // 先置 false 再等后端：hide 后 WebView 可能挂起，await 之后的赋值未必及时执行；
+  // 即使后端失败，下次 panelShown 也会重新置 true，状态不会卡死。
+  visible.value = false
   try {
     await api.windows.panelHide()
-    visible.value = false
   } catch (error) {
     logger.error('panel', '隐藏面板失败', error)
   }
@@ -414,11 +431,25 @@ onMounted(() => {
 
   // 后端每次显示面板都会广播：重播入场动画，并取走呼出意图（切页 / 回显）。
   // 隐藏期间的事件会丢，所以意图存在后端、由前端主动拉。
-  void onAppEvent(AppEvents.panelShown, () => {
+  // payload：本次显示前面板是否处于隐藏态。快捷键切换 / 粘贴走的是后端直接 hide，
+  // 不经过前端 hide()，此时 Zen 类与回显编辑态都还留在前端；隐藏期间 panelHidden
+  // 事件未必送达（WebView2 挂起），所以改在下次显示时按 wasHidden 补跑清理。
+  void onAppEvent<boolean>(AppEvents.panelShown, async (wasHidden) => {
     clearCollapseTimer()
+    if (wasHidden) {
+      // 前端仍认为在显示 / 在 Zen，说明这次隐藏没走前端 hide()，清理被漏掉了。
+      const missedCleanup = visible.value || zen.value
+      // Rust 侧 panel_hide 总会退出 Zen：只要经历过隐藏，前端的 Zen 态一定已失效。
+      zen.value = false
+      if (missedCleanup) {
+        logger.warn('panel', '检测到后端直接收起（快捷键 / 粘贴），补跑前端收起清理')
+        await runPagesHide()
+      }
+    }
     visible.value = true
-    playEnter()
-    void consumeIntent()
+    // Zen 态下生成层 transform: none !important，位移入场动画无意义，跳过。
+    if (!zen.value) playEnter()
+    await consumeIntent()
   })
 
   // 面板已可见时其他窗口请求切页（灵动岛点击、后续插件），直接响应。

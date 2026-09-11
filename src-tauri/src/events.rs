@@ -1,6 +1,8 @@
 //! 事件名常量：跨窗口通信的统一契约。
 
 pub const NAVIGATE: &str = "inkling://navigate";
+/// 面板已显示（广播），payload 为 bool：本次显示前面板是否处于隐藏态。
+/// 前端据此判断是否漏掉了一次前端侧收起清理（快捷键 / 粘贴走的是后端直接 hide，不经前端 hide()）。
 pub const PANEL_SHOWN: &str = "inkling://panel-shown";
 pub const PANEL_HIDDEN: &str = "inkling://panel-hidden";
 pub const NOTES_CHANGED: &str = "inkling://notes-changed";

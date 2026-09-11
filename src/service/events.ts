@@ -11,6 +11,7 @@ import { logger } from './logger'
 export const AppEvents = {
   /** 托盘/快捷键请求主窗口切换视图，payload 为视图名。 */
   navigate: 'inkling://navigate',
+  /** 面板已显示（广播），payload 为 boolean：本次显示前面板是否处于隐藏态（前端据此补跑漏掉的收起清理）。 */
   panelShown: 'inkling://panel-shown',
   panelHidden: 'inkling://panel-hidden',
   notesChanged: 'inkling://notes-changed',
