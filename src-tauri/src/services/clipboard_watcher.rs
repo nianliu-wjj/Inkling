@@ -96,12 +96,16 @@ pub fn capture_text(
     let state = app.state::<AppState>();
     let store = state.lock_store().ok()?;
     let capture = logic::build_preview(&text, 240);
+    // 采集瞬间读前台应用：轮询间隔 500ms，此刻前台几乎总还是复制发生的应用；
+    // 面板内手动捕获时前台是本应用，platform 层返回 None。
+    let source_app = crate::platform::foreground_app_name();
     let input = crate::data::clipboard::Capture {
         content: text.chars().take(MAX_INLINE_TEXT).collect(),
         content_type: kind.as_str(),
         preview: capture,
         file_path: None,
         hash,
+        source_app,
     };
     store.insert_capture(&input).ok().flatten()
 }
@@ -127,6 +131,7 @@ fn capture_image(app: &AppHandle, image: ImageData<'_>, hash: String) -> Option<
         preview,
         file_path: Some(relative),
         hash,
+        source_app: crate::platform::foreground_app_name(),
     };
     store.insert_capture(&input).ok().flatten()
 }

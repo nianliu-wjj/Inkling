@@ -38,6 +38,9 @@ crate::dto! {
         preview: String,
         #[serde(skip_serializing_if = "Option::is_none")]
         file_path: Option<String>,
+        /// 采集时的前台应用名（v6 起）；旧数据与采集失败时为 None，序列化时省略。
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        source_app: Option<String>,
         pinned: bool,
         copied_at: String,
         modified_at: String,

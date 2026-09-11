@@ -104,3 +104,98 @@ pub fn apply_main_backdrop(window: &WebviewWindow, enabled: bool) {
 pub fn is_silent_start() -> bool {
     std::env::args().any(|arg| arg == "--silent" || arg == "/silent")
 }
+
+/// 当前前台应用的名字（可执行文件名去掉 `.exe`），用于标注粘贴板条目来源（spec D20）。
+///
+/// 只在 Windows 上实现：`GetForegroundWindow` → `GetWindowThreadProcessId` →
+/// `OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION)` → `QueryFullProcessImageNameW`。
+/// 前台是本应用自身（面板里手动捕获）时返回 None——回声抑制之外再防一手；
+/// 提权进程 `OpenProcess` 会失败，同样返回 None，前端不渲染来源。
+pub fn foreground_app_name() -> Option<String> {
+    foreground_app_path().and_then(|path| app_name_from_path(&path))
+}
+
+#[cfg(target_os = "windows")]
+fn foreground_app_path() -> Option<String> {
+    use windows_sys::Win32::Foundation::CloseHandle;
+    use windows_sys::Win32::System::Threading::{
+        GetCurrentProcessId, OpenProcess, QueryFullProcessImageNameW, PROCESS_NAME_WIN32,
+        PROCESS_QUERY_LIMITED_INFORMATION,
+    };
+    use windows_sys::Win32::UI::WindowsAndMessaging::{
+        GetForegroundWindow, GetWindowThreadProcessId,
+    };
+
+    // SAFETY: 全部是只读查询类 Win32 调用；进程句柄在本函数内打开并在返回前关闭，
+    // 缓冲区由我们分配并把长度传给系统，系统只在长度范围内写入。
+    unsafe {
+        let hwnd = GetForegroundWindow();
+        if hwnd.is_null() {
+            return None;
+        }
+        let mut pid: u32 = 0;
+        GetWindowThreadProcessId(hwnd, &mut pid);
+        if pid == 0 || pid == GetCurrentProcessId() {
+            return None;
+        }
+        let handle = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, 0, pid);
+        if handle.is_null() {
+            eprintln!("[platform] 打开前台进程 {pid} 失败（可能是提权进程），来源留空");
+            return None;
+        }
+        let mut buffer = [0u16; 1024];
+        let mut length = buffer.len() as u32;
+        let ok = QueryFullProcessImageNameW(
+            handle,
+            PROCESS_NAME_WIN32,
+            buffer.as_mut_ptr(),
+            &mut length,
+        );
+        CloseHandle(handle);
+        if ok == 0 || length == 0 {
+            return None;
+        }
+        Some(String::from_utf16_lossy(&buffer[..length as usize]))
+    }
+}
+
+#[cfg(not(target_os = "windows"))]
+fn foreground_app_path() -> Option<String> {
+    None
+}
+
+/// 从可执行文件完整路径取应用名：只留文件名，去掉 `.exe` 后缀（不区分大小写）。
+///
+/// 抽成纯函数以便单测；空路径或以分隔符结尾（无文件名）返回 None。
+pub fn app_name_from_path(path: &str) -> Option<String> {
+    let file = path.rsplit(['\\', '/']).next()?.trim();
+    if file.is_empty() {
+        return None;
+    }
+    let name = match file.rsplit_once('.') {
+        Some((stem, ext)) if !stem.is_empty() && ext.eq_ignore_ascii_case("exe") => stem,
+        _ => file,
+    };
+    Some(name.to_string())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::app_name_from_path;
+
+    /// 只取文件名并去掉 .exe（不区分大小写）；空路径与目录结尾返回 None。
+    #[test]
+    fn app_name_from_path_strips_directory_and_exe() {
+        assert_eq!(
+            app_name_from_path(r"C:\Windows\System32\notepad.exe").as_deref(),
+            Some("notepad")
+        );
+        assert_eq!(
+            app_name_from_path(r"C:\Program Files\App\Code.EXE").as_deref(),
+            Some("Code")
+        );
+        assert_eq!(app_name_from_path("/usr/bin/vim").as_deref(), Some("vim"));
+        assert!(app_name_from_path("").is_none());
+        assert!(app_name_from_path(r"C:\dir\").is_none());
+    }
+}

@@ -82,7 +82,7 @@ impl Store {
         Ok(store)
     }
 
-    /// 版本化迁移：v0（初版）→ v1（archived_at / 附件路径 / 统计事件 / 提醒实例 / 提醒抑制标记）。
+    /// 版本化迁移：v0（初版）→ v1（archived_at / 附件路径 / 统计事件 / 提醒实例 / 提醒抑制标记）→ v6（clipboard_entries.source_app）。
     fn migrate(&mut self) -> Result<(), String> {
         let version: i64 = self
             .db
@@ -183,6 +183,13 @@ impl Store {
                 .map_err(|e| format!("数据库迁移到 v5 失败: {e}"))?;
             self.db
                 .pragma_update(None, "user_version", 5)
+                .map_err(db_err)?;
+        }
+        if version < 6 {
+            self.with_v6()
+                .map_err(|e| format!("数据库迁移到 v6 失败: {e}"))?;
+            self.db
+                .pragma_update(None, "user_version", 6)
                 .map_err(db_err)?;
         }
         Ok(())
@@ -303,6 +310,11 @@ impl Store {
             eprintln!("[data] v5 迁移：主题由 dark 归到新默认 typewriter");
         }
         Ok(())
+    }
+
+    /// v6 增量：剪贴板条目来源应用（spec D20）。存量行不回填，来源未知即 NULL。
+    fn with_v6(&self) -> Result<(), String> {
+        self.add_column_if_missing("clipboard_entries", "source_app", "TEXT")
     }
 
     fn add_column_if_missing(&self, table: &str, column: &str, decl: &str) -> Result<(), String> {
@@ -711,6 +723,70 @@ mod tests {
         assert_eq!(
             crate::domain::models::Settings::default().theme(),
             "typewriter"
+        );
+    }
+
+    /// 建一个 v5 状态的剪贴板表：没有 source_app 列，带一行旧数据。
+    fn v5_clipboard_db() -> rusqlite::Connection {
+        let db = rusqlite::Connection::open_in_memory().unwrap();
+        db.execute_batch(
+            "CREATE TABLE clipboard_entries (
+               id TEXT PRIMARY KEY,
+               content_type TEXT NOT NULL,
+               content TEXT NOT NULL DEFAULT '',
+               preview TEXT NOT NULL DEFAULT '',
+               file_path TEXT,
+               content_hash TEXT NOT NULL UNIQUE,
+               pinned INTEGER NOT NULL DEFAULT 0,
+               copied_at TEXT NOT NULL,
+               modified_at TEXT NOT NULL,
+               created_at TEXT
+             );
+             INSERT INTO clipboard_entries(id, content_type, content, preview, content_hash, copied_at, modified_at)
+             VALUES('c1','text','旧条目','旧条目','h1','x','x');",
+        )
+        .unwrap();
+        db.pragma_update(None, "user_version", 5).unwrap();
+        db
+    }
+
+    fn clipboard_columns(store: &Store) -> Vec<String> {
+        let mut stmt = store
+            .db
+            .prepare("PRAGMA table_info(clipboard_entries)")
+            .unwrap();
+        stmt.query_map([], |r| r.get::<_, String>(1))
+            .unwrap()
+            .map(|r| r.unwrap())
+            .collect()
+    }
+
+    #[test]
+    fn v6_migration_adds_source_app_and_keeps_old_rows_null() {
+        let store = Store {
+            db: v5_clipboard_db(),
+            data_dir: std::path::PathBuf::from("."),
+        };
+        store.with_v6().unwrap();
+        assert!(clipboard_columns(&store).iter().any(|c| c == "source_app"));
+        // 旧行不回填，来源未知就是 NULL（前端据此不渲染来源）。
+        let source: Option<String> = store
+            .db
+            .query_row(
+                "SELECT source_app FROM clipboard_entries WHERE id='c1'",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert_eq!(source, None);
+        // 幂等：再跑一次不报错、不重复加列。
+        store.with_v6().unwrap();
+        assert_eq!(
+            clipboard_columns(&store)
+                .iter()
+                .filter(|c| *c == "source_app")
+                .count(),
+            1
         );
     }
 }

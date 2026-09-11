@@ -35,6 +35,8 @@ export interface ClipboardEntry {
   content: string
   preview: string
   file_path?: string | null
+  /** 采集时的前台应用名（v6 起）；旧数据或采集失败时缺省。 */
+  source_app?: string | null
   pinned: boolean
   copied_at: string
   modified_at: string

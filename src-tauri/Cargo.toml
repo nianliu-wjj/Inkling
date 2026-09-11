@@ -50,6 +50,9 @@ windows-sys = { version = "0.59", features = [
   "Win32_Graphics_Dwm",
   "Win32_Storage_FileSystem",
   "Win32_UI_Input_KeyboardAndMouse",
+  # 粘贴板来源应用：前台窗口 → 进程 id → 可执行文件名
+  "Win32_UI_WindowsAndMessaging",
+  "Win32_System_Threading",
 ] }
 
 [features]

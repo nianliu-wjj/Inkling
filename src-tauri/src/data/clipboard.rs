@@ -6,7 +6,7 @@ use chrono::{Duration, Utc};
 use rusqlite::OptionalExtension;
 
 const ROW_COLUMNS: &str =
-    "id, content_type, content, preview, file_path, pinned, copied_at, modified_at";
+    "id, content_type, content, preview, file_path, pinned, copied_at, modified_at, source_app";
 
 fn row_entry(r: &rusqlite::Row<'_>) -> rusqlite::Result<ClipboardEntry> {
     ClipboardEntry::builder()
@@ -18,6 +18,7 @@ fn row_entry(r: &rusqlite::Row<'_>) -> rusqlite::Result<ClipboardEntry> {
         .pinned(r.get::<_, i64>(5)? != 0)
         .copied_at(r.get(6)?)
         .modified_at(r.get(7)?)
+        .source_app(r.get(8)?)
         .build()
         .map_err(super::build_err)
 }
@@ -29,6 +30,8 @@ pub struct Capture {
     pub preview: String,
     /// 图片等附件在应用数据目录内的相对路径。
     pub file_path: Option<String>,
+    /// 采集瞬间的前台应用名；None 表示未知。
+    pub source_app: Option<String>,
     pub hash: String,
 }
 
@@ -71,8 +74,8 @@ impl Store {
         let timestamp = now();
         self.db
             .execute(
-                "INSERT INTO clipboard_entries(id, content_type, content, preview, file_path, content_hash, copied_at, modified_at, created_at) \
-                 VALUES(?,?,?,?,?,?,?,?,?)",
+                "INSERT INTO clipboard_entries(id, content_type, content, preview, file_path, content_hash, copied_at, modified_at, created_at, source_app) \
+                 VALUES(?,?,?,?,?,?,?,?,?,?)",
                 rusqlite::params![
                     id,
                     capture.content_type,
@@ -82,7 +85,8 @@ impl Store {
                     capture.hash,
                     timestamp,
                     timestamp,
-                    timestamp
+                    timestamp,
+                    capture.source_app
                 ],
             )
             .map_err(db_err)?;
@@ -193,5 +197,31 @@ impl Store {
                 |r| r.get(0),
             )
             .map_err(db_err)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// 入库时写入来源应用，回读原样返回。
+    #[test]
+    fn insert_capture_persists_source_app() {
+        let dir = std::env::temp_dir().join(format!("inkling-clip-v6-{}", std::process::id()));
+        let store = Store::open(dir.clone()).unwrap();
+        let entry = store
+            .insert_capture(&Capture {
+                content: "hello".into(),
+                content_type: "text",
+                preview: "hello".into(),
+                file_path: None,
+                hash: "hash-hello".into(),
+                source_app: Some("Notepad".into()),
+            })
+            .unwrap()
+            .unwrap();
+        assert_eq!(entry.source_app().as_deref(), Some("Notepad"));
+        drop(store);
+        let _ = std::fs::remove_dir_all(&dir);
     }
 }
