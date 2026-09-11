@@ -49,6 +49,9 @@ const isLink = computed(() => props.entry.content_type === 'link')
 
     <div class="a-meta">
       <ClipTypeBadge :content-type="props.entry.content_type" />
+      <span v-if="props.entry.source_app" class="clip-from" title="来源应用"
+        ><span class="ix">🌐</span> {{ props.entry.source_app }}</span
+      >
       <span
         ><template v-if="props.entry.pinned"><span class="ix">📌</span> </template>{{ stamp }}</span
       >
