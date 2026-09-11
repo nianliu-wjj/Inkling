@@ -766,3 +766,19 @@ body:not(:focus-within) .mac-dot {
   --text-dim: rgba(255, 255, 255, 0.5);
   --wsa: 255, 255, 255;
 }
+
+/* ═══ 9. 阶段二验收补丁（实机发现） ═══
+ * 原型只给浮窗启动台的 #launcherInput 定了样式（透明底、无边框、16px），主窗口启动台页内嵌试用区的
+ * #launcherPageInput 在原型 CSS 里没有对应规则，渲染为浏览器默认输入框——这是原型自身的遗漏
+ * （已建议在 docs/styles.css 改为 `#launcherInput, #launcherPageInput`，改后同步即可删除本节）。 */
+#launcherPageInput {
+  flex: 1;
+  background: transparent;
+  border: 0;
+  outline: none;
+  font-size: 16px;
+  color: var(--text-strong);
+}
+#launcherPageInput::placeholder {
+  color: var(--text-dim);
+}

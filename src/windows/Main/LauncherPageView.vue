@@ -51,6 +51,13 @@ const { recording, start: startRecording } = useShortcutRecorder({
   persist: (applied) => patch({ launcher_shortcut: applied }),
 })
 
+/** 页面说明：放在脚本里拼接，避免模板换行在中文之间引入空格。 */
+const legend = computed(
+  () =>
+    `键盘优先的全局启动器：${settings.value.launcher_shortcut} 呼出浮窗；本地检索程序、UWP 应用、文件与文件夹，` +
+    '支持拼音 / 首字母 / 拼写纠错，不联网、不上传',
+)
+
 /** 页脚提示（原型 renderLauncherPageResults）。 */
 const footer = computed(() =>
   hits.value.length ? `↑↓ 导航 · ↵ 执行 · 点击直接执行 · 共 ${hits.value.length} 项` : '输入关键词开始搜索',
@@ -74,10 +81,7 @@ onMounted(() => void refreshLauncherStatus())
 <template>
   <div class="archive-page">
     <div class="page-title">🚀 启动台</div>
-    <div class="stats-legend">
-      键盘优先的全局启动器：{{ settings.launcher_shortcut }} 呼出浮窗；本地检索程序、UWP 应用、文件与文件夹， 支持拼音 /
-      首字母 / 拼写纠错，不联网、不上传
-    </div>
+    <div class="stats-legend">{{ legend }}</div>
 
     <!-- 内嵌试用区：复用浮窗启动台的输入行 / 列表 / 页脚样式 -->
     <div class="launcher-page-hero">

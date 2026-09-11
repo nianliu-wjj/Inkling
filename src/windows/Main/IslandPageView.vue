@@ -153,7 +153,7 @@ function toggleIslandPlugin(id: string, enabled: boolean): void {
         />
       </label>
       <label class="setting-row">
-        <span>点击穿透（点击落到下层应用，悬停与点击改由后端光标探测）</span>
+        <span>点击穿透（点击落到下层应用，悬停仍有效）</span>
         <input
           type="checkbox"
           :checked="settings.island_click_through"
