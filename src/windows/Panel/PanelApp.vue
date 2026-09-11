@@ -1,13 +1,22 @@
 <script setup lang="ts">
-import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import {
+  computed,
+  nextTick,
+  onBeforeUnmount,
+  onMounted,
+  ref,
+  shallowReactive,
+  watch,
+  type ComponentPublicInstance,
+} from 'vue'
 import ToastHost from '@/components/base/ToastHost.vue'
 import { useSettings } from '@/composables/useData'
 import { applyCachedGlass, useGlass } from '@/composables/useGlass'
 import { applyCachedTheme, useTheme } from '@/composables/useTheme'
 import { AppEvents, onAppEvent } from '@/service/events'
 import { logger } from '@/service/logger'
-import { api } from '@/service/tauri'
-import { MAX_HOTKEY_SLOTS, resolvePlugins, type PanelPlugin } from '@/panel-plugins'
+import { api, type PanelIntent } from '@/service/tauri'
+import { MAX_HOTKEY_SLOTS, resolvePlugins, type PanelPageExpose, type PanelPlugin } from '@/panel-plugins'
 import { enter, exit } from '@/motion'
 
 /**
@@ -19,11 +28,13 @@ import { enter, exit } from '@/motion'
  *
  * 需求 2.1：
  * - 入场 280ms outBack / 收起 180ms inQuad 的弹性过渡（animejs，与原型 showPanel/hidePanel 一致）；
- * - 固定宽 480px，高度随内容自适应（120~600px）；
+ * - 固定宽 480px，高度随内容自适应（90~600px）；
  * - 失焦按设置策略收起：立即 / 延迟 3 秒 / 固定不收起；
  * - **弹窗失焦保护**：任一编辑弹窗打开期间不因失焦收起；全部关闭后若鼠标
  *   已不在面板内，按策略重新计时。
  * - Esc 收起；⌃1/2/3 切换三态。
+ * - Zen 专注模式（spec D15）：窗口铺满工作区、#panel.zen-mode；Esc 只退 Zen；
+ * - 回显编辑态（spec D16）：呼出意图带 noteId 时让笔记页 loadNote；收面板前通知各页 onPanelHide。
  */
 
 // 启动瞬间先用缓存主题上色，避免默认深色闪一下再跳变。
@@ -39,6 +50,17 @@ const activeId = ref('')
 const panel = ref<HTMLElement | null>(null)
 /** 面板内弹窗的层数：>0 时禁止失焦收起。 */
 const modalDepth = ref(0)
+/** 各插件页实例（按插件 id）：回显 / 聚焦 / 关浮层 / 收面板通知都经它调用，只调用页面实现了的方法。 */
+const pageRefs = shallowReactive<Record<string, PanelPageExpose | null>>({})
+/** Zen 专注模式：为真时根元素带 .zen-mode，窗口已由后端放大到工作区。 */
+const zen = ref(false)
+/** 面板窗口是否可见：挂载即可见，hide 完成后 false，panelShown 后 true（Zen 入口显隐用）。 */
+const visible = ref(true)
+
+/** 模板 `:ref` 回调：v-for 里的组件实例按插件 id 记账。 */
+function setPageRef(id: string, instance: Element | ComponentPublicInstance | null): void {
+  pageRefs[id] = instance as unknown as PanelPageExpose | null
+}
 /**
  * 独立编辑窗口（editor）是否打开。
  *
@@ -78,6 +100,36 @@ const PANEL_HEIGHT_PADDING = 12
 
 /** 当前启用的插件，顺序即展示顺序与快捷键序号。 */
 const plugins = computed(() => resolvePlugins(settings.value.panel_plugins))
+
+/** Zen 入口显隐（原型 updateZenToggle）：面板可见 ∧ 未处于 Zen ∧ 笔记页 ∧ 回显编辑态。 */
+const zenAvailable = computed(
+  () => visible.value && !zen.value && activeId.value === 'note' && (pageRefs.note?.isEditing ?? false),
+)
+
+/**
+ * 进入 / 退出 Zen（原型 setZenMode）。
+ * 进入：先让后端放大窗口再加类，避免 100vh 布局先在小窗口里闪一下；
+ * 退出：先去类让内容收回，再让后端按记录的逻辑高度还原窗口。
+ */
+async function setZen(on: boolean): Promise<void> {
+  if (zen.value === on) return
+  logger.info('panel', on ? '进入 Zen 专注模式' : '退出 Zen 专注模式')
+  if (!on) zen.value = false
+  try {
+    await api.windows.panelSetZen(on)
+  } catch (error) {
+    logger.error('panel', 'Zen 窗口切换失败', error)
+    return
+  }
+  zen.value = on
+  if (on) {
+    // 原型：进入后 60ms 聚焦编辑器
+    setTimeout(() => pageRefs[activeId.value]?.focus?.(), 60)
+  } else {
+    // Zen 期间高度上报被暂停，退出后按内容补报一次
+    void nextTick(() => reportHeight())
+  }
+}
 
 /** 切到指定插件页；页不存在或未启用时忽略（不让面板落到空白）。 */
 function navigateTo(page: string | null | undefined): void {
@@ -140,6 +192,8 @@ function motionDistance(distance: number): number {
 async function hide(): Promise<void> {
   clearCollapseTimer()
   logger.info('panel', '收起面板')
+  // Zen 态先还原窗口（原型 hidePanel 的 setZenMode(false)）；Zen 下生成层 transform: none !important，位移动画无意义。
+  if (zen.value) await setZen(false)
 
   if (panel.value) {
     // 与原型 hidePanel 一致：24px 位移 + 淡出，180ms inQuad。被新的入场打断时不再隐藏窗口。
@@ -149,8 +203,12 @@ async function hide(): Promise<void> {
       return
     }
   }
+  // 收起即丢弃：通知各页（笔记页据此丢弃未保存的回显修改并恢复草稿）。
+  // 必须在窗口隐藏之前等它完成——WebView2 在窗口 hide 后挂起，此后的 IPC 回包要等下次显示。
+  await Promise.all(Object.values(pageRefs).map((page) => page?.onPanelHide?.()))
   try {
     await api.windows.panelHide()
+    visible.value = false
   } catch (error) {
     logger.error('panel', '隐藏面板失败', error)
   }
@@ -242,10 +300,39 @@ function onExternalEditorOpen(): void {
   logger.debug('panel', '独立编辑窗口已打开，暂停失焦收起')
 }
 
+/** 取走后端暂存的呼出意图：切页；带 noteId 则让目标页回显该笔记。 */
+async function consumeIntent(): Promise<void> {
+  let intent: PanelIntent | null
+  try {
+    intent = await api.windows.panelTakeIntent()
+  } catch (error) {
+    logger.error('panel', '读取呼出意图失败', error)
+    return
+  }
+  if (!intent) return
+  logger.info('panel', `呼出意图 page=${intent.page} noteId=${intent.noteId ?? '-'}`)
+  navigateTo(intent.page)
+  if (!intent.noteId) return
+  // 切页后等一帧，确保目标页已渲染并挂上实例引用。
+  await nextTick()
+  const page = pageRefs[intent.page]
+  if (!page?.loadNote) {
+    logger.warn('panel', `插件页 ${intent.page} 不支持回显，忽略 noteId`)
+    return
+  }
+  await page.loadNote(intent.noteId)
+}
+
 function onKeydown(event: KeyboardEvent): void {
-  // 弹窗自己处理 Esc，面板不抢。
-  if (event.key === 'Escape' && modalDepth.value === 0) {
+  if (event.key === 'Escape') {
+    // 弹窗自己处理 Esc（ModalShell 在捕获阶段拦截），面板不抢。
+    if (modalDepth.value > 0) return
     event.preventDefault()
+    // 原型 Esc 链首位：Zen 态只退 Zen，不收面板。
+    if (zen.value) {
+      void setZen(false)
+      return
+    }
     void hide()
     return
   }
@@ -262,7 +349,7 @@ function onKeydown(event: KeyboardEvent): void {
 }
 
 /**
- * 高度自适应：把内容实际高度报给窗口，钳制在 120~600px。
+ * 高度自适应：把内容实际高度报给窗口，钳制在 90~600px。
  *
  * 弹窗打开期间，弹窗在面板窗口中以整页编辑器的形式铺满窗口并盖住 #panel
  * （见 window-fit.css），此时窗口高度应跟随弹窗而非 #panel；
@@ -279,6 +366,8 @@ function scheduleReport(): void {
 }
 
 function reportHeight(): void {
+  // Zen 态窗口铺满工作区，内容高度没有意义；退出 Zen 时由 setZen 补报。
+  if (zen.value) return
   if (!panel.value) return
 
   const modals = Array.from(document.querySelectorAll<HTMLElement>('.modal-shell'))
@@ -323,15 +412,13 @@ onMounted(() => {
 
   playEnter()
 
-  // 后端每次显示面板都会广播，据此重播入场动画并复位到笔记态。
-  // 灵动岛点击等「带页呼出」把目标页存在后端，此时取走并切页（隐藏期间的事件会丢，所以主动拉）。
+  // 后端每次显示面板都会广播：重播入场动画，并取走呼出意图（切页 / 回显）。
+  // 隐藏期间的事件会丢，所以意图存在后端、由前端主动拉。
   void onAppEvent(AppEvents.panelShown, () => {
     clearCollapseTimer()
+    visible.value = true
     playEnter()
-    void api.windows
-      .panelTakeIntent()
-      .then((intent) => navigateTo(intent?.page))
-      .catch((error) => logger.error('panel', '读取呼出意图失败', error))
+    void consumeIntent()
   })
 
   // 面板已可见时其他窗口请求切页（灵动岛点击、后续插件），直接响应。
@@ -374,7 +461,7 @@ function hotkeyTitle(plugin: PanelPlugin, index: number): string {
     id="panel"
     ref="panel"
     class="glass"
-    :class="{ 'modal-open': modalDepth > 0 }"
+    :class="{ 'modal-open': modalDepth > 0, 'zen-mode': zen }"
     :aria-label="`Inkling 呼出面板 · ${activeLabel}`"
   >
     <!-- 插件圆点导航（原型 .nav-dots）：矢量圆由生成层 ::before 绘制，序号即 ⌃N 快捷键 -->
@@ -394,6 +481,17 @@ function hotkeyTitle(plugin: PanelPlugin, index: number): string {
           @click="navigateTo(plugin.id)"
         />
       </div>
+      <!-- 原型 #zenToggle：只在回显编辑态出现 -->
+      <button
+        v-if="zenAvailable"
+        id="zenToggle"
+        type="button"
+        class="btn ghost tiny"
+        title="Zen 专注模式：全屏沉浸编辑（Esc 退出）"
+        @click="setZen(true)"
+      >
+        <span class="ix">🧘</span> Zen
+      </button>
       <span class="panel-hint">Esc 收起</span>
     </div>
 
@@ -405,8 +503,10 @@ function hotkeyTitle(plugin: PanelPlugin, index: number): string {
       v-for="plugin in plugins"
       v-show="activeId === plugin.id"
       :key="plugin.id"
+      :ref="(el: Element | ComponentPublicInstance | null) => setPageRef(plugin.id, el)"
       @modal="onModalToggle"
       @external-editor="onExternalEditorOpen"
+      @zen-exit="setZen(false)"
     />
 
     <ToastHost />

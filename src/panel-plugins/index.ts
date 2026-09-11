@@ -15,6 +15,24 @@ import TodoPage from '@/windows/Panel/TodoPage.vue'
  * 若将来确实需要第三方插件，正确做法是让插件跑在独立 WebView 里、通过 IPC 通信。
  */
 
+/**
+ * 插件页可选暴露给 PanelApp 的能力（通过 `defineExpose`）。全部可选，PanelApp 只调用存在的方法。
+ *
+ * - `focus`：呼出 / 进入 Zen 后把光标放进页面主输入区；
+ * - `dismissOverlays`：关闭本页的删除确认 / 弹窗，关了返回 true（Esc 链与切页副作用用）；
+ * - `loadNote`：把某条笔记回显进编辑态（只有笔记页实现）；
+ * - `onPanelHide`：面板即将隐藏（丢弃回显编辑、恢复草稿），PanelApp 会等待它完成再隐藏窗口；
+ * - `isEditing`：是否处于回显编辑态（Zen 入口显隐）。页面 expose 的是 `ComputedRef<boolean>`，
+ *   经模板 ref 拿到的实例代理会自动解包，这里按解包后的 boolean 声明。
+ */
+export interface PanelPageExpose {
+  focus?(): void
+  dismissOverlays?(): boolean
+  loadNote?(id: string): Promise<void>
+  onPanelHide?(): void | Promise<void>
+  isEditing?: boolean
+}
+
 /** 一个面板插件。 */
 export interface PanelPlugin {
   /** 唯一标识，同时作为 Settings.panel_plugins 里的键。 */

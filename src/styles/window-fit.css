@@ -67,6 +67,14 @@
   clip-path: inset(0 round 8px);
 }
 
+/* Zen 专注模式：窗口已由 Rust 放大到整个工作区。#panel 在上面被设为 position: static，
+   生成层给的 top/left/width:100vw 被覆盖但无害；纵向必须显式撑满，否则编辑区只有内容高度。
+   圆角裁剪同步取消——铺满工作区还留 8px 圆角会在四角露出桌面。 */
+#panel.zen-mode {
+  height: 100vh;
+  clip-path: none;
+}
+
 /* ═══ 思维导图窗口 ═══
  * 独立顶层窗口，保留系统标题栏（导图要频繁缩放最大化，且画布需要实心背景
  * 才看得清节点连线）。因此这里**不做透明**，也不加 .glass 的毛玻璃。

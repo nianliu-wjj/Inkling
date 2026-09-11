@@ -2,7 +2,6 @@
 import { computed, ref } from 'vue'
 import { vStaggerList } from '@/motion'
 import NoteCard from '@/components/card/NoteCard.vue'
-import NoteEditModal from '@/components/note/NoteEditModal.vue'
 import TagManagerModal from '@/components/tag/TagManagerModal.vue'
 import { useConfirmDelete } from '@/composables/useConfirmDelete'
 import { useShakeConfirm } from '@/composables/useShakeConfirm'
@@ -10,7 +9,7 @@ import { useNotes } from '@/composables/useData'
 import { useToast } from '@/composables/useToast'
 import { logger } from '@/service/logger'
 import { api } from '@/service/tauri'
-import type { Note, NoteInput } from '@/typings/domain'
+import type { Note } from '@/typings/domain'
 import { mindmapAllText } from '@/utils/search'
 
 /**
@@ -20,7 +19,7 @@ import { mindmapAllText } from '@/utils/search'
  * - 工具栏 = 搜索框 + 「🧠 思维导图」新建入口（.note-arch-bar）；
  * - 搜索覆盖正文、标签与思维导图全部节点文本；置顶笔记优先排序；
  * - 卡片标签 ✕：首次点击进入抖动确认态，再次点击真正删除（写库），3 秒无操作自动退出；
- * - 两条编辑入口互不混用：「✏️ 编辑」→ 正文 / 导图；标签区 → 标签管理弹窗。
+ * - 两条编辑入口互不混用：「✏️ 编辑」→ 文本笔记回显到呼出面板（spec D16）/ 导图开独立窗口；标签区 → 标签管理弹窗。
  */
 const { notes } = useNotes()
 const { toast } = useToast()
@@ -31,8 +30,6 @@ const shake = useShakeConfirm()
 const keyword = ref('')
 /** 正在管理标签的笔记。 */
 const tagTarget = ref<Note | null>(null)
-/** 正在编辑正文/思维导图的笔记。 */
-const editTarget = ref<Note | null>(null)
 /**
  * 打开思维导图窗口。
  *
@@ -45,6 +42,15 @@ function openMindmap(id?: string): void {
   void api.windows.mindmapOpen(id).catch((error) => {
     logger.error('notes-view', '打开思维导图窗口失败', error)
     toast('打开思维导图失败')
+  })
+}
+
+/** ✏️ 文本笔记 → 回显到呼出面板编辑（spec D16）：后端隐藏主窗口并呼出面板，面板取走意图后载入笔记。 */
+function openInPanel(note: Note): void {
+  logger.info('notes-view', `回显到面板 id=${note.id}`)
+  void api.windows.panelOpenNote(note.id).catch((error) => {
+    logger.error('notes-view', '回显到面板失败', error)
+    toast('打开面板失败')
   })
 }
 
@@ -153,23 +159,6 @@ async function saveTags(tags: string[]): Promise<void> {
     tagTarget.value = null
   }
 }
-
-/**
- * 保存笔记正文 / 思维导图（标签由 NoteEditModal 原样带回，不在此处改动）。
- *
- * 同时承担新建思维导图的落库：input 不带 id 时后端插入新记录。
- */
-async function saveNote(input: NoteInput): Promise<void> {
-  try {
-    await api.notes.save(input)
-    toast(input.id ? '已保存' : '思维导图已创建')
-  } catch (error) {
-    logger.error('notes-view', '保存笔记失败', error)
-    toast('保存失败')
-  } finally {
-    editTarget.value = null
-  }
-}
 </script>
 
 <template>
@@ -190,7 +179,7 @@ async function saveNote(input: NoteInput): Promise<void> {
         :shaking="isShaking(note)"
         :shaking-tag="shakingTagOf(note)"
         @pin="togglePin(note)"
-        @edit="note.editor_mode === 'mindmap' ? openMindmap(note.id) : (editTarget = note)"
+        @edit="note.editor_mode === 'mindmap' ? openMindmap(note.id) : openInPanel(note)"
         @open-tags="tagTarget = note"
         @remove-tag="removeTag(note, $event)"
         @ask-delete="confirm.ask(note.id)"
@@ -199,9 +188,6 @@ async function saveNote(input: NoteInput): Promise<void> {
       />
       <div v-if="!visible.length" class="todo-empty">{{ emptyHint }}</div>
     </div>
-
-    <!-- ✏️ 编辑：笔记正文 / 思维导图 -->
-    <NoteEditModal v-if="editTarget" :note="editTarget" @save="saveNote" @close="editTarget = null" />
 
     <!-- 标签区：仅管理标签 -->
     <TagManagerModal

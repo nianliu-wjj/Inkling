@@ -6,7 +6,6 @@ import Icon from '@/components/base/Icon.vue'
 import IconBtn from '@/components/base/IconBtn.vue'
 import ClipEditorModal from '@/components/clip/ClipEditorModal.vue'
 import ClipTypeBadge from '@/components/clip/ClipTypeBadge.vue'
-import NoteEditModal from '@/components/note/NoteEditModal.vue'
 import PriorityBadge from '@/components/todo/PriorityBadge.vue'
 import TodoEditorModal from '@/components/todo/TodoEditorModal.vue'
 import { useTodos } from '@/composables/useData'
@@ -15,7 +14,7 @@ import { useToast } from '@/composables/useToast'
 import { remindOffsetLabel } from '@/constants/reminder'
 import { logger } from '@/service/logger'
 import { api } from '@/service/tauri'
-import type { ClipboardEntry, DayDetailItem, Note, NoteInput, Priority, Todo, TodoInput } from '@/typings/domain'
+import type { ClipboardEntry, DayDetailItem, Priority, Todo, TodoInput } from '@/typings/domain'
 import { formatClock, formatDateKey } from '@/utils/datetime'
 import { renderMarkdownInline } from '@/utils/format'
 import { mindmapRootText } from '@/utils/search'
@@ -27,7 +26,7 @@ import { isOverdue } from '@/utils/todo'
  * 点击侧边栏当月热力图某日 → 展示该日全部记录，按时间先后排序（待办取完成时间）；
  * 类别筛选 chip（role="button" + aria-pressed）与关键字搜索；卡片按原型顺序渲染：
  * 时间 · 类型徽章 · 正文行（优先级 / 类型 / 导图徽章 + 正文 + 逾期）· 提醒与重复行 · 标签 · 备注 ·
- * 子任务归属行 · 悬浮操作（编辑 / 删除）。编辑入口按类别分流：文本笔记弹窗、导图开独立窗口、
+ * 子任务归属行 · 悬浮操作（编辑 / 删除）。编辑入口按类别分流：文本笔记回显到呼出面板（spec D16）、导图开独立窗口、
  * 粘贴板弹窗、待办弹窗（已完成待办拦截）。
  */
 const props = defineProps<{ dateKey: string }>()
@@ -129,9 +128,17 @@ function onFilterKey(event: KeyboardEvent, key: typeof filter.value): void {
 
 // ── 编辑：按类别分流到各自的弹窗 / 窗口 ──
 
-const editNote = ref<Note | null>(null)
 const editClip = ref<ClipboardEntry | null>(null)
 const editTodo = ref<Todo | null>(null)
+
+/** 文本笔记 → 回显到呼出面板编辑；主窗口随之隐藏。 */
+function openNoteInPanel(id: string): void {
+  logger.info('day-view', `回显到面板 id=${id}`)
+  void api.windows.panelOpenNote(id).catch((error) => {
+    logger.error('day-view', '回显到面板失败', error)
+    toast('打开面板失败')
+  })
+}
 
 function edit(item: DayDetailItem): void {
   if (item.kind === 'note' && item.note) {
@@ -144,7 +151,7 @@ function edit(item: DayDetailItem): void {
       })
       return
     }
-    editNote.value = item.note
+    openNoteInPanel(item.note.id)
   } else if (item.kind === 'clip' && item.clip) {
     editClip.value = item.clip
   } else if (item.kind === 'todo' && item.todo) {
@@ -153,19 +160,6 @@ function edit(item: DayDetailItem): void {
       return
     }
     editTodo.value = item.todo
-  }
-}
-
-async function saveNote(input: NoteInput): Promise<void> {
-  try {
-    await api.notes.save(input)
-    toast('已保存')
-    await load()
-  } catch (error) {
-    logger.error('day-view', '保存笔记失败', error)
-    toast('保存失败')
-  } finally {
-    editNote.value = null
   }
 }
 
@@ -309,7 +303,6 @@ async function remove(item: DayDetailItem): Promise<void> {
     </div>
 
     <!-- 编辑弹窗：按类别只会打开其一 -->
-    <NoteEditModal v-if="editNote" :note="editNote" @save="saveNote" @close="editNote = null" />
     <ClipEditorModal v-if="editClip" :content="editClip.content" @save="saveClip" @close="editClip = null" />
     <TodoEditorModal v-if="editTodo" mode="edit" :todo="editTodo" @save="saveTodo" @close="editTodo = null" />
   </div>
