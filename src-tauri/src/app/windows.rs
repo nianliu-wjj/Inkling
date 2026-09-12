@@ -684,6 +684,34 @@ pub fn island_apply(app: &AppHandle) -> Result<(), String> {
     }
 }
 
+/// 手柄拖拽落库（原型 diResizer mouseup → renderIsland）：钳制 → 只改宽 / 高两键 → 重新落位 → 广播设置。
+///
+/// 不经 `settings_save`：那条命令会顺带移动感应区 / 面板并可能建窗；这里窗口已存在，只做几何。
+pub fn island_resize(app: &AppHandle, width: i64, height: i64) -> Result<(), String> {
+    let state = app.state::<AppState>();
+    let mut settings = state.lock_store()?.get_settings()?;
+    let params = island_clamp(
+        width,
+        height,
+        *settings.island_opacity(),
+        *settings.island_cycle_seconds(),
+    );
+    settings.set_island_width(params.width as i64);
+    settings.set_island_height(params.height as i64);
+    state.lock_store()?.save_settings(&settings)?;
+    eprintln!(
+        "[island] 手柄拖拽落库 width={} height={}",
+        params.width, params.height
+    );
+    if let Some(window) = app.get_webview_window(ISLAND_LABEL) {
+        let monitor = island_monitor(app).ok_or("未找到主显示器")?;
+        let rect = island_geometry(&WorkArea::of(&monitor), params.width, params.height);
+        place_island(app, &window, rect)?;
+    }
+    let _ = app.emit(events::SETTINGS_CHANGED, settings);
+    Ok(())
+}
+
 /// 悬停展开 / 收起：只改高度，顶部位置不变。
 pub fn island_expand(app: &AppHandle, expanded: bool) -> Result<(), String> {
     let window = app

@@ -77,6 +77,8 @@ export const api = {
   island: {
     /** 悬停展开 / 收起（只改窗口高度）。 */
     expand: (expanded: boolean) => invoke<void>('island_expand', { expanded }),
+    /** 手柄拖拽结束：钳制后写库并重新落位（逻辑像素）。 */
+    resize: (width: number, height: number) => invoke<void>('island_resize', { width, height }),
   },
 
   /** 启动器搜索。 */

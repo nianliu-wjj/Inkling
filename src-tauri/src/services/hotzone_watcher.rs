@@ -12,6 +12,9 @@
 //!
 //! 判定用的矩形来自 AppState 里建窗 / 重定位时记下的**物理像素**矩形，而不是回读窗口的
 //! outer_position：混合 DPI 下 tao 回报的位置会在两种缩放间跳变，用它判定会闪烁。
+//!
+//! 灵动岛（spec 4B §4.2）：悬停穿透开关为真时不发 ISLAND_HOVER；每 12 轮（≈1s）探测前台是否全屏，
+//! 与上一次不同且「全屏自动隐藏」为真时 hide / show 灵动岛窗口。
 
 use std::collections::HashMap;
 use std::time::Duration;
@@ -23,6 +26,9 @@ use crate::events;
 
 /// 光标轮询间隔：80ms 足以让进入/离开的反馈看起来即时，又不至于占用可观 CPU。
 const POLL_INTERVAL: Duration = Duration::from_millis(80);
+
+/// 全屏探测节拍：每 12 轮（12 × 80ms ≈ 1s）调一次 `platform::foreground_is_fullscreen`。
+const FULLSCREEN_PROBE_TICKS: u32 = 12;
 
 /// 启动轮询线程（与剪贴板监听同样使用 std 线程 + sleep）。
 pub fn start(app: AppHandle) {
@@ -38,6 +44,8 @@ fn run(app: AppHandle) {
     // 灵动岛：上一次是否在区内、上一次左键是否按下（用于边沿检测）。
     let mut island_inside = false;
     let mut left_was_down = false;
+    // 灵动岛是否已因前台全屏而隐藏（D30）；由本线程独占翻转。
+    let mut fullscreen_hidden = false;
     // 显示器热插拔对账的节拍：每 25 轮（约 2 秒）检查一次拓扑是否变化。
     let mut tick: u32 = 0;
     loop {
@@ -45,6 +53,29 @@ fn run(app: AppHandle) {
         tick = tick.wrapping_add(1);
         if tick.is_multiple_of(25) {
             crate::app::windows::reconcile_hotzones(&app);
+        }
+
+        // 全屏自动隐藏：只在翻转时 hide / show，避免每秒重复调窗口 API。
+        if tick.is_multiple_of(FULLSCREEN_PROBE_TICKS) {
+            let flags = app.state::<AppState>().island_flags();
+            let want_hidden = flags.auto_hide && crate::platform::foreground_is_fullscreen();
+            if want_hidden != fullscreen_hidden {
+                fullscreen_hidden = want_hidden;
+                eprintln!(
+                    "[island] 全屏 {}",
+                    if want_hidden { "enter" } else { "exit" }
+                );
+                if let Some(window) = app.get_webview_window(crate::app::windows::ISLAND_LABEL) {
+                    let result = if want_hidden {
+                        window.hide()
+                    } else {
+                        window.show()
+                    };
+                    if let Err(error) = result {
+                        eprintln!("[island] 全屏翻转显隐失败: {error}");
+                    }
+                }
+            }
         }
 
         // 面板已展开时一律视为「都不在区内」：避免面板打开期间光标停在边缘反复触发呼出，
@@ -76,20 +107,28 @@ fn run(app: AppHandle) {
 
         // 灵动岛：悬停翻转 + 左键按下边沿。穿透模式下窗口自身收不到鼠标事件，
         // 这里是唯一的事件来源；非穿透模式下前端同样只认这一来源，两种模式行为一致。
+        // 全屏隐藏期间窗口不可见，一律视为不在区内。
         let island_rect = app.state::<AppState>().island_rect();
         let now_inside = match (island_rect, cursor) {
-            (Some(rect), Some(c)) => !panel_visible && point_in_rect(c.x, c.y, rect),
+            (Some(rect), Some(c)) => {
+                !panel_visible && !fullscreen_hidden && point_in_rect(c.x, c.y, rect)
+            }
             _ => false,
         };
         if now_inside != island_inside {
             island_inside = now_inside;
-            eprintln!("[island] 悬停状态翻转 inside={now_inside}");
-            if let Err(error) = app.emit_to(
-                crate::app::windows::ISLAND_LABEL,
-                events::ISLAND_HOVER,
-                now_inside,
-            ) {
-                eprintln!("[island] 通知悬停状态失败: {error}");
+            // D33 悬停穿透：状态照记（左键边沿仍要用），但不通知前端撑高 / 暂停轮播。
+            if app.state::<AppState>().island_flags().pass_hover {
+                eprintln!("[island] 悬停状态翻转 inside={now_inside}（悬停穿透，不通知）");
+            } else {
+                eprintln!("[island] 悬停状态翻转 inside={now_inside}");
+                if let Err(error) = app.emit_to(
+                    crate::app::windows::ISLAND_LABEL,
+                    events::ISLAND_HOVER,
+                    now_inside,
+                ) {
+                    eprintln!("[island] 通知悬停状态失败: {error}");
+                }
             }
         }
         let left_down = left_button_down();

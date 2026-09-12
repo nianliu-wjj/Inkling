@@ -609,6 +609,11 @@ pub async fn settings_save(
     settings: Settings,
 ) -> Result<(), String> {
     state.lock_store()?.save_settings(&settings)?;
+    // watcher 每轮读的是内存缓存，保存后立刻刷新，悬停穿透 / 全屏隐藏即时生效。
+    state.set_island_flags(crate::app::state::IslandFlags {
+        pass_hover: *settings.island_pass_hover(),
+        auto_hide: *settings.island_auto_hide(),
+    });
     if *settings.start_on_boot() {
         let _ = app.autolaunch().enable();
     } else {
@@ -631,6 +636,12 @@ pub async fn settings_save(
 #[tauri::command]
 pub fn island_expand(app: AppHandle, expanded: bool) -> Result<(), String> {
     windows::island_expand(&app, expanded)
+}
+
+/// 灵动岛手柄拖拽结束：钳制后写库并重新落位（只做 set_size / set_position，不建窗，保持同步）。
+#[tauri::command]
+pub fn island_resize(app: AppHandle, width: i64, height: i64) -> Result<(), String> {
+    windows::island_resize(&app, width, height)
 }
 
 /// 面板显示后取走本次呼出意图（JSON：`{"page":…,"noteId"?:…}`）；没有则返回 None。

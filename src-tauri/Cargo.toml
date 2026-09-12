@@ -53,6 +53,8 @@ windows-sys = { version = "0.59", features = [
   # 粘贴板来源应用：前台窗口 → 进程 id → 可执行文件名
   "Win32_UI_WindowsAndMessaging",
   "Win32_System_Threading",
+  # 灵动岛全屏自动隐藏：SHQueryUserNotificationState（D30）
+  "Win32_UI_Shell",
 ] }
 
 [features]

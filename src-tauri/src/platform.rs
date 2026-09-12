@@ -105,6 +105,35 @@ pub fn is_silent_start() -> bool {
     std::env::args().any(|arg| arg == "--silent" || arg == "/silent")
 }
 
+/// 前台是否处于全屏 / 演示态（D30）：`SHQueryUserNotificationState` 返回
+/// `QUNS_RUNNING_D3D_FULL_SCREEN`（全屏 D3D 应用）/ `QUNS_PRESENTATION_MODE`（演示模式）/
+/// `QUNS_BUSY`（全屏应用占用，如 PPT 放映、视频全屏）时视为全屏；`QUNS_NOT_PRESENT` 与调用失败视为非全屏。
+/// 非 Windows 恒为 false。
+pub fn foreground_is_fullscreen() -> bool {
+    #[cfg(target_os = "windows")]
+    {
+        use windows_sys::Win32::UI::Shell::{
+            SHQueryUserNotificationState, QUERY_USER_NOTIFICATION_STATE, QUNS_BUSY,
+            QUNS_PRESENTATION_MODE, QUNS_RUNNING_D3D_FULL_SCREEN,
+        };
+        let mut state: QUERY_USER_NOTIFICATION_STATE = 0;
+        // SAFETY: 只读查询；出参是我们栈上的 i32，系统只写这一个值。
+        let hr = unsafe { SHQueryUserNotificationState(&mut state) };
+        if hr < 0 {
+            eprintln!("[platform] SHQueryUserNotificationState 失败 hr={hr:#x}，视为非全屏");
+            return false;
+        }
+        matches!(
+            state,
+            QUNS_RUNNING_D3D_FULL_SCREEN | QUNS_PRESENTATION_MODE | QUNS_BUSY
+        )
+    }
+    #[cfg(not(target_os = "windows"))]
+    {
+        false
+    }
+}
+
 /// 当前前台应用的名字（可执行文件名去掉 `.exe`），用于标注粘贴板条目来源（spec D20）。
 ///
 /// 只在 Windows 上实现：`GetForegroundWindow` → `GetWindowThreadProcessId` →

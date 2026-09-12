@@ -140,6 +140,7 @@ fn main() {
             ipc::data_dir,
             ipc::write_file_base64,
             ipc::island_expand,
+            ipc::island_resize,
             ipc::panel_take_intent,
             ipc::panel_open_note,
             ipc::panel_set_zen,

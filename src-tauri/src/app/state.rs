@@ -1,7 +1,19 @@
-//! 全局共享状态：数据库连接池 + 剪贴板回声抑制标记 + 编辑窗口打开参数。
+//! 全局共享状态：数据库连接池 + 剪贴板回声抑制标记 + 编辑窗口打开参数 + 灵动岛轮询旗标。
 
 use crate::data::Store;
 use std::sync::Mutex;
+
+/// hotzone_watcher 每 80ms 读一次的灵动岛旗标（spec 4B §4.2）。
+///
+/// 缓存在内存而不是每轮锁库读 settings：轮询线程与 IPC 共用同一把 Store 锁，
+/// 每 80ms 拿一次会和保存操作互相拖慢。`settings_save` 时刷新。
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct IslandFlags {
+    /// 悬停穿透：为真时不发 ISLAND_HOVER。
+    pub pass_hover: bool,
+    /// 前台全屏时自动隐藏灵动岛。
+    pub auto_hide: bool,
+}
 
 pub struct AppState {
     pub store: Mutex<Store>,
@@ -31,10 +43,24 @@ pub struct AppState {
     /// 由 `windows::panel_show_page` / `panel_open_note` 写入，面板收到 panel-shown 后取走。
     /// 不直接向隐藏的面板 emit：WebView2 在窗口 hide 后被挂起，此时投递的事件会丢。
     pub pending_panel_intent: Mutex<Option<String>>,
+    /// 灵动岛轮询旗标（悬停穿透 / 全屏隐藏），见 `IslandFlags`。
+    pub island_flags: Mutex<IslandFlags>,
 }
 
 impl AppState {
     pub fn with_store(store: Store) -> Self {
+        // 启动即按库中设置初始化旗标，避免首次 settings_save 之前 watcher 用错默认值。
+        let flags = store
+            .get_settings()
+            .map(|settings| IslandFlags {
+                pass_hover: *settings.island_pass_hover(),
+                auto_hide: *settings.island_auto_hide(),
+            })
+            .unwrap_or(IslandFlags {
+                pass_hover: false,
+                auto_hide: true,
+            });
+        eprintln!("[island] 初始旗标 {flags:?}");
         Self {
             store: Mutex::new(store),
             echo: Mutex::new(None),
@@ -43,7 +69,26 @@ impl AppState {
             hotzone_rects: Mutex::new(std::collections::HashMap::new()),
             island_rect: Mutex::new(None),
             pending_panel_intent: Mutex::new(None),
+            island_flags: Mutex::new(flags),
         }
+    }
+
+    /// 刷新灵动岛旗标（settings_save 调用）。
+    pub fn set_island_flags(&self, flags: IslandFlags) {
+        if let Ok(mut slot) = self.island_flags.lock() {
+            *slot = flags;
+        }
+    }
+
+    /// 读取灵动岛旗标；锁损坏时按「不穿透、自动隐藏」兜底。
+    pub fn island_flags(&self) -> IslandFlags {
+        self.island_flags
+            .lock()
+            .map(|slot| *slot)
+            .unwrap_or(IslandFlags {
+                pass_hover: false,
+                auto_hide: true,
+            })
     }
 
     pub fn set_island_rect(&self, rect: Option<(f64, f64, f64, f64)>) {
