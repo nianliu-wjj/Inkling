@@ -5,7 +5,7 @@ use crate::domain::models::Settings;
 
 /// 取字符串设置项，缺失时回落到默认值。
 ///
-/// 17 个字段里大半都是这个形状，抽出来避免 builder 链里堆满
+/// 三十余个字段里大半都是这个形状，抽出来避免 builder 链里堆满
 /// `.get(k).cloned().unwrap_or(defaults.x().clone())`。
 fn pick(values: &std::collections::HashMap<String, String>, key: &str, fallback: &str) -> String {
     values
@@ -115,6 +115,18 @@ impl Store {
                     .unwrap_or(*defaults.island_cycle_seconds()),
             )
             .island_plugins(pick(&values, "island_plugins", defaults.island_plugins()))
+            .island_scope(pick(&values, "island_scope", defaults.island_scope()))
+            .island_pass_hover(flag(
+                &values,
+                "island_pass_hover",
+                *defaults.island_pass_hover(),
+            ))
+            .island_glow(flag(&values, "island_glow", *defaults.island_glow()))
+            .island_auto_hide(flag(
+                &values,
+                "island_auto_hide",
+                *defaults.island_auto_hide(),
+            ))
             .launcher_shortcut(pick(
                 &values,
                 "launcher_shortcut",
@@ -181,6 +193,13 @@ impl Store {
                 settings.island_cycle_seconds().to_string(),
             ),
             ("island_plugins", settings.island_plugins().clone()),
+            ("island_scope", settings.island_scope().clone()),
+            (
+                "island_pass_hover",
+                settings.island_pass_hover().to_string(),
+            ),
+            ("island_glow", settings.island_glow().to_string()),
+            ("island_auto_hide", settings.island_auto_hide().to_string()),
             ("launcher_shortcut", settings.launcher_shortcut().clone()),
             ("launcher_roots", settings.launcher_roots().clone()),
             (

@@ -82,7 +82,7 @@ impl Store {
         Ok(store)
     }
 
-    /// 版本化迁移：v0（初版）→ v1（archived_at / 附件路径 / 统计事件 / 提醒实例 / 提醒抑制标记）→ v6（clipboard_entries.source_app）。
+    /// 版本化迁移：v0（初版）→ v1（archived_at / 附件路径 / 统计事件 / 提醒实例 / 提醒抑制标记）→ v6（clipboard_entries.source_app）→ v7（灵动岛四个新设置键，仅推进版本号）。
     fn migrate(&mut self) -> Result<(), String> {
         let version: i64 = self
             .db
@@ -190,6 +190,13 @@ impl Store {
                 .map_err(|e| format!("数据库迁移到 v6 失败: {e}"))?;
             self.db
                 .pragma_update(None, "user_version", 6)
+                .map_err(db_err)?;
+        }
+        if version < 7 {
+            self.with_v7()
+                .map_err(|e| format!("数据库迁移到 v7 失败: {e}"))?;
+            self.db
+                .pragma_update(None, "user_version", 7)
                 .map_err(db_err)?;
         }
         Ok(())
@@ -315,6 +322,15 @@ impl Store {
     /// v6 增量：剪贴板条目来源应用（spec D20）。存量行不回填，来源未知即 NULL。
     fn with_v6(&self) -> Result<(), String> {
         self.add_column_if_missing("clipboard_entries", "source_app", "TEXT")
+    }
+
+    /// v7 增量：灵动岛播放范围 / 悬停穿透 / 流光 / 全屏隐藏四个设置键（spec 4B §4.2）。
+    ///
+    /// settings 是 KV 表，缺键由 `Settings::default()` 兜底，这里不写任何行——
+    /// 与 v5 同一取舍：迁移不凭空插入设置行。保留函数只为让链完整、版本号可追溯。
+    fn with_v7(&self) -> Result<(), String> {
+        eprintln!("[data] v7 迁移：灵动岛新设置键靠默认值兜底，无需改表");
+        Ok(())
     }
 
     fn add_column_if_missing(&self, table: &str, column: &str, decl: &str) -> Result<(), String> {
@@ -788,5 +804,32 @@ mod tests {
                 .count(),
             1
         );
+    }
+    /// v7 只推进版本号（四个灵动岛新键靠 Settings::default 兜底）：版本 6 → 7，再跑一次仍是 7，且不凭空插入设置行。
+    #[test]
+    fn v7_migration_bumps_version_and_is_idempotent() {
+        let db = settings_db(None);
+        db.pragma_update(None, "user_version", 6).unwrap();
+        let mut store = Store {
+            db,
+            data_dir: std::path::PathBuf::from("."),
+        };
+        store.migrate().unwrap();
+        let version: i64 = store
+            .db
+            .query_row("PRAGMA user_version", [], |r| r.get(0))
+            .unwrap();
+        assert_eq!(version, 7);
+        store.migrate().unwrap();
+        let again: i64 = store
+            .db
+            .query_row("PRAGMA user_version", [], |r| r.get(0))
+            .unwrap();
+        assert_eq!(again, 7);
+        let rows: i64 = store
+            .db
+            .query_row("SELECT COUNT(*) FROM settings", [], |r| r.get(0))
+            .unwrap();
+        assert_eq!(rows, 0);
     }
 }

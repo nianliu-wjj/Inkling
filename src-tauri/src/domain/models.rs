@@ -103,9 +103,9 @@ fn default_true() -> bool {
 /// 用 `cfg!` 宏而非 `#[cfg]` 属性块：属性块里写 `return` 会让后面的兜底表达式
 /// 在该平台上永远不可达，编译器据此报 unreachable_code。
 /// `cfg!` 是编译期常量，未命中的分支会被优化掉，且不产生不可达代码。
-/// 灵动岛默认宽度（逻辑像素）。
+/// 灵动岛默认宽度（逻辑像素）；原型 DI.w = 320（spec 4B D32）。
 fn default_island_width() -> i64 {
-    360
+    320
 }
 
 /// 灵动岛默认高度（逻辑像素）。
@@ -118,9 +118,14 @@ fn default_island_opacity() -> f64 {
     0.85
 }
 
-/// 灵动岛默认轮播间隔（秒）。
+/// 灵动岛默认每条停留秒数；原型 DI.stay = 3（spec 4B D32）。
 fn default_island_cycle_seconds() -> i64 {
-    4
+    3
+}
+
+/// 灵动岛默认播放范围：仅当天待办（原型 DI.scope = 'today'）。
+fn default_island_scope() -> String {
+    "today".into()
 }
 
 /// 灵动岛默认插件列表：只有「当日待办」。
@@ -186,10 +191,10 @@ crate::dto! {
         /// 灵动岛：是否显示（主屏顶部胶囊）。
         #[serde(default = "default_true")]
         island_enabled: bool,
-        /// 灵动岛宽度（逻辑像素，200–800）。
+        /// 灵动岛宽度（逻辑像素，200–480）。
         #[serde(default = "default_island_width")]
         island_width: i64,
-        /// 灵动岛高度（逻辑像素，28–72）。
+        /// 灵动岛高度（逻辑像素，32–56）。
         #[serde(default = "default_island_height")]
         island_height: i64,
         /// 灵动岛背景不透明度（0.3–1.0）。
@@ -198,12 +203,24 @@ crate::dto! {
         /// 灵动岛鼠标穿透（零干扰）：开启后悬停/点击由 Rust 光标轮询探测。
         #[serde(default)]
         island_click_through: bool,
-        /// 灵动岛轮播间隔秒数（2–30）。
+        /// 灵动岛每条停留秒数（1–10）。
         #[serde(default = "default_island_cycle_seconds")]
         island_cycle_seconds: i64,
         /// 启用的灵动岛插件 id 有序列表（逗号分隔）；为空则用全部内置插件。
         #[serde(default = "default_island_plugins")]
         island_plugins: String,
+        /// 灵动岛播放范围：today（仅当天待办）/ all（全部未完成待办）。
+        #[serde(default = "default_island_scope")]
+        island_scope: String,
+        /// 灵动岛悬停穿透：为真时悬停不撑高详情、不暂停轮播（后端 watcher 不发 ISLAND_HOVER）。
+        #[serde(default)]
+        island_pass_hover: bool,
+        /// 灵动岛流光边框（原型 .di-glow）。
+        #[serde(default)]
+        island_glow: bool,
+        /// 前台应用全屏时自动隐藏灵动岛（D30：SHQueryUserNotificationState）。
+        #[serde(default = "default_true")]
+        island_auto_hide: bool,
         /// 启动器全局快捷键。
         #[serde(default = "default_launcher_shortcut")]
         launcher_shortcut: String,
@@ -246,6 +263,10 @@ impl Default for Settings {
             island_click_through: false,
             island_cycle_seconds: default_island_cycle_seconds(),
             island_plugins: default_island_plugins(),
+            island_scope: default_island_scope(),
+            island_pass_hover: false,
+            island_glow: false,
+            island_auto_hide: true,
             launcher_shortcut: default_launcher_shortcut(),
             launcher_roots: String::new(),
             launcher_full_disk_index: true,

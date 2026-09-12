@@ -598,8 +598,12 @@ pub fn settings_get(state: State<'_, AppState>) -> Result<Settings, String> {
     state.lock_store()?.get_settings()
 }
 
+/// 保存偏好设置并即时应用（感应区位置 / 面板位置 / 灵动岛）。
+///
+/// 必须是 **async** 命令（D34，与 `pin_create` / `launcher_show` 同款）：灵动岛「启用」关→开时
+/// `island_apply` 会走 `create_island` 建窗，同步命令跑在主线程上与事件循环互等，整个应用冻结。
 #[tauri::command]
-pub fn settings_save(
+pub async fn settings_save(
     app: AppHandle,
     state: State<'_, AppState>,
     settings: Settings,

@@ -526,10 +526,14 @@ pub fn reconcile_hotzones(app: &AppHandle) {
 
 /// 灵动岛窗口 label。
 pub const ISLAND_LABEL: &str = "island";
+/// 灵动岛尺寸范围（逻辑像素）：原型 DI.W_MIN/W_MAX/H_MIN/H_MAX（spec 4B D32）。
 const ISLAND_MIN_WIDTH: f64 = 200.0;
-const ISLAND_MAX_WIDTH: f64 = 800.0;
-const ISLAND_MIN_HEIGHT: f64 = 28.0;
-const ISLAND_MAX_HEIGHT: f64 = 72.0;
+const ISLAND_MAX_WIDTH: f64 = 480.0;
+const ISLAND_MIN_HEIGHT: f64 = 32.0;
+const ISLAND_MAX_HEIGHT: f64 = 56.0;
+/// 每条停留秒数范围：原型灵动岛页 min=1 max=10。
+const ISLAND_MIN_CYCLE: i64 = 1;
+const ISLAND_MAX_CYCLE: i64 = 10;
 /// 悬停展开详情时的高度下限（逻辑像素）。
 const ISLAND_EXPANDED_HEIGHT: f64 = 120.0;
 /// 灵动岛与感应区之间的间距（逻辑像素）：两者矩形不重叠，悬停灵动岛不会误触发 3 秒唤出计时。
@@ -553,7 +557,7 @@ pub fn island_clamp(width: i64, height: i64, opacity: f64, cycle_seconds: i64) -
     } else {
         0.85
     };
-    let c = cycle_seconds.clamp(2, 30);
+    let c = cycle_seconds.clamp(ISLAND_MIN_CYCLE, ISLAND_MAX_CYCLE);
     if w != width as f64 || h != height as f64 || o != opacity || c != cycle_seconds {
         eprintln!(
             "[island] 设置越界已钳制 width={width}→{w} height={height}→{h} opacity={opacity}→{o} cycle={cycle_seconds}→{c}"
@@ -1214,25 +1218,25 @@ mod tests {
         );
     }
 
-    /// 灵动岛参数钳制：四个维度越界都按边界生效，非法透明度回默认。
+    /// 灵动岛参数钳制（D32 范围）：四个维度越界都按边界生效，非法透明度回默认。
     #[test]
     fn island_clamp_bounds() {
         let p = island_clamp(100, 10, 2.0, 0);
         assert_eq!(
             (p.width, p.height, p.opacity, p.cycle_seconds),
-            (200.0, 28.0, 1.0, 2)
+            (200.0, 32.0, 1.0, 1)
         );
         let p = island_clamp(9000, 999, 0.1, 999);
         assert_eq!(
             (p.width, p.height, p.opacity, p.cycle_seconds),
-            (800.0, 72.0, 0.3, 30)
+            (480.0, 56.0, 0.3, 10)
         );
-        let p = island_clamp(360, 36, f64::NAN, 4);
+        let p = island_clamp(320, 36, f64::NAN, 3);
         assert_eq!(p.opacity, 0.85);
-        let p = island_clamp(360, 36, 0.85, 4);
+        let p = island_clamp(320, 36, 0.85, 3);
         assert_eq!(
             (p.width, p.height, p.opacity, p.cycle_seconds),
-            (360.0, 36.0, 0.85, 4)
+            (320.0, 36.0, 0.85, 3)
         );
     }
 

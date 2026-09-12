@@ -15,6 +15,8 @@ export type CollapsePolicy = 'immediate' | '3s' | 'never'
 export type PanelPosition = 'top' | 'bottom' | 'left' | 'right'
 /** 玻璃质感档位（constants/glass.ts 与 styles/glass.css 的 data-glass 值）。 */
 export type GlassLevel = 'minimal' | 'standard' | 'frosted'
+/** 灵动岛播放范围（domain/models.rs::Settings 注释「today / all」）。 */
+export type IslandScope = 'today' | 'all'
 
 export interface Note {
   id: string
@@ -121,18 +123,26 @@ export interface Settings {
   smtp_to: string
   /** 灵动岛：是否显示。 */
   island_enabled: boolean
-  /** 灵动岛宽度（逻辑像素，200–800）。 */
+  /** 灵动岛宽度（逻辑像素，200–480）。 */
   island_width: number
-  /** 灵动岛高度（逻辑像素，28–72）。 */
+  /** 灵动岛高度（逻辑像素，32–56）。 */
   island_height: number
   /** 灵动岛背景不透明度（0.3–1.0）。 */
   island_opacity: number
   /** 灵动岛鼠标穿透（零干扰）。 */
   island_click_through: boolean
-  /** 灵动岛轮播间隔秒数（2–30）。 */
+  /** 灵动岛每条停留秒数（1–10）。 */
   island_cycle_seconds: number
   /** 启用的灵动岛插件 id 有序列表（逗号分隔）。 */
   island_plugins: string
+  /** 灵动岛播放范围：仅当天 / 全部未完成。 */
+  island_scope: IslandScope
+  /** 灵动岛悬停穿透：悬停不撑高详情、不暂停轮播。 */
+  island_pass_hover: boolean
+  /** 灵动岛流光边框。 */
+  island_glow: boolean
+  /** 前台应用全屏时自动隐藏灵动岛。 */
+  island_auto_hide: boolean
   /** 启动器全局快捷键。 */
   launcher_shortcut: string
   /** 启动器文件扫描根目录（JSON 数组字符串）。 */
