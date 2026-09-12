@@ -12,6 +12,7 @@ import { useTodos } from '@/composables/useData'
 import { useConfirmDelete } from '@/composables/useConfirmDelete'
 import { useToast } from '@/composables/useToast'
 import { remindOffsetLabel } from '@/constants/reminder'
+import { AppEvents, onAppEvent } from '@/service/events'
 import { logger } from '@/service/logger'
 import { api } from '@/service/tauri'
 import type { ClipboardEntry, DayDetailItem, Priority, Todo, TodoInput } from '@/typings/domain'
@@ -119,6 +120,8 @@ async function load(): Promise<void> {
 }
 
 watch(() => props.dateKey, load, { immediate: true })
+// 面板侧「保存修改」与其他窗口的笔记变更都经此事件回流，否则日期详情会停留在改前的旧文本。
+void onAppEvent(AppEvents.notesChanged, () => void load())
 
 /** 筛选 chip 的键盘触发（role="button" 的 span 原生不响应 Enter / Space）。 */
 function onFilterKey(event: KeyboardEvent, key: typeof filter.value): void {

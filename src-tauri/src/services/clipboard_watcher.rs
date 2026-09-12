@@ -93,12 +93,13 @@ pub fn capture_text(
         return None;
     }
     let kind = logic::classify_text(&text, false);
+    // 采集瞬间读前台应用：轮询间隔 500ms，此刻前台几乎总还是复制发生的应用；
+    // 面板内手动捕获时前台是本应用，platform 层返回 None。
+    // 放在拿 store 锁之前：Win32 查询不应在持有仓储互斥锁期间进行。
+    let source_app = crate::platform::foreground_app_name();
     let state = app.state::<AppState>();
     let store = state.lock_store().ok()?;
     let capture = logic::build_preview(&text, 240);
-    // 采集瞬间读前台应用：轮询间隔 500ms，此刻前台几乎总还是复制发生的应用；
-    // 面板内手动捕获时前台是本应用，platform 层返回 None。
-    let source_app = crate::platform::foreground_app_name();
     let input = crate::data::clipboard::Capture {
         content: text.chars().take(MAX_INLINE_TEXT).collect(),
         content_type: kind.as_str(),

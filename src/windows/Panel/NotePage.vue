@@ -114,8 +114,9 @@ void loadDraft()
 /** 暂存草稿（不广播 notes-changed，后端对草稿不发事件）。编辑态不暂存。 */
 async function persistDraft(): Promise<void> {
   if (editingNoteId.value) return
-  if (!content.value.trim() && !tags.value.length) {
-    // 正文与标签都已清空：无需落库，但要把 watch 打上的「输入中…」复位，否则底栏会一直脉动。
+  if (!content.value.trim() && !tags.value.length && !draftId.value) {
+    // 正文与标签都已清空且库里也没有草稿行：无需落库，但要把 watch 打上的「输入中…」复位，否则底栏会一直脉动。
+    // 已有草稿行时不能提前返回——必须把空内容写回去，否则 loadDraft() 会把旧文本重新捞出来。
     saveState.value = 'idle'
     return
   }
@@ -129,7 +130,8 @@ async function persistDraft(): Promise<void> {
       draft: true,
     })
     draftId.value = note.id
-    saveState.value = 'saved'
+    // 回显笔记前发起的暂存可能在 setLocal(note) 之后才返回；编辑态下不能把「已暂存 SQLite」盖到底栏上。
+    if (editingNoteId.value === null) saveState.value = 'saved'
     logger.debug('panel-note', `草稿已暂存 id=${note.id}`)
   } catch (error) {
     saveState.value = 'failed'

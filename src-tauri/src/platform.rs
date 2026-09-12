@@ -115,6 +115,9 @@ pub fn foreground_app_name() -> Option<String> {
     foreground_app_path().and_then(|path| app_name_from_path(&path))
 }
 
+/// 前台窗口所属进程的可执行文件完整路径（Windows 专属；其他平台恒为 None）。
+///
+/// 前台是本进程或 `OpenProcess` 失败（提权进程）时返回 None，由调用方 `foreground_app_name` 再取文件名。
 #[cfg(target_os = "windows")]
 fn foreground_app_path() -> Option<String> {
     use windows_sys::Win32::Foundation::CloseHandle;
@@ -159,6 +162,7 @@ fn foreground_app_path() -> Option<String> {
     }
 }
 
+/// 前台窗口所属进程的可执行文件完整路径（Windows 专属；其他平台恒为 None）。
 #[cfg(not(target_os = "windows"))]
 fn foreground_app_path() -> Option<String> {
     None

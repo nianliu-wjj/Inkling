@@ -12,6 +12,7 @@ import type {
   Todo,
   TodoInput,
 } from '@/typings/domain'
+import { parsePanelIntent, type PanelIntent } from '@/utils/panelIntent'
 
 /** 启动器命中项（对应 Rust services::launcher::model::Hit）。 */
 export interface LauncherHit {
@@ -31,25 +32,8 @@ export interface LauncherStatus {
   rebuilding: boolean
 }
 
-/** 面板呼出意图（对应 Rust `pending_panel_intent` 的 JSON）：切到哪一页，可选要回显的笔记 id。 */
-export interface PanelIntent {
-  page: string
-  noteId?: string
-}
-
-/** 解析后端返回的意图 JSON；格式不合法时视为无意图。 */
-function parsePanelIntent(raw: string | null): PanelIntent | null {
-  if (!raw) return null
-  try {
-    const parsed: unknown = JSON.parse(raw)
-    if (typeof parsed !== 'object' || parsed === null) return null
-    const record = parsed as Record<string, unknown>
-    if (typeof record.page !== 'string') return null
-    return { page: record.page, noteId: typeof record.noteId === 'string' ? record.noteId : undefined }
-  } catch {
-    return null
-  }
-}
+// 意图解析抽到纯模块以便单测；类型在此转出口，PanelApp 等仍从 tauri.ts 引入。
+export type { PanelIntent }
 
 export const api = {
   windows: {
