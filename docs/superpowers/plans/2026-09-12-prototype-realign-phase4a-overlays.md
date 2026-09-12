@@ -93,7 +93,7 @@ export function anchorBeside(anchor: Rect | null, opts: AnchorOptions): AnchorRe
 
 - 常量（与 `docs/app.js:1108–1125`、`:174–184` 逐字对应）：卡片与浮层间距 14、视口留白 10、下方兜底间距 8、箭头距边缘最小 14。
 
-- [ ] **Step 1: 写六个失败用例**
+- [x] **Step 1: 写六个失败用例**
 
 `src/utils/anchor.test.ts`：
 
@@ -188,12 +188,12 @@ test('anchorBeside：caretY 钳制在 [14, H − 14]；无锚点则居中且 pla
 })
 ```
 
-- [ ] **Step 2: 运行，确认失败**
+- [x] **Step 2: 运行，确认失败**
 
 Run: `pnpm test:unit 2>&1 | grep -E "anchor|error TS|Cannot find" | head`
 Expected: `tsc -p tsconfig.test.json` 报 `Cannot find module './anchor'`（`tsconfig.test.json` 的 include 已含 `src/utils/**/*.ts`，无需改）。
 
-- [ ] **Step 3: 实现 `src/utils/anchor.ts`**
+- [x] **Step 3: 实现 `src/utils/anchor.ts`**
 
 ```ts
 /**
@@ -293,12 +293,12 @@ export function anchorBeside(anchor: Rect | null, opts: AnchorOptions): AnchorRe
 }
 ```
 
-- [ ] **Step 4: 运行测试通过**
+- [x] **Step 4: 运行测试通过**
 
 Run: `pnpm test:unit 2>&1 | grep -E "anchorBeside|^# (pass|fail)"`
 Expected: 六个 `ok`，`# fail 0`。
 
-- [ ] **Step 5: 校验并提交**
+- [x] **Step 5: 校验并提交**
 
 ```bash
 pnpm typecheck && pnpm format:check
@@ -327,7 +327,7 @@ git commit -m "feat(ui): 锚定纯函数 anchorBeside + 单测"
   - 卡片组件：`NoteCard` / `ClipCard` / `ClipArchiveCard` / `TodoCard` 根元素带 `:data-id` 与 `.confirming`；emits **删除** `confirm-delete` / `cancel-delete`（保留 `ask-delete`）。
   - `TodoTree` 新 prop `confirmFallback?: 'center' | 'below'`（默认 `'below'`）；expose 增 `cardOf(id: string): HTMLElement | null`（Task 3 的锚点查找用）。
 
-- [ ] **Step 1: `presets.ts` 时长档位**
+- [x] **Step 1: `presets.ts` 时长档位**
 
 第 18–24 行 `SlideOptions` 替换为：
 
@@ -372,7 +372,7 @@ export function enter(el: HTMLElement, opts: SlideOptions): Promise<boolean> {
 
 `exit()` 里 `duration: tokens.base,` 改为 `duration: tokens[opts.duration ?? 'base'],`。
 
-- [ ] **Step 2: 新建 `src/components/base/CardConfirm.vue`**
+- [x] **Step 2: 新建 `src/components/base/CardConfirm.vue`**
 
 ```vue
 <script setup lang="ts">
@@ -536,7 +536,7 @@ onBeforeUnmount(detach)
 </template>
 ```
 
-- [ ] **Step 3: 四张卡片去 `ConfirmPopover`，加 `data-id` / `.confirming`**
+- [x] **Step 3: 四张卡片去 `ConfirmPopover`，加 `data-id` / `.confirming`**
 
 `src/components/card/NoteCard.vue`：
 - 删除第 3 行 `import ConfirmPopover …`；
@@ -620,7 +620,7 @@ const emit = defineEmits<{
 
 - 两处 `RemarkDisplay` 的 `@edit="emit('edit')"`（第 181、187 行）改为 `@edit="emit('edit-remark')"`。
 
-- [ ] **Step 4: `TodoTree.vue` 内置 `CardConfirm`**
+- [x] **Step 4: `TodoTree.vue` 内置 `CardConfirm`**
 
 第 4 行 import 之后加 `import CardConfirm from '@/components/base/CardConfirm.vue'`。
 
@@ -680,7 +680,7 @@ function confirmDelete(): void {
     />
 ```
 
-- [ ] **Step 5: 五个列表页接线**
+- [x] **Step 5: 五个列表页接线**
 
 `src/windows/Main/NotesView.vue`：
 - 第 4 行之后加 `import CardConfirm from '@/components/base/CardConfirm.vue'`；
@@ -824,7 +824,7 @@ async function remove(): Promise<void> {
     />
 ```
 
-- [ ] **Step 6: 删除 `ConfirmPopover.vue`，更新 `useConfirmDelete` 头注释**
+- [x] **Step 6: 删除 `ConfirmPopover.vue`，更新 `useConfirmDelete` 头注释**
 
 `git rm src/components/base/ConfirmPopover.vue`。
 
@@ -840,7 +840,7 @@ async function remove(): Promise<void> {
  */
 ```
 
-- [ ] **Step 7: 样式**
+- [x] **Step 7: 样式**
 
 `src/styles/extensions.css`：
 
@@ -882,7 +882,7 @@ async function remove(): Promise<void> {
 
 （c）删除 §6 第 424–447 行（`/* ═══ 删除二次确认浮层（悬浮于卡片上方…） ═══ */` 注释、`.card-confirm {…}`、`/* 确认态下该条目删除按钮保持常显 */`、`.todo-item:has(.card-confirm) .todo-del {…}`）。
 
-- [ ] **Step 8: 校验并提交**
+- [x] **Step 8: 校验并提交**
 
 ```bash
 pnpm sync:styles --check && pnpm typecheck && pnpm format:check && grep -rn "ConfirmPopover\|confirm-delete\|cancel-delete" src || echo "无残留引用"
@@ -913,7 +913,7 @@ git commit -m "feat(ui): 删除二次确认改为 body 级锚定浮层 CardConfi
   - `TodoEditorPanel` props：`mode: TodoEditorMode`、`todo?: Todo | null`、`parent?: Todo | null`、`presetDate?: string`、`anchor?: Rect | null`（editor 窗本地 CSS 像素）；emits `save(input: TodoInput)` / `close`。
   - `TodoTree` emit `edit-remark`（Task 2 已加）由三处调用方接到 `mode: 'remark'`。
 
-- [ ] **Step 1: `src/constants/todoEditor.ts`**
+- [x] **Step 1: `src/constants/todoEditor.ts`**
 
 ```ts
 /**
@@ -953,7 +953,7 @@ export const TODO_EDITOR_TITLES: Record<TodoEditorMode, { icon: string; text: st
 }
 ```
 
-- [ ] **Step 2: `src/composables/useEditorWindow.ts`**
+- [x] **Step 2: `src/composables/useEditorWindow.ts`**
 
 ```ts
 import { getCurrentWindow } from '@tauri-apps/api/window'
@@ -1055,7 +1055,7 @@ export function useEditorWindow(scope: string): {
 }
 ```
 
-- [ ] **Step 3: 新建 `src/components/todo/TodoEditorPanel.vue`**
+- [x] **Step 3: 新建 `src/components/todo/TodoEditorPanel.vue`**
 
 ```vue
 <script setup lang="ts">
@@ -1486,7 +1486,7 @@ function save(): void {
 </template>
 ```
 
-- [ ] **Step 4: `EditorApp.vue` 换渲染 `TodoEditorPanel`，锚点换算回本窗**
+- [x] **Step 4: `EditorApp.vue` 换渲染 `TodoEditorPanel`，锚点换算回本窗**
 
 （a）第 2–10 行 import 替换为：
 
@@ -1628,7 +1628,7 @@ void api.windows
  */
 ```
 
-- [ ] **Step 5: `TodoPage.vue` 改调 `useEditorWindow`（七种 mode）**
+- [x] **Step 5: `TodoPage.vue` 改调 `useEditorWindow`（七种 mode）**
 
 第 3 行 `import TodoTree …` 之后加两行：`import { useEditorWindow } from '@/composables/useEditorWindow'` 与 `import type { TodoEditorMode } from '@/constants/todoEditor'`（其余 import 不动）。
 
@@ -1680,7 +1680,7 @@ function cardOf(todo: Todo): HTMLElement | null {
 
 （`@edit-repeat` 在 Task 4 换成 RepeatMenu。）
 
-- [ ] **Step 6: `TodosView.vue` 删弹窗、改调 `useEditorWindow`**
+- [x] **Step 6: `TodosView.vue` 删弹窗、改调 `useEditorWindow`**
 
 - 删除第 4 行 `import TodoEditorModal …`；第 3 行之后加 `import { useEditorWindow } from '@/composables/useEditorWindow'`、`import type { TodoEditorMode } from '@/constants/todoEditor'`；第 9 行改为 `import type { Priority, Todo } from '@/typings/domain'`（不再用 `TodoInput`）；
 - 头注释末尾加一行 `* - 新增 / 编辑走 editor 窗内的锚定浮层（spec D23）：锚点为卡片或顶部「＋」按钮，保存后经 todosChanged 刷新。`；
@@ -1725,7 +1725,7 @@ function cardOf(todo: Todo): HTMLElement | null {
 
 - 删除模板第 195–204 行 `<TodoEditorModal …/>`。
 
-- [ ] **Step 7: `DayView.vue` 删弹窗、改调 `useEditorWindow`、监听 `todosChanged`**
+- [x] **Step 7: `DayView.vue` 删弹窗、改调 `useEditorWindow`、监听 `todosChanged`**
 
 - 删除第 10 行 `import TodoEditorModal …`；第 11 行之后加 `import { useEditorWindow } from '@/composables/useEditorWindow'`；第 18 行改为 `import type { ClipboardEntry, DayDetailItem, Priority, Todo } from '@/typings/domain'`；
 - 头注释第 30–31 行「粘贴板弹窗、待办弹窗（已完成待办拦截）」改为「粘贴板弹窗、待办走 editor 窗锚定浮层（spec D23；已完成待办拦截）」；
@@ -1749,7 +1749,7 @@ void onAppEvent(AppEvents.todosChanged, () => void load())
 
 - 删除 `saveTodo`（第 184–195 行）；删除模板第 310 行 `<TodoEditorModal …/>`。
 
-- [ ] **Step 8: 删除 `TodoEditorModal.vue`；样式**
+- [x] **Step 8: 删除 `TodoEditorModal.vue`；样式**
 
 `git rm src/components/todo/TodoEditorModal.vue`。
 
@@ -1789,7 +1789,7 @@ void onAppEvent(AppEvents.todosChanged, () => void load())
 }
 ```
 
-- [ ] **Step 9: 校验并提交**
+- [x] **Step 9: 校验并提交**
 
 ```bash
 pnpm sync:styles --check && pnpm typecheck && pnpm format:check && grep -rn "TodoEditorModal\|focus: 'content'\|te-field-date\|todoEditorModal" src || echo "无残留引用"
@@ -1810,7 +1810,7 @@ git commit -m "feat(todo): 待办编辑浮层对齐原型（锚定卡片右侧 /
 - Consumes: `useAnchoredMenu(optionCount)`（既有：`visible / activeIndex / menuRef / style / open / close / onKeydown`）；`enter()` 的 `duration` 档位（Task 2）；`api.todos.reminder(id, offsetMinutes, desktop, email, repeatRule)`（既有签名 `src/service/tauri.ts:133-134`）；`TodoTree` emit `edit-repeat(todo, anchor)`（既有）。
 - Produces: `RepeatMenu` expose `open(anchor: HTMLElement, current: string | null): Promise<void>`、`close(): void`；emit `pick(rule: string | null)`（`null` = 不重复，`'daily'` / `'weekly'`）。
 
-- [ ] **Step 1: 新建 `src/components/todo/RepeatMenu.vue`**
+- [x] **Step 1: 新建 `src/components/todo/RepeatMenu.vue`**
 
 ```vue
 <script setup lang="ts">
@@ -1889,7 +1889,7 @@ defineExpose({ open, close })
 </template>
 ```
 
-- [ ] **Step 2: `TodoPage.vue` 接线**
+- [x] **Step 2: `TodoPage.vue` 接线**
 
 - 第 3 行之后加 `import RepeatMenu from '@/components/todo/RepeatMenu.vue'`；
 - `const tree = …` 之后加：
@@ -1928,11 +1928,11 @@ async function applyRepeat(rule: string | null): Promise<void> {
 
 - 模板：`<TodoTree` 的 `@edit-repeat="(todo) => openEditor('remind', …)"` 改为 `@edit-repeat="openRepeat"`；`</TodoTree>` / `<TodoTree …/>` 之后加 `<RepeatMenu ref="repeatMenu" @pick="applyRepeat" />`。
 
-- [ ] **Step 3: `TodosView.vue` 接线**
+- [x] **Step 3: `TodosView.vue` 接线**
 
 同 Step 2：加 import、`repeatMenu` ref 与 `repeatTarget`、`openRepeat` / `applyRepeat`（scope 改 `'todos-view'`）；`<TodoTree` 加 `@edit-repeat="openRepeat"`（此前主窗口未接该事件）；`<TodoTree …/>` 之后加 `<RepeatMenu ref="repeatMenu" @pick="applyRepeat" />`。
 
-- [ ] **Step 4: `DayView.vue` 接线**
+- [x] **Step 4: `DayView.vue` 接线**
 
 - 第 9 行之后加 `import RepeatMenu from '@/components/todo/RepeatMenu.vue'`；
 - `const listEl = …` 之后加 `repeatMenu` ref 与 `repeatTarget`（同 Step 2）；
@@ -1951,7 +1951,7 @@ async function applyRepeat(rule: string | null): Promise<void> {
 
 - 列表容器之后（`<CardConfirm …/>` 旁）加 `<RepeatMenu ref="repeatMenu" @pick="applyRepeat" />`。
 
-- [ ] **Step 5: 校验并提交**
+- [x] **Step 5: 校验并提交**
 
 ```bash
 pnpm typecheck && pnpm format:check
@@ -1974,7 +1974,7 @@ git commit -m "feat(todo): 重复提醒菜单 RepeatMenu 并接入三处待办�
 - Produces: `popOut(el: HTMLElement): Promise<boolean>`（scale 1 → .96 + 淡出，`--dur-fast`，inQuad，播完保留透明终态；原型 closeClipEditor / closeTagManager）。
 - `ModalShell` 对外契约不变（props / `close` emit）；`ClipEditorModal` 对外契约不变。
 
-- [ ] **Step 1: `presets.ts` 新增 `popOut`，`index.ts` 导出**
+- [x] **Step 1: `presets.ts` 新增 `popOut`，`index.ts` 导出**
 
 `popIn()` 之后插入：
 
@@ -1994,7 +1994,7 @@ export function popOut(el: HTMLElement): Promise<boolean> {
 
 `src/motion/index.ts` 第 5 行改为 `export { enter, exit, staggerIn, pop, popIn, popOut, crossfade, type Axis, type SlideOptions } from './presets'`。
 
-- [ ] **Step 2: `ModalShell.vue` 入退场**
+- [x] **Step 2: `ModalShell.vue` 入退场**
 
 整体替换为：
 
@@ -2084,7 +2084,7 @@ onBeforeUnmount(() => document.removeEventListener('keydown', onKeydown, true))
 
 （调用方 `TagManagerModal` / `ClipEditorModal` 的取消按钮直接 `emit('close')`，不经过退场动效；保持不变——它们卸载时 ModalShell 随之消失，与原型「取消」按钮走 close 动效略有差异，属可接受范围，验收记录里注明。）
 
-- [ ] **Step 3: `ClipEditorModal.vue` 光标置末、空内容拦截**
+- [x] **Step 3: `ClipEditorModal.vue` 光标置末、空内容拦截**
 
 整体替换为：
 
@@ -2161,7 +2161,7 @@ function save(): void {
 </template>
 ```
 
-- [ ] **Step 4: toast 参数**
+- [x] **Step 4: toast 参数**
 
 `src/composables/useToast.ts` 第 4–5 行改为：
 
@@ -2172,7 +2172,7 @@ const DEFAULT_DURATION_MS = 1800
 
 `src/components/base/ToastHost.vue` 第 20–21 行注释改为 `/* 上浮 20px + 淡入淡出（原型 showToast 的 y: 20 → 0）：原型用 GSAP 驱动，此处用 Vue 过渡实现等效观感。\n   时长与曲线走 tokens.css 的动效令牌，reduced-motion 下自动归零。 */`；第 31 行 `transform: translate(-50%, 6px);` 改为 `transform: translate(-50%, 20px);`。
 
-- [ ] **Step 5: 校验并提交**
+- [x] **Step 5: 校验并提交**
 
 ```bash
 pnpm typecheck && pnpm format:check && pnpm exec vite build 2>&1 | grep -E "built in|error"
@@ -2188,14 +2188,14 @@ git commit -m "feat(ui): 弹窗缩放动效、粘贴板编辑光标与空内容�
 - Create: `docs/superpowers/plans/2026-09-12-prototype-realign-phase4a-acceptance.md`
 - Modify: spec §9（`docs/superpowers/specs/2026-09-12-prototype-realign-phase4a-overlays-design.md:154-158`）；必要时 `src/styles/extensions.css`（新开「§10 阶段四 A 验收补丁」分节注明原因）
 
-- [ ] **Step 1: 静态检查全绿**
+- [x] **Step 1: 静态检查全绿**
 
 Run: `pnpm sync:styles --check && pnpm typecheck && pnpm test && pnpm format:check && cargo check --manifest-path src-tauri/Cargo.toml && pnpm exec vite build`
 Expected: 全部通过（Rust 零改动，`cargo check` 只为确认没被误改）；记录 `test:unit` 通过数（含新增 `anchorBeside` 6 例）与 `editor-*.js` / `panel-*.js` 体积。
 Run: `grep -rn "ConfirmPopover\|TodoEditorModal\|confirm-delete\|todoEditorModal\|te-field-date" src || echo "无残留"`
 Expected: `无残留`。
 
-- [ ] **Step 2: 实机（`pnpm tauri:dev` 后台，沿用 `.tmp/win.ps1` 驱动；打字机 + 深色各一轮）按 spec §6 六项逐条验证并截图**
+- [x] **Step 2: 实机（`pnpm tauri:dev` 后台，沿用 `.tmp/win.ps1` 驱动；打字机 + 深色各一轮）按 spec §6 六项逐条验证并截图**
 
 1. 删除确认：主窗口笔记 / 粘贴板 / 待办 / 日期详情、面板粘贴板 / 待办，各点 ✕ → `#cardConfirm` 出现在卡片右侧带左缘箭头、箭头对齐卡片中心；靠右卡片翻到左侧（`.flip`）；面板内落在卡片下方箭头朝上、左缘对齐（`.below`）；列表**首张**卡片的浮层完整可见（阶段三遗留裁切已修）；滚动列表 → 浮层消失；面板内 Esc 只关浮层、再 Esc 收面板；确认删除生效并 toast；四种文案（该笔记 / 该条目 / 该待办事项 / 该子任务）；待办确认态下 ✕ 常显且父待办确认不点亮子任务的 ✕。
 2. 待办编辑：主窗口待办页 ✏️ / 📅 / ⏰ / 标签 / 备注（图标与文本行两种形态）/ ＋子任务 / 顶部 ＋，以及日期详情页 ✏️ → editor 窗内浮层锚定卡片右侧带箭头（靠右卡片左翻；150% 缩放下位置与卡片对齐）、标题与提示与 spec §4.3 表一致、聚焦模式只显示单区段且焦点在对应控件；点空白 / Esc / ✕ / 取消关闭（淡出后关窗）；保存后主窗口列表与日期详情刷新；面板同路径（📅 新增锚到按钮；编辑期间面板不收起）；编辑子任务时完成时间上限锁父待办；历史日期补录提示带「（历史日期补录）」。
@@ -2204,11 +2204,11 @@ Expected: `无残留`。
 5. Toast：上浮 20px、1.8 秒后消失（对比阶段三 6px / 2 秒）。
 6. 回归：面板 Esc 链（删除确认 → 收面板）、切页清确认、Zen 中 Esc 只退 Zen、面板失焦收起在编辑窗打开期间暂停、主窗口切视图后确认浮层不残留（`CardConfirm` 随视图卸载）。
 
-- [ ] **Step 3: 写验收记录并回填 spec §9**
+- [x] **Step 3: 写验收记录并回填 spec §9**
 
 验收记录按阶段三 `2026-09-11-prototype-realign-phase3-acceptance.md` 的结构：环境 / 方法 → 自动化校验表 → 逐项比对表（打字机、深色各一列）→ 发现的问题与补丁清单 → 未验证项。spec §9 三条「待填」改为：面板内删除确认兜底位置观感结论（`.below` 是否遮挡下一张卡片、箭头对齐）、editor 窗锚定在 150% 缩放 / 靠右卡片 / 多屏下的表现（左翻是否命中、坐标是否偏移）、补丁清单（含「取消」按钮不走退场动效是否需要补）。
 
-- [ ] **Step 4: 提交**
+- [x] **Step 4: 提交**
 
 ```bash
 git add docs/superpowers/plans/2026-09-12-prototype-realign-phase4a-acceptance.md docs/superpowers/specs/2026-09-12-prototype-realign-phase4a-overlays-design.md src/styles/extensions.css

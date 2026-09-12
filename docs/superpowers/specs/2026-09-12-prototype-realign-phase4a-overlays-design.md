@@ -151,8 +151,9 @@ export function anchorBeside(anchor: Rect | null, opts: AnchorOptions): AnchorRe
 | `MutationObserver` 在长列表上频繁触发 | 合帧（`requestAnimationFrame` 去抖）只重定位一次 |
 | 删除 `TodoEditorModal` 后 `EditorApp` 的 `focus` 语义变化 | payload `focus` 字段删除，改由 `mode` 表达；`TodoPage` 现有 `openEditor(mode, todo, parent, focus)` 调用改为 `mode` 直接传 `'due' / 'remind'` |
 
-## 9. 实机结论（实施后填写）
+## 9. 实机结论（2026-09-12 回填，详见 `../plans/2026-09-12-prototype-realign-phase4a-acceptance.md`）
 
-- 面板内删除确认兜底位置观感：待填。
-- editor 窗锚定在多缩放 / 靠边卡片下的表现：待填。
-- 补丁清单：待填。
+- 面板内删除确认兜底位置观感：**D27 的「卡片下方」可用**，首张卡不再被裁切；末张卡下方放不下时翻到上方但箭头仍朝上（`anchorBeside` 未区分 `above`，待补）。**主窗口卡片横贯整行同样命中兜底**，当前传 `center` 会盖住卡片正文，建议主窗口也改 `below`（待拍板）。
+- editor 窗锚定：主屏 150% 下 ✏️ / 📅 / ＋子任务 / 顶部 ＋ 四种模式浮层均锚定到卡片或按钮右侧、箭头对齐；验收中途外接显示器、主窗口被系统移位后仍正确。多缩放双屏未测。
+- 补丁清单：本阶段无 CSS 补丁；审查修复 `f850fe9`（保存在途守卫 / 聚焦模式校验 / 补跑清确认）、`8ac744c`（保存失败 toast / Esc 关确认 / 子任务继承父级 / 编辑窗自毁 / 菜单收口改名与顺序 / 🔁 pointer）。
+- 未验证：深色轮、⏰ 🏷️ 📄 聚焦模式、重复菜单（无可用数据）、切页清确认与 Zen 回归，清单见验收记录 §5。
