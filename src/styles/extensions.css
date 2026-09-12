@@ -125,16 +125,6 @@ textarea,
   transition: none !important;
 }
 
-/* ═══ 5. 过渡桥接：旧原型规则（阶段四 A Task 3 迁移后整节删除） ═══
- * TodoEditorModal 仍按旧原型居中遮罩弹窗实现；新原型的 #todoEditorOverlay 是透明无遮罩的锚定浮层容器。 */
-#todoEditorOverlay {
-  background: rgba(8, 10, 18, 0.45);
-  backdrop-filter: blur(2px);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
 /* ═══ 6. 自建组件样式（迁自 components.css@ac81857，2026-09-10，由 .tmp/extract-app-only.mjs 抽取） ═══ */
 /* ═══ hotzone ═══ */
 :root[data-window='hotzone'],
@@ -501,24 +491,6 @@ body:not(:focus-within) .mac-dot {
 .setting-hint strong {
   color: var(--text);
   font-weight: 600;
-}
-#todoEditorModal {
-  width: 470px;
-  max-height: 84vh;
-  overflow-y: auto;
-  padding: 14px 16px;
-}
-#todoEditorModal .search-input {
-  margin-bottom: 10px;
-}
-.te-field-date {
-  flex: 1.4;
-}
-.te-field-time {
-  flex: 1;
-}
-.te-field-priority {
-  flex: 0.9;
 }
 /* 编辑弹窗·提醒方式勾选：与左侧下拉同高，勾选项横向排列。 */
 .te-remind-channels {

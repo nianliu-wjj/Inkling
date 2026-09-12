@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import TodoTree from '@/components/card/TodoTree.vue'
+import { useEditorWindow } from '@/composables/useEditorWindow'
+import type { TodoEditorMode } from '@/constants/todoEditor'
 import { useSettings, useTodos } from '@/composables/useData'
 import { useToast } from '@/composables/useToast'
 import { logger } from '@/service/logger'
@@ -17,9 +19,9 @@ import { isOverdue } from '@/utils/todo'
  *
  * 展示口径：今天的事项 + 此前日期仍未完成的逾期事项；未来日期不提前进入。
  *
- * 新增 / 编辑走**独立编辑窗口**（editor）：面板只有 480px 宽、高度随内容伸缩，
- * 弹窗留在面板内必然被窗口边界裁切，因此改由后端打开全屏遮罩 + 居中对话框的
- * 独立窗口（见 app::windows::editor_open）；保存后由 todosChanged 事件驱动刷新。
+ * 新增 / 编辑走**独立编辑窗口**（editor，spec D23）：面板只有 480px 宽，锚定浮层会被窗口边界裁切，
+ * 因此由后端打开铺满工作区的透明窗，浮层在窗内锚定到卡片右侧（锚点经 useEditorWindow 换算为物理像素）；
+ * 保存后由 todosChanged 事件驱动刷新。
  */
 /** 通知面板：编辑窗口已打开，面板此期间不得因失焦而收起。 */
 const emit = defineEmits<{ (e: 'externalEditor'): void }>()
@@ -27,6 +29,7 @@ const emit = defineEmits<{ (e: 'externalEditor'): void }>()
 const { todos } = useTodos()
 const { settings } = useSettings()
 const { toast } = useToast()
+const { openTodoEditor } = useEditorWindow('panel-todo')
 
 const keyword = ref('')
 const priorityFilter = ref<'all' | Priority>('all')
@@ -85,31 +88,23 @@ const filtered = computed(() => {
 })
 
 /**
- * 打开独立编辑窗口。
- *
- * 只传 ID 不传整个对象：编辑窗口会按 ID 从自己那份最新列表中取，
- * 避免面板持有的旧快照覆盖掉别处刚改过的字段。
+ * 打开独立编辑窗口。只传 ID 不传整个对象：编辑窗口按 ID 从自己那份最新列表中取，
+ * 避免面板持有的旧快照覆盖掉别处刚改过的字段。锚点是卡片（spec D28）或顶部按钮。
  */
 function openEditor(
-  mode: 'create' | 'edit' | 'child',
+  mode: TodoEditorMode,
   todo: Todo | null = null,
   parent: Todo | null = null,
-  focus: 'content' | 'due' | 'remind' = 'content',
+  anchorEl: HTMLElement | null = null,
 ): void {
-  const payload = JSON.stringify({
-    kind: 'todo',
-    mode,
-    todoId: todo?.id ?? null,
-    parentId: parent?.id ?? null,
-    focus,
-  })
-  logger.info('panel-todo', `打开编辑窗口 mode=${mode}`, payload)
   // 先上报再 invoke：编辑窗口一拿到焦点面板就会 blur，晚于 blur 上报会来不及阻止收起。
   emit('externalEditor')
-  void api.windows.editorOpen(payload).catch((error) => {
-    logger.error('panel-todo', '打开编辑窗口失败', error)
-    toast(String(error))
-  })
+  void openTodoEditor({ mode, todoId: todo?.id ?? null, parentId: parent?.id ?? null, anchorEl })
+}
+
+/** 卡片级锚点：从待办树反查 [data-id]。 */
+function cardOf(todo: Todo): HTMLElement | null {
+  return tree.value?.cardOf(todo.id) ?? null
 }
 
 /** 已完成事项一律拦截修改（需求 2.2）。 */
@@ -172,7 +167,12 @@ defineExpose({ dismissOverlays })
         <option value="medium">🟡 中</option>
         <option value="low">🟢 低</option>
       </select>
-      <button type="button" class="btn tiny" title="新增待办事项（可设置完成时间）" @click="openEditor('create')">
+      <button
+        type="button"
+        class="btn tiny"
+        title="新增待办事项（可设置完成时间）"
+        @click="openEditor('create', null, null, $event.currentTarget as HTMLElement)"
+      >
         📅
       </button>
     </div>
@@ -186,12 +186,13 @@ defineExpose({ dismissOverlays })
       :todos="filtered"
       :remark-style="settings.remark_style"
       @toggle-done="toggleDone"
-      @edit="openEditor('edit', $event)"
-      @edit-due="openEditor('edit', $event, null, 'due')"
-      @edit-remind="openEditor('edit', $event, null, 'remind')"
-      @edit-repeat="openEditor('edit', $event, null, 'remind')"
-      @add-sub="openEditor('child', null, $event)"
-      @open-tags="openEditor('edit', $event)"
+      @edit="openEditor('edit', $event, null, cardOf($event))"
+      @edit-due="openEditor('due', $event, null, cardOf($event))"
+      @edit-remind="openEditor('remind', $event, null, cardOf($event))"
+      @edit-remark="openEditor('remark', $event, null, cardOf($event))"
+      @edit-repeat="(todo) => openEditor('remind', todo, null, cardOf(todo))"
+      @add-sub="openEditor('child', null, $event, cardOf($event))"
+      @open-tags="openEditor('tags', $event, null, cardOf($event))"
       @priority="changePriority"
       @delete="removeTodo"
     />

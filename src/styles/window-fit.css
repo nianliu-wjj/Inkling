@@ -88,11 +88,9 @@
   background: var(--body-bg);
 }
 
-/* ═══ 独立编辑窗口：全屏压暗遮罩 + 居中对话框 ═══
- * 窗口铺满显示器工作区且以 transparent 创建，若不把 body 背景清成透明，
- * 遮罩之外会是一整块实色，看起来像凭空盖了一张纸。
- * 遮罩本身沿用原型的 #todoEditorOverlay（fixed + inset: 0 + 半透明底色），
- * 在这个窗口里正好铺满整窗；对话框宽度不再受面板 480px 约束。 */
+/* ═══ 独立编辑窗口：铺满工作区的透明窗 + 锚定浮层 ═══
+ * 窗口以 transparent 创建，若不把 body 背景清成透明，浮层之外会是一整块实色。
+ * #todoEditorOverlay 沿用生成层（fixed + inset: 0 + 透明底），在这个窗口里正好铺满整窗，点空白关窗。 */
 :root[data-window='editor'],
 :root[data-window='editor'] body,
 :root[data-window='editor'] #app {
@@ -102,13 +100,13 @@
 :root[data-window='editor'] #app {
   pointer-events: none;
 }
-:root[data-window='editor'] .modal-overlay {
+:root[data-window='editor'] .modal-overlay,
+:root[data-window='editor'] #todoEditorOverlay {
   pointer-events: auto;
 }
 /* 屏幕比面板宽得多，对话框可以给到更舒展的尺寸与留白。
-   选择器必须带上 #todoEditorModal 这类 ID：弹窗宽度原本挂在 ID 上（优先级 100），
+   选择器必须带上 ID：弹窗宽度原本挂在 ID 上（优先级 100），
    只写 `:root[data-window] .modal-shell` 会被它压过去，width 不生效。 */
-:root[data-window='editor'] #todoEditorModal.modal-shell,
 :root[data-window='editor'] #clipEditorModal.modal-shell,
 :root[data-window='editor'] #tagManagerModal.modal-shell {
   width: 520px;

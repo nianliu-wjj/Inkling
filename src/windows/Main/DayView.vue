@@ -7,15 +7,15 @@ import IconBtn from '@/components/base/IconBtn.vue'
 import ClipEditorModal from '@/components/clip/ClipEditorModal.vue'
 import ClipTypeBadge from '@/components/clip/ClipTypeBadge.vue'
 import PriorityBadge from '@/components/todo/PriorityBadge.vue'
-import TodoEditorModal from '@/components/todo/TodoEditorModal.vue'
 import { useTodos } from '@/composables/useData'
+import { useEditorWindow } from '@/composables/useEditorWindow'
 import { useConfirmDelete } from '@/composables/useConfirmDelete'
 import { useToast } from '@/composables/useToast'
 import { remindOffsetLabel } from '@/constants/reminder'
 import { AppEvents, onAppEvent } from '@/service/events'
 import { logger } from '@/service/logger'
 import { api } from '@/service/tauri'
-import type { ClipboardEntry, DayDetailItem, Priority, Todo, TodoInput } from '@/typings/domain'
+import type { ClipboardEntry, DayDetailItem, Priority, Todo } from '@/typings/domain'
 import { formatClock, formatDateKey } from '@/utils/datetime'
 import { renderMarkdownInline } from '@/utils/format'
 import { mindmapRootText } from '@/utils/search'
@@ -28,13 +28,14 @@ import { isOverdue } from '@/utils/todo'
  * 类别筛选 chip（role="button" + aria-pressed）与关键字搜索；卡片按原型顺序渲染：
  * 时间 · 类型徽章 · 正文行（优先级 / 类型 / 导图徽章 + 正文 + 逾期）· 提醒与重复行 · 标签 · 备注 ·
  * 子任务归属行 · 悬浮操作（编辑 / 删除）。编辑入口按类别分流：文本笔记回显到呼出面板（spec D16）、导图开独立窗口、
- * 粘贴板弹窗、待办弹窗（已完成待办拦截）。
+ * 粘贴板弹窗、待办走 editor 窗锚定浮层（spec D23；已完成待办拦截）。
  */
 const props = defineProps<{ dateKey: string }>()
 
 const { toast } = useToast()
 const { todos } = useTodos()
 const confirm = useConfirmDelete('day-view')
+const { openTodoEditor } = useEditorWindow('day-view')
 
 const items = ref<DayDetailItem[]>([])
 const filter = ref<'all' | 'note' | 'clip' | 'todo'>('all')
@@ -133,6 +134,8 @@ async function load(): Promise<void> {
 watch(() => props.dateKey, load, { immediate: true })
 // 面板侧「保存修改」与其他窗口的笔记变更都经此事件回流，否则日期详情会停留在改前的旧文本。
 void onAppEvent(AppEvents.notesChanged, () => void load())
+// 待办在 editor 窗内保存 / 别处完成或删除后，日期详情同样要回流刷新。
+void onAppEvent(AppEvents.todosChanged, () => void load())
 
 /** 筛选 chip 的键盘触发（role="button" 的 span 原生不响应 Enter / Space）。 */
 function onFilterKey(event: KeyboardEvent, key: typeof filter.value): void {
@@ -143,7 +146,6 @@ function onFilterKey(event: KeyboardEvent, key: typeof filter.value): void {
 // ── 编辑：按类别分流到各自的弹窗 / 窗口 ──
 
 const editClip = ref<ClipboardEntry | null>(null)
-const editTodo = ref<Todo | null>(null)
 
 /** 文本笔记 → 回显到呼出面板编辑；主窗口随之隐藏。 */
 function openNoteInPanel(id: string): void {
@@ -173,7 +175,11 @@ function edit(item: DayDetailItem): void {
       toast('已完成的待办不允许修改')
       return
     }
-    editTodo.value = item.todo
+    void openTodoEditor({
+      mode: 'edit',
+      todoId: item.todo.id,
+      anchorEl: listEl.value?.querySelector<HTMLElement>(`[data-id="${CSS.escape(idOf(item))}"]`) ?? null,
+    })
   }
 }
 
@@ -189,19 +195,6 @@ async function saveClip(content: string): Promise<void> {
     toast('保存失败')
   } finally {
     editClip.value = null
-  }
-}
-
-async function saveTodo(input: TodoInput): Promise<void> {
-  try {
-    await api.todos.save(input)
-    toast('已保存')
-    await load()
-  } catch (error) {
-    logger.error('day-view', '保存待办失败', error)
-    toast(String(error))
-  } finally {
-    editTodo.value = null
   }
 }
 
@@ -323,6 +316,5 @@ async function remove(): Promise<void> {
 
     <!-- 编辑弹窗：按类别只会打开其一 -->
     <ClipEditorModal v-if="editClip" :content="editClip.content" @save="saveClip" @close="editClip = null" />
-    <TodoEditorModal v-if="editTodo" mode="edit" :todo="editTodo" @save="saveTodo" @close="editTodo = null" />
   </div>
 </template>

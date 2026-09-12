@@ -130,6 +130,8 @@ watch(
     }
     // 等 Teleport 内容挂载出真实尺寸再定位，否则 offsetWidth 为 0。
     await nextTick()
+    // ask → 立刻 cancel 时 targetId 已变，不能再为一个已不存在的气泡挂监听。
+    if (props.targetId !== id) return
     reposition(true)
     attach()
   },

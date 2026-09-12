@@ -1,19 +1,23 @@
 <script setup lang="ts">
 import { computed, nextTick, onMounted, ref, watch } from 'vue'
+import { getCurrentWindow } from '@tauri-apps/api/window'
 import ToastHost from '@/components/base/ToastHost.vue'
-import TodoEditorModal from '@/components/todo/TodoEditorModal.vue'
+import TodoEditorPanel from '@/components/todo/TodoEditorPanel.vue'
 import { useSettings, useTodos } from '@/composables/useData'
+import type { EditorAnchor, TodoEditorPayload } from '@/composables/useEditorWindow'
 import { applyCachedGlass, useGlass } from '@/composables/useGlass'
 import { applyCachedTheme, useTheme } from '@/composables/useTheme'
 import { logger } from '@/service/logger'
 import { api } from '@/service/tauri'
 import type { Todo, TodoInput } from '@/typings/domain'
+import type { Rect } from '@/utils/anchor'
 
 /**
- * 独立编辑窗口：全屏压暗遮罩 + 居中对话框。
+ * 独立编辑窗口：铺满工作区的透明置顶窗，内含锚定卡片右侧的待办编辑浮层（spec D23）。
  *
- * 面板窗口只有 480px 宽、高度随内容伸缩（≤600px），编辑弹窗留在面板内必然被窗口
- * 边界裁切；独立成窗后对话框尺寸不再受面板约束（参考原型 doc/index.html 的模态设计）。
+ * 面板只有 480px 宽、主窗口内锚定会被窗口边界裁切，因此主窗口与面板都走这里；
+ * payload 带锚点卡片的**物理屏幕像素**矩形，本窗按自己的 innerPosition / scaleFactor 换算回 CSS 像素后
+ * 交给 TodoEditorPanel 按原型 positionTodoEditor 定位（右侧 → 左翻 → 居中兜底）。
  *
  * 打开参数在挂载时主动向后端拉取（见 app::windows::editor_open）。
  * 不用「常驻窗口 + 事件推参数」：WebView2 在窗口 hide 后会被挂起，
@@ -31,23 +35,17 @@ applyCachedGlass()
 
 document.documentElement.dataset.window = 'editor'
 
-/** 与 TodoPage 的 openEditor 参数一一对应。 */
-type EditorPayload = {
-  kind: 'todo'
-  mode: 'create' | 'edit' | 'child'
-  todoId?: string | null
-  parentId?: string | null
-  presetDate?: string
-  focus?: 'content' | 'due' | 'remind'
-}
-
 const { todos } = useTodos()
 const { settings } = useSettings()
 const { applyTheme } = useTheme()
 const { applyGlass } = useGlass()
 
 /** 本次打开参数，挂载后由后端拉取填入。 */
-const payload = ref<EditorPayload | null>(null)
+const payload = ref<TodoEditorPayload | null>(null)
+/** 锚点换算结果（本窗 CSS 像素）；null = 无锚点居中。 */
+const anchorRect = ref<Rect | null>(null)
+/** 锚点是否已换算完成（无锚点时立即为 true）；未完成前不渲染，避免浮层先居中再跳到卡片旁。 */
+const anchorResolved = ref(false)
 
 /** 是否已请求显示窗口，避免 ready 反复变化时重复 invoke。 */
 const shown = ref(false)
@@ -72,19 +70,20 @@ const todo = computed<Todo | null>(() => {
   return todos.value.find((item) => item.id === id) ?? null
 })
 
-/** 新建子任务时的父待办，用于完成时间上限校验。 */
+/** 父待办：新建子任务取 payload.parentId；编辑既有子任务取 todo.parent_id（完成时间上限校验用）。 */
+const parentId = computed<string | null>(() => payload.value?.parentId ?? todo.value?.parent_id ?? null)
 const parent = computed<Todo | null>(() => {
-  const id = payload.value?.parentId
+  const id = parentId.value
   if (!id) return null
   return todos.value.find((item) => item.id === id) ?? null
 })
 
-/** 参数已就绪且目标事项已加载（编辑态）时才渲染，避免闪出一张空表单。 */
+/** 参数、锚点与目标事项都就绪才渲染，避免闪出一张空表单或位置跳变。 */
 const ready = computed(() => {
   const value = payload.value
-  if (!value) return false
+  if (!value || !anchorResolved.value) return false
   if (value.todoId && !todo.value) return false
-  if (value.parentId && !parent.value) return false
+  if (parentId.value && !parent.value) return false
   return true
 })
 
@@ -94,6 +93,28 @@ async function close(): Promise<void> {
   } catch (error) {
     logger.error('editor', '关闭编辑窗口失败', error)
   }
+}
+
+/** 物理屏幕像素 → 本窗 CSS 像素（与 useEditorWindow.physicalAnchorOf 互逆）。 */
+async function resolveAnchor(anchor: EditorAnchor | undefined): Promise<void> {
+  if (!anchor) {
+    anchorResolved.value = true
+    return
+  }
+  try {
+    const win = getCurrentWindow()
+    const [position, scale] = await Promise.all([win.innerPosition(), win.scaleFactor()])
+    anchorRect.value = {
+      left: (anchor.x - position.x) / scale,
+      top: (anchor.y - position.y) / scale,
+      width: anchor.w / scale,
+      height: anchor.h / scale,
+    }
+    logger.info('editor', '锚点换算完成', anchorRect.value)
+  } catch (error) {
+    logger.warn('editor', '锚点换算失败，浮层居中', error)
+  }
+  anchorResolved.value = true
 }
 
 async function saveTodo(input: TodoInput): Promise<void> {
@@ -129,8 +150,9 @@ void api.windows
   .editorPayload()
   .then((raw) => {
     if (!raw) throw new Error('后端未提供打开参数')
-    payload.value = JSON.parse(raw) as EditorPayload
+    payload.value = JSON.parse(raw) as TodoEditorPayload
     logger.info('editor', '打开参数', payload.value)
+    return resolveAnchor(payload.value.anchor)
   })
   .catch((error) => {
     // 参数缺失或损坏时不能留一个吞掉整屏点击的透明窗口，直接自毁。
@@ -142,13 +164,13 @@ onMounted(() => logger.info('editor', '编辑窗口已挂载'))
 </script>
 
 <template>
-  <TodoEditorModal
+  <TodoEditorPanel
     v-if="ready && payload?.kind === 'todo'"
     :mode="payload.mode"
     :todo="todo"
     :parent="parent"
     :preset-date="payload.presetDate ?? ''"
-    :focus="payload.focus ?? 'content'"
+    :anchor="anchorRect"
     @save="saveTodo"
     @close="close"
   />

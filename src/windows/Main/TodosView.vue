@@ -1,12 +1,13 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import TodoTree from '@/components/card/TodoTree.vue'
-import TodoEditorModal from '@/components/todo/TodoEditorModal.vue'
+import { useEditorWindow } from '@/composables/useEditorWindow'
+import type { TodoEditorMode } from '@/constants/todoEditor'
 import { useSettings, useTodos } from '@/composables/useData'
 import { useToast } from '@/composables/useToast'
 import { logger } from '@/service/logger'
 import { api } from '@/service/tauri'
-import type { Priority, Todo, TodoInput } from '@/typings/domain'
+import type { Priority, Todo } from '@/typings/domain'
 import { dateKeyOf, shiftDateKey, todayKey } from '@/utils/datetime'
 import { isOverdue, searchTodos, type TodoNode } from '@/utils/todo'
 
@@ -17,21 +18,17 @@ import { isOverdue, searchTodos, type TodoNode } from '@/utils/todo'
  * - 默认展示当天，提供 ‹ / › / 今天 切换任意日期；
  * - 选历史日期时只展示归属该日的顶级待办，且该日未完成事项均标记逾期；
  * - 选今天时展示今天事项 + 此前仍未完成的逾期事项；未来日期不提前进入；
- * - 搜索**跨全部日期**��含子任务文本与已完成项），结果显示所属日期。
+ * - 搜索**跨全部日期**（含子任务文本与已完成项），结果显示所属日期。
+ * - 新增 / 编辑走 editor 窗内的锚定浮层（spec D23）：锚点为卡片或顶部「＋」按钮，保存后经 todosChanged 刷新。
  */
 const { todos } = useTodos()
 const { settings } = useSettings()
 const { toast } = useToast()
+const { openTodoEditor } = useEditorWindow('todos-view')
 
 const currentDate = ref(todayKey())
 const keyword = ref('')
-
-const editor = ref<{
-  mode: 'create' | 'edit' | 'child'
-  todo: Todo | null
-  parent: Todo | null
-  focus: 'content' | 'due' | 'remind'
-} | null>(null)
+const tree = ref<InstanceType<typeof TodoTree> | null>(null)
 
 const isToday = computed(() => currentDate.value === todayKey())
 /** 搜索态：跨日期查询，日期切换条的日期口径不再生效。 */
@@ -78,13 +75,25 @@ function flatten(nodes: readonly TodoNode[]): Todo[] {
 
 const visible = computed(() => (searching.value ? flatten(search.value.nodes) : byDate.value))
 
+/** 打开 editor 窗内的锚定浮层；历史日期视图下新增走补录（presetDate）。 */
 function openEditor(
-  mode: 'create' | 'edit' | 'child',
+  mode: TodoEditorMode,
   todo: Todo | null = null,
   parent: Todo | null = null,
-  focus: 'content' | 'due' | 'remind' = 'content',
+  anchorEl: HTMLElement | null = null,
 ): void {
-  editor.value = { mode, todo, parent, focus }
+  void openTodoEditor({
+    mode,
+    todoId: todo?.id ?? null,
+    parentId: parent?.id ?? null,
+    presetDate: mode === 'create' && !isToday.value ? currentDate.value : '',
+    anchorEl,
+  })
+}
+
+/** 卡片级锚点：从待办树反查 [data-id]。 */
+function cardOf(todo: Todo): HTMLElement | null {
+  return tree.value?.cardOf(todo.id) ?? null
 }
 
 function guardDone(todo: Todo, action: string): boolean {
@@ -93,18 +102,6 @@ function guardDone(todo: Todo, action: string): boolean {
     return true
   }
   return false
-}
-
-async function saveTodo(input: TodoInput): Promise<void> {
-  try {
-    await api.todos.save(input)
-    toast('已保存')
-  } catch (error) {
-    logger.error('todos-view', '保存待办失败', error)
-    toast(String(error))
-  } finally {
-    editor.value = null
-  }
 }
 
 async function toggleDone(todo: Todo): Promise<void> {
@@ -163,7 +160,12 @@ async function removeTodo(todo: Todo): Promise<void> {
       <span class="todo-date-hint">逾期未完成自动置顶</span>
 
       <input v-model="keyword" class="search-input todo-search" placeholder="🔍 搜索全部待办（含子任务）…" />
-      <button type="button" class="icon-btn todo-new-btn" title="新增待办事项" @click="openEditor('create')">
+      <button
+        type="button"
+        class="icon-btn todo-new-btn"
+        title="新增待办事项"
+        @click="openEditor('create', null, null, $event.currentTarget as HTMLElement)"
+      >
         <svg width="13" height="13" viewBox="0 0 12 12" fill="none">
           <path d="M6 1v10M1 6h10" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" />
         </svg>
@@ -171,6 +173,7 @@ async function removeTodo(todo: Todo): Promise<void> {
     </div>
 
     <TodoTree
+      ref="tree"
       :todos="visible"
       :remark-style="settings.remark_style"
       :show-date-chip="searching"
@@ -180,11 +183,12 @@ async function removeTodo(todo: Todo): Promise<void> {
       archive
       confirm-fallback="center"
       @toggle-done="toggleDone"
-      @edit="openEditor('edit', $event)"
-      @edit-due="openEditor('edit', $event, null, 'due')"
-      @edit-remind="openEditor('edit', $event, null, 'remind')"
-      @add-sub="openEditor('child', null, $event)"
-      @open-tags="openEditor('edit', $event)"
+      @edit="openEditor('edit', $event, null, cardOf($event))"
+      @edit-due="openEditor('due', $event, null, cardOf($event))"
+      @edit-remind="openEditor('remind', $event, null, cardOf($event))"
+      @edit-remark="openEditor('remark', $event, null, cardOf($event))"
+      @add-sub="openEditor('child', null, $event, cardOf($event))"
+      @open-tags="openEditor('tags', $event, null, cardOf($event))"
       @priority="changePriority"
       @delete="removeTodo"
     />
@@ -192,16 +196,5 @@ async function removeTodo(todo: Todo): Promise<void> {
     <div v-if="!visible.length" class="todo-empty">
       {{ searching ? `未找到匹配「${keyword.trim()}」的待办事项` : '该日暂无待办事项' }}
     </div>
-
-    <TodoEditorModal
-      v-if="editor"
-      :mode="editor.mode"
-      :todo="editor.todo"
-      :parent="editor.parent"
-      :focus="editor.focus"
-      :preset-date="editor.mode === 'create' && !isToday ? currentDate : ''"
-      @save="saveTodo"
-      @close="editor = null"
-    />
   </div>
 </template>

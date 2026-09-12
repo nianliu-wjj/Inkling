@@ -217,6 +217,9 @@ async function hide(): Promise<void> {
   // Zen 态先还原窗口（原型 hidePanel 的 setZenMode(false)）；Zen 下生成层 transform: none !important，位移动画无意义。
   if (zen.value) await setZen(false)
 
+  // 原型 hidePanel 会 clearPendingDelete：先关掉各页 body 级浮层（删除确认），否则它会留在屏上看着面板滑走。
+  for (const page of Object.values(pageRefs)) page?.dismissOverlays?.()
+
   if (panel.value) {
     // 与原型 hidePanel 一致：24px 位移 + 淡出，180ms inQuad。被新的入场打断时不再隐藏窗口。
     const completed = await exit(panel.value, { axis: motionAxis(), distance: motionDistance(24) })
