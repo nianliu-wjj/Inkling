@@ -169,7 +169,7 @@ watch(
 /** 切页副作用（原型 switchMode 的 clearPendingDelete）：关掉各页的删除确认与浮层——目标列表已隐藏。 */
 watch(activeId, (_next, prev) => {
   if (!prev) return
-  for (const page of Object.values(pageRefs)) page?.dismissOverlays?.()
+  dismissAllOverlays()
 })
 
 /** 后端设置变化时同步主题。 */
@@ -204,6 +204,14 @@ function motionDistance(distance: number): number {
 }
 
 /**
+ * 关掉各页的 body 级浮层（删除确认 CardConfirm 等）。
+ * 切页 / hide() / 「补跑清理」共用：面板不可见或目标列表已隐藏时，这些浮层留在屏上没有意义。
+ */
+function dismissAllOverlays(): void {
+  for (const page of Object.values(pageRefs)) page?.dismissOverlays?.()
+}
+
+/**
  * 通知各页面板即将收起（笔记页据此丢弃未保存的回显修改并恢复草稿）。
  * hide() 与「补跑清理」（见 panelShown 处理）共用，保证两条路径的清理内容一致。
  */
@@ -218,7 +226,7 @@ async function hide(): Promise<void> {
   if (zen.value) await setZen(false)
 
   // 原型 hidePanel 会 clearPendingDelete：先关掉各页 body 级浮层（删除确认），否则它会留在屏上看着面板滑走。
-  for (const page of Object.values(pageRefs)) page?.dismissOverlays?.()
+  dismissAllOverlays()
 
   if (panel.value) {
     // 与原型 hidePanel 一致：24px 位移 + 淡出，180ms inQuad。被新的入场打断时不再隐藏窗口。
@@ -474,6 +482,8 @@ onMounted(() => {
       zen.value = false
       if (missedCleanup) {
         logger.warn('panel', '检测到后端直接收起（快捷键 / 粘贴），补跑前端收起清理')
+        // 与 hide() 同步：后端直接收起时 body 级删除确认也没被清掉，补关一次再通知各页。
+        dismissAllOverlays()
         await runPagesHide()
       }
     }

@@ -19,8 +19,9 @@ import { formatDueLabel, fromDateAndTimeInputs, toDateAndTimeInputs, todayKey } 
  * - 定位：挂载后测自身尺寸，anchorBeside(anchor, align 'top', fallback 'center') 锚到卡片右侧（右侧不够翻左 .flip），
  *   箭头 --caret-y 对齐卡片中心；无锚点居中；入场横向 10px 滑入（--dur-base），退场淡出（--dur-fast）后 emit close；
  * - 关闭：✕ / 取消 / 点 overlay 空白 / Esc（自身 keydown capture）；
- * - 校验（需求 2.2）：内容与完成时间必填；create / child 且非历史补录时不早于当前；子任务不晚于未完成父待办；
- *   标签 ≤3 · ≤10 字；备注 ≤200 字；选了提醒偏移必须至少勾一种渠道；已完成事项只允许改备注。
+ * - 校验（需求 2.2）：只校验当前模式可见的区段；内容与完成时间必填；create / child 且非历史补录时不早于当前；
+ *   子任务不晚于未完成父待办；标签 ≤3 · ≤10 字；备注 ≤200 字；选了提醒偏移必须至少勾一种渠道；已完成事项只允许改备注；
+ * - 保存在途守卫：emit save 后锁住直到调用方 resetSaving()（失败）或窗口关闭（成功），防止回车 / 双击重复创建。
  */
 const props = withDefaults(
   defineProps<{
@@ -224,35 +225,63 @@ function removeTag(tag: string): void {
 
 // ── 保存 ──
 
+/**
+ * 保存在途守卫：内容框回车与底栏「保存」都会触发 save()，而调用方（EditorApp）保存成功后才关窗，
+ * 期间若再次回车 / 双击会再 emit 一次 save，create / child 模式下就会重复建两条待办。
+ * emit 前置 true；成功路径面板随窗口卸载无需复位，失败路径由调用方通过 resetSaving() 解锁以便修正后重试。
+ */
+const saving = ref(false)
+
+/** 调用方保存失败时调用：解除在途守卫，让用户能修正后重新保存。 */
+function resetSaving(): void {
+  saving.value = false
+  logger.debug('todo-editor', '保存失败，解除在途守卫')
+}
+
+defineExpose({ resetSaving })
+
 function save(): void {
-  if (!content.value.trim()) {
+  // 已在保存中或正在退场时忽略重复触发。
+  if (saving.value || closing) return
+
+  // 校验只针对当前模式可见的区段（TODO_SECTS）；未显示的字段取待办原值原样提交，不再重复校验。
+  if (has('text') && !content.value.trim()) {
     toast('待办内容不能为空')
     return
   }
 
+  // 完整性检查不分模式：due 区段不可见时 dueAt 来自待办原值，必然合法；这里同时完成 TodoInput 所需的非空收窄。
   const dueAt = fromDateAndTimeInputs(dueDate.value, dueTime.value)
   if (!dueAt) {
     toast('请填写完整的完成日期与时刻')
     return
   }
 
-  // 新建时完成时间不得早于当前（编辑既有事项不设此下限；历史补录例外）。
-  if (isNew.value && !props.presetDate && new Date(dueAt).getTime() < Date.now()) {
-    toast('完成时间不能早于当前时刻')
-    return
-  }
-
-  // 子任务不得晚于父待办（父级已完成时后端会豁免，此处只拦未完成父级）。
-  if (props.parent && props.parent.status === 'open') {
-    if (new Date(dueAt).getTime() > new Date(props.parent.due_at).getTime()) {
-      toast('子任务的完成时间不能晚于父待办')
+  if (has('due')) {
+    // 新建时完成时间不得早于当前（编辑既有事项不设此下限；历史补录例外）。
+    if (isNew.value && !props.presetDate && new Date(dueAt).getTime() < Date.now()) {
+      toast('完成时间不能早于当前时刻')
       return
+    }
+
+    // 子任务不得晚于父待办（父级已完成时后端会豁免，此处只拦未完成父级）。
+    if (props.parent && props.parent.status === 'open') {
+      if (new Date(dueAt).getTime() > new Date(props.parent.due_at).getTime()) {
+        toast('子任务的完成时间不能晚于父待办')
+        return
+      }
     }
   }
 
   // 选了提醒时间却一个渠道都没勾，等于不会提醒，提前拦下避免误以为已生效。
-  if (remindOffset.value !== null && !remindDesktop.value && !remindEmail.value) {
+  if (has('remind') && remindOffset.value !== null && !remindDesktop.value && !remindEmail.value) {
     toast('请至少选择一种提醒方式')
+    return
+  }
+
+  // 标签上限（addTag 已逐个拦截，此处兜底整体校验）。
+  if (has('tags') && (tags.value.length > 3 || tags.value.some((tag) => tag.length > 10))) {
+    toast('标签最多 3 个、每个最多 10 字')
     return
   }
 
@@ -273,6 +302,7 @@ function save(): void {
   }
 
   logger.info('todo-editor', `保存待办 mode=${props.mode}`, input)
+  saving.value = true
   emit('save', input)
 }
 </script>

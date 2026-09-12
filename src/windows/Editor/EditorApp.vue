@@ -117,13 +117,17 @@ async function resolveAnchor(anchor: EditorAnchor | undefined): Promise<void> {
   anchorResolved.value = true
 }
 
+/** 编辑浮层实例：保存失败时调用它暴露的 resetSaving() 解除在途守卫。 */
+const panelRef = ref<InstanceType<typeof TodoEditorPanel> | null>(null)
+
 async function saveTodo(input: TodoInput): Promise<void> {
   try {
     await api.todos.save(input)
     logger.info('editor', '待办已保存')
   } catch (error) {
-    // 保存失败时保留窗口与已填内容，让用户能修正后重试。
+    // 保存失败时保留窗口与已填内容，让用户能修正后重试；同时解除面板的保存在途守卫，否则再点保存会被吞掉。
     logger.error('editor', '保存待办失败', error)
+    panelRef.value?.resetSaving()
     return
   }
   void close()
@@ -166,6 +170,7 @@ onMounted(() => logger.info('editor', '编辑窗口已挂载'))
 <template>
   <TodoEditorPanel
     v-if="ready && payload?.kind === 'todo'"
+    ref="panelRef"
     :mode="payload.mode"
     :todo="todo"
     :parent="parent"
