@@ -40,7 +40,14 @@ async function open(anchor: HTMLElement, priority: Priority): Promise<void> {
   await openMenu(anchor, index < 0 ? 0 : index)
 }
 
-defineExpose({ open, close })
+/** 浮层统一收口（原型 switchMode 会一并隐藏 #repeatMenu / #prioMenu）：菜单开着才关并返回 true。 */
+function dismiss(): boolean {
+  if (!visible.value) return false
+  close()
+  return true
+}
+
+defineExpose({ open, close, dismiss })
 </script>
 
 <template>

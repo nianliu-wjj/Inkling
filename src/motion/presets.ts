@@ -167,6 +167,18 @@ export function popIn(el: HTMLElement): Promise<boolean> {
   return run(el, [el], { scale: [0.94, 1], opacity: [0, 1], duration: tokens.base, ease: tokens.easeOut })
 }
 
+/** 弹窗退场：scale 1 → .96 + 淡出，--dur-fast，inQuad（原型 closeClipEditor / closeTagManager）；播完保留透明终态。 */
+export function popOut(el: HTMLElement): Promise<boolean> {
+  const tokens = readMotionTokens()
+  if (tokens.reduced) {
+    cancelRunning(el)
+    el.style.opacity = '0'
+    return Promise.resolve(true)
+  }
+  logger.debug('motion', 'popOut scale 1 → .96')
+  return run(el, [el], { scale: [1, 0.96], opacity: [1, 0], duration: tokens.fast, ease: 'inQuad' }, true)
+}
+
 /** 同容器内容替换：旧元素淡出（--dur-fast），新元素淡入（--dur-base）。 */
 export async function crossfade(outEl: HTMLElement, inEl: HTMLElement): Promise<boolean> {
   const tokens = readMotionTokens()

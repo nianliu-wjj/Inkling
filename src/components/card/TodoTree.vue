@@ -128,9 +128,14 @@ function confirmDelete(): void {
   if (target) emit('delete', target)
 }
 
-/** 取消待确认的删除（面板 Esc 链 / 切页副作用用）；有待确认项返回 true。 */
+/**
+ * 收起本组件的浮层（面板 Esc 链 / 切页副作用用）：删除确认 + 优先级菜单；关了任一项返回 true。
+ * 原型 switchMode 会一并隐藏 #repeatMenu / #prioMenu。
+ */
 function dismissConfirm(): boolean {
-  if (!confirm.pendingId.value) return false
+  const menuClosed = priorityMenu.value?.dismiss() ?? false
+  if (menuClosed) priorityTarget = null
+  if (!confirm.pendingId.value) return menuClosed
   confirm.cancel()
   return true
 }

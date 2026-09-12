@@ -41,7 +41,14 @@ async function open(anchor: HTMLElement, rule: string | null): Promise<void> {
   if (menuRef.value) void enter(menuRef.value, { axis: 'y', distance: -6, duration: 'base' })
 }
 
-defineExpose({ open, close })
+/** 浮层统一收口（原型 switchMode 会一并隐藏 #repeatMenu / #prioMenu）：菜单开着才关并返回 true。 */
+function dismiss(): boolean {
+  if (!visible.value) return false
+  close()
+  return true
+}
+
+defineExpose({ open, close, dismiss })
 </script>
 
 <template>

@@ -166,8 +166,10 @@ async function applyRepeat(rule: string | null): Promise<void> {
   repeatTarget = null
   if (!todo || (todo.repeat_rule ?? null) === rule) return
   logger.info('panel-todo', `设置重复提醒 id=${todo.id} rule=${rule ?? '(none)'}`)
+  // 菜单打开期间提醒可能被独立编辑窗改过，回写前取最新值。
+  const fresh = todos.value.find((t) => t.id === todo.id) ?? todo
   try {
-    await api.todos.reminder(todo.id, todo.remind_offset_minutes, todo.remind_desktop, todo.remind_email, rule)
+    await api.todos.reminder(todo.id, fresh.remind_offset_minutes, fresh.remind_desktop, fresh.remind_email, rule)
     toast(`已设为${rule === 'daily' ? '每天重复' : rule === 'weekly' ? '每周重复' : '不重复'}`)
   } catch (error) {
     logger.error('panel-todo', '设置重复提醒失败', error)
@@ -175,9 +177,12 @@ async function applyRepeat(rule: string | null): Promise<void> {
   }
 }
 
-/** 关闭本页浮层：删除确认在 TodoTree 内部，转调它。 */
+/** 关闭本页浮层：删除确认 / 优先级菜单在 TodoTree 内部，转调它；重复菜单挂在本页。原型 switchMode 会一并隐藏 #repeatMenu / #prioMenu。 */
 function dismissOverlays(): boolean {
-  return tree.value?.dismissConfirm() ?? false
+  const treeClosed = tree.value?.dismissConfirm() ?? false
+  const repeatClosed = repeatMenu.value?.dismiss() ?? false
+  if (repeatClosed) repeatTarget = null
+  return treeClosed || repeatClosed
 }
 
 defineExpose({ dismissOverlays })

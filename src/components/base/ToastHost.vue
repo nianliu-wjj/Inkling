@@ -17,7 +17,7 @@ const { message, visible } = useToast()
 </template>
 
 <style scoped>
-/* 淡入淡出：原型用 GSAP 驱动，此处用 Vue 过渡实现等效观感。
+/* 上浮 20px + 淡入淡出（原型 showToast 的 y: 20 → 0）：原型用 GSAP 驱动，此处用 Vue 过渡实现等效观感。
    时长与曲线走 tokens.css 的动效令牌，reduced-motion 下自动归零。 */
 .toast-fade-enter-active,
 .toast-fade-leave-active {
@@ -28,6 +28,6 @@ const { message, visible } = useToast()
 .toast-fade-enter-from,
 .toast-fade-leave-to {
   opacity: 0;
-  transform: translate(-50%, 6px);
+  transform: translate(-50%, 20px);
 }
 </style>

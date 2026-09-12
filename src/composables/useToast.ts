@@ -1,8 +1,8 @@
 import { ref, type Ref } from 'vue'
 import { logger } from '@/service/logger'
 
-/** 单条 toast 的默认展示时长。 */
-const DEFAULT_DURATION_MS = 2000
+/** 单条 toast 的默认展示时长（原型 showToast 的 1800ms）。 */
+const DEFAULT_DURATION_MS = 1800
 
 /**
  * 轻提示。

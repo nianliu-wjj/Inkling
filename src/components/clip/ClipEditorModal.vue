@@ -1,14 +1,15 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { nextTick, onMounted, ref } from 'vue'
 import ModalShell from '@/components/base/ModalShell.vue'
+import { useToast } from '@/composables/useToast'
 import { logger } from '@/service/logger'
 
 /**
- * 剪贴板内容编辑浮框。
+ * 剪贴板内容编辑浮框（原型 openClipEditor / saveClipEdit）。
  *
  * 需求 2.2：编辑与置顶是两个独立功能——编辑弹框回显原文，保存后替换原内容、
  * 时间更新为最后修改时间，且**不影响置顶状态**；仅文本类条目可编辑。
- * 支持 ⌃/⌘+Enter 快捷保存。
+ * 打开时聚焦且光标置末；清空后保存被拦截（toast「内容为空，未保存」）；支持 ⌃/⌘+Enter 快捷保存。
  */
 const props = defineProps<{ content: string }>()
 
@@ -17,9 +18,25 @@ const emit = defineEmits<{
   (e: 'close'): void
 }>()
 
+const { toast } = useToast()
 const draft = ref(props.content)
+const textarea = ref<HTMLTextAreaElement | null>(null)
+
+onMounted(() => {
+  void nextTick(() => {
+    const el = textarea.value
+    if (!el) return
+    el.focus()
+    el.setSelectionRange(el.value.length, el.value.length)
+  })
+})
 
 function save(): void {
+  if (!draft.value.trim()) {
+    logger.debug('clip-editor', '内容为空，拦截保存')
+    toast('内容为空，未保存')
+    return
+  }
   logger.info('clip-editor', `保存剪贴板内容，长度 ${draft.value.length}`)
   emit('save', draft.value)
 }
@@ -34,6 +51,7 @@ function save(): void {
   >
     <textarea
       id="clipEditorTextarea"
+      ref="textarea"
       v-model="draft"
       placeholder="编辑内容…"
       spellcheck="false"
