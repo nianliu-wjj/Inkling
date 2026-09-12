@@ -21,6 +21,11 @@ export interface SlideOptions {
   distance: number
   /** 入场起始缩放（如 0.97）；不传则不缩放。 */
   scale?: number
+  /**
+   * 时长档位：enter 默认 'slow'（面板入场，outBack 回弹），exit 默认 'base'。
+   * 小浮层（删除确认 / 待办编辑）按原型用 .15s / .18s，传 'fast' / 'base'；非默认档位的 enter 改用 --ease-out，不回弹。
+   */
+  duration?: 'fast' | 'base' | 'slow'
 }
 
 type AnimateParams = NonNullable<Parameters<typeof animate>[1]>
@@ -71,7 +76,7 @@ function run(anchor: Element, targets: HTMLElement[], params: AnimateParams, kee
   })
 }
 
-/** 入场：位移 + 淡入（+ 可选缩放），--dur-slow，outBack(1.6)——与原型 showPanel 一致。 */
+/** 入场：位移 + 淡入（+ 可选缩放）。默认 --dur-slow + outBack(1.6)（原型 showPanel）；指定档位时 --ease-out。 */
 export function enter(el: HTMLElement, opts: SlideOptions): Promise<boolean> {
   const tokens = readMotionTokens()
   if (tokens.reduced) {
@@ -80,13 +85,14 @@ export function enter(el: HTMLElement, opts: SlideOptions): Promise<boolean> {
     return Promise.resolve(true)
   }
   const prop = opts.axis === 'x' ? 'translateX' : 'translateY'
-  logger.debug('motion', `enter ${prop} ${opts.distance}px → 0`)
+  const tier = opts.duration ?? 'slow'
+  logger.debug('motion', `enter ${prop} ${opts.distance}px → 0 (${tier})`)
   return run(el, [el], {
     [prop]: [opts.distance, 0],
     opacity: [0, 1],
     ...(opts.scale === undefined ? {} : { scale: [opts.scale, 1] }),
-    duration: tokens.slow,
-    ease: 'outBack(1.6)',
+    duration: tokens[tier],
+    ease: tier === 'slow' ? 'outBack(1.6)' : tokens.easeOut,
   })
 }
 
@@ -106,7 +112,7 @@ export function exit(el: HTMLElement, opts: SlideOptions): Promise<boolean> {
     {
       [prop]: [0, opts.distance],
       opacity: [1, 0],
-      duration: tokens.base,
+      duration: tokens[opts.duration ?? 'base'],
       ease: 'inQuad',
     },
     true,

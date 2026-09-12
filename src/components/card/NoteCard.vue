@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import ConfirmPopover from '@/components/base/ConfirmPopover.vue'
 import Icon from '@/components/base/Icon.vue'
 import IconBtn from '@/components/base/IconBtn.vue'
 import TagList from '@/components/tag/TagList.vue'
@@ -12,7 +11,7 @@ import { mindmapRootText } from '@/utils/search'
 /**
  * 笔记卡片（原型 renderArchive 的 .archive-item）。
  *
- * - 右上角 ✕（悬浮显示）；正文按 Markdown 渲染；思维导图笔记正文前置「🧠 思维导图」徽章，
+ * - 右上角 ✕（悬浮显示；二次确认浮层由列表页的 CardConfirm 按 data-id 锚定到卡片右侧）；正文按 Markdown 渲染；思维导图笔记正文前置「🧠 思维导图」徽章，
  *   正文为根节点文字；
  * - 元数据行：📌? 时间 · 标签 chips（最多 3 个、超出 +N；✕ 悬浮显示，两次点击抖动确认删除）
  *   · 右侧操作组（置顶 / 编辑，悬浮显示）；
@@ -21,6 +20,7 @@ import { mindmapRootText } from '@/utils/search'
 const props = withDefaults(
   defineProps<{
     note: Note
+    /** 删除确认态：只用于卡片类名 .confirming，浮层本体在 CardConfirm。 */
     confirming?: boolean
     /** 卡片处于标签删除的抖动确认态。 */
     shaking?: boolean
@@ -36,8 +36,6 @@ const emit = defineEmits<{
   (e: 'open-tags'): void
   (e: 'remove-tag', tag: string): void
   (e: 'ask-delete'): void
-  (e: 'confirm-delete'): void
-  (e: 'cancel-delete'): void
 }>()
 
 /** 归档时刻优先，草稿回落到创建时刻。 */
@@ -53,14 +51,11 @@ const html = computed(() =>
 </script>
 
 <template>
-  <div class="archive-item" :class="{ pinned: props.note.pinned, shaking: props.shaking }">
-    <ConfirmPopover
-      v-if="props.confirming"
-      text="⚠️ 确认删除该笔记？"
-      @confirm="emit('confirm-delete')"
-      @cancel="emit('cancel-delete')"
-    />
-
+  <div
+    class="archive-item"
+    :class="{ pinned: props.note.pinned, shaking: props.shaking, confirming: props.confirming }"
+    :data-id="props.note.id"
+  >
     <button type="button" class="card-close" title="删除该笔记" @click="emit('ask-delete')">
       <Icon name="close" />
     </button>

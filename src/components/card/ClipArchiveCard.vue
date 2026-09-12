@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import ConfirmPopover from '@/components/base/ConfirmPopover.vue'
 import Icon from '@/components/base/Icon.vue'
 import IconBtn from '@/components/base/IconBtn.vue'
 import ClipTypeBadge from '@/components/clip/ClipTypeBadge.vue'
@@ -21,8 +20,6 @@ const emit = defineEmits<{
   (e: 'edit'): void
   (e: 'open-link'): void
   (e: 'ask-delete'): void
-  (e: 'confirm-delete'): void
-  (e: 'cancel-delete'): void
 }>()
 
 /** 时间口径：内容被修改过则显示最后修改时间。 */
@@ -33,14 +30,11 @@ const isLink = computed(() => props.entry.content_type === 'link')
 </script>
 
 <template>
-  <div class="archive-item clip-arch" :class="{ pinned: props.entry.pinned }">
-    <ConfirmPopover
-      v-if="props.confirming"
-      text="⚠️ 确认删除该剪贴板条目？"
-      @confirm="emit('confirm-delete')"
-      @cancel="emit('cancel-delete')"
-    />
-
+  <div
+    class="archive-item clip-arch"
+    :class="{ pinned: props.entry.pinned, confirming: props.confirming }"
+    :data-id="props.entry.id"
+  >
     <button type="button" class="card-close" title="删除该条目" @click="emit('ask-delete')">
       <Icon name="close" />
     </button>

@@ -2,10 +2,10 @@ import { ref, type Ref } from 'vue'
 import { logger } from '@/service/logger'
 
 /**
- * 删除二次确认。
+ * 删除二次确认态。
  *
- * 需求 2.2：点击卡片右上角 ✕ 不直接删除，而是在**卡片上方**浮出确认框
- * （绝对定位，不占满卡片、不推挤布局，样式见 .card-confirm）。
+ * 点击卡片右上角 ✕ 不直接删除，而是进入确认态：pendingId 记录待删卡片，
+ * 浮层本体是 body 级锚定的 CardConfirm（原型 #cardConfirm，锚到卡片右侧带箭头）。
  * 同一时刻只允许一个待确认项，避免出现多个确认框。
  */
 export function useConfirmDelete(scope = 'confirm-delete'): {

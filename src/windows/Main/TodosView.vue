@@ -178,6 +178,7 @@ async function removeTodo(todo: Todo): Promise<void> {
       :force-expand="search.forceExpand"
       :hit-ids="search.hitIds"
       archive
+      confirm-fallback="center"
       @toggle-done="toggleDone"
       @edit="openEditor('edit', $event)"
       @edit-due="openEditor('edit', $event, null, 'due')"

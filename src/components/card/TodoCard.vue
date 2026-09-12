@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import ConfirmPopover from '@/components/base/ConfirmPopover.vue'
 import Icon from '@/components/base/Icon.vue'
 import IconBtn from '@/components/base/IconBtn.vue'
 import TagChip from '@/components/tag/TagChip.vue'
@@ -16,8 +15,8 @@ import { isOverdue } from '@/utils/todo'
  * 待办卡片（原型 todoItemHTML；父待办与子任务同构）。
  *
  * 结构：.todo-body > [✕, .todo-head > [折叠箭头, checkbox, .todo-main > [.todo-row, 备注文本行]], .todo-foot]
- * - 右上角 ✕：仅未完成项渲染，仅悬浮**本卡片自身内容区**时显示（CSS `.todo-item > .todo-body:hover`
- *   负责父子层级隔离，组件不持有 hover 状态）；
+ * - 右上角 ✕：仅未完成项渲染，仅悬浮**本卡片自身内容区**时显示（CSS .todo-item > .todo-body:hover 负责父子层级隔离）；
+ *   删除确认浮层由 TodoTree 的 CardConfirm 按 data-id 锚定，确认态下卡片带 .confirming 让 ✕ 常显；
  * - 常显徽章区：逾期标记 / 所属日期（搜索态）/ 重复 / 备注图标；
  * - 底部一行（与 .todo-head 平级，撑满整行）：左侧标签 + 完成时间徽章（常显），
  *   右侧操作区 ⏰ / ＋子任务 / ✏️（悬浮显示）；已完成项只保留 ＋子任务；
@@ -67,10 +66,10 @@ const emit = defineEmits<{
   (e: 'edit-remind'): void
   (e: 'edit-repeat', anchor: HTMLElement): void
   (e: 'edit'): void
+  /** 点击备注徽章 / 备注文本行：只编辑备注（原型 data-todoact="remark"）。 */
+  (e: 'edit-remark'): void
   (e: 'add-sub'): void
   (e: 'ask-delete'): void
-  (e: 'confirm-delete'): void
-  (e: 'cancel-delete'): void
   (e: 'open-tags'): void
 }>()
 
@@ -123,17 +122,12 @@ function onPriority(anchor: HTMLElement): void {
       'has-children': props.hasChildren,
       [`depth-${props.depth}`]: props.depth > 0,
       'search-hit': props.searchHit,
+      confirming: props.confirming,
     }"
+    :data-id="props.todo.id"
   >
     <!-- todo-body 是悬浮判定范围：CSS 用直接子代选择器实现父子按钮隔离 -->
     <div class="todo-body">
-      <ConfirmPopover
-        v-if="props.confirming"
-        :text="props.depth > 0 ? '⚠️ 确认删除该子任务？' : '⚠️ 确认删除该待办事项？'"
-        @confirm="emit('confirm-delete')"
-        @cancel="emit('cancel-delete')"
-      />
-
       <!-- 右上角 ✕：已完成项禁删，不渲染 -->
       <button v-if="!done" type="button" class="card-close todo-del" title="删除待办" @click="emit('ask-delete')">
         <Icon name="close" />
@@ -178,13 +172,18 @@ function onPriority(anchor: HTMLElement): void {
                 v-if="remarkForm === 'icon'"
                 :remark="props.todo.remark"
                 mode="icon"
-                @edit="emit('edit')"
+                @edit="emit('edit-remark')"
               />
             </span>
           </div>
 
           <!-- 置灰文本行形态的备注落在内容下方 -->
-          <RemarkDisplay v-if="remarkForm === 'text'" :remark="props.todo.remark" mode="text" @edit="emit('edit')" />
+          <RemarkDisplay
+            v-if="remarkForm === 'text'"
+            :remark="props.todo.remark"
+            mode="text"
+            @edit="emit('edit-remark')"
+          />
         </div>
       </div>
 

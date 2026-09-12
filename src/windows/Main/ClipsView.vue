@@ -2,6 +2,7 @@
 import { computed, ref } from 'vue'
 import { vStaggerList } from '@/motion'
 import ClipArchiveCard from '@/components/card/ClipArchiveCard.vue'
+import CardConfirm from '@/components/base/CardConfirm.vue'
 import ClipEditorModal from '@/components/clip/ClipEditorModal.vue'
 import { useConfirmDelete } from '@/composables/useConfirmDelete'
 import { useClips } from '@/composables/useData'
@@ -21,6 +22,7 @@ const { toast } = useToast()
 const confirm = useConfirmDelete('clips-view')
 
 const keyword = ref('')
+const listEl = ref<HTMLElement | null>(null)
 const editing = ref<ClipboardEntry | null>(null)
 
 const visible = computed(() => {
@@ -75,10 +77,12 @@ async function saveEdit(content: string): Promise<void> {
   }
 }
 
-async function remove(entry: ClipboardEntry): Promise<void> {
-  if (!confirm.confirm()) return
+/** CardConfirm 确认：按 pendingId 删除。 */
+async function remove(): Promise<void> {
+  const id = confirm.confirm()
+  if (!id) return
   try {
-    await api.clipboard.remove(entry.id)
+    await api.clipboard.remove(id)
     toast('已删除')
   } catch (error) {
     logger.error('clips-view', '删除失败', error)
@@ -91,7 +95,7 @@ async function remove(entry: ClipboardEntry): Promise<void> {
   <div class="archive-page">
     <input v-model="keyword" class="search-input" placeholder="🔍 搜索粘贴板历史…" />
 
-    <div v-stagger-list>
+    <div ref="listEl" v-stagger-list>
       <ClipArchiveCard
         v-for="entry in visible"
         :key="entry.id"
@@ -102,11 +106,17 @@ async function remove(entry: ClipboardEntry): Promise<void> {
         @edit="editing = entry"
         @open-link="openLink(entry)"
         @ask-delete="confirm.ask(entry.id)"
-        @confirm-delete="remove(entry)"
-        @cancel-delete="confirm.cancel()"
       />
       <div v-if="!visible.length" class="todo-empty">{{ keyword ? '未找到匹配的条目' : '暂无粘贴板条目' }}</div>
     </div>
+    <CardConfirm
+      text="确认删除该条目？"
+      :target-id="confirm.pendingId.value"
+      :container="listEl"
+      fallback="center"
+      @confirm="remove"
+      @cancel="confirm.cancel()"
+    />
 
     <ClipEditorModal v-if="editing" :content="editing.content" @save="saveEdit" @close="editing = null" />
   </div>

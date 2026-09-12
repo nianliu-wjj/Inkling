@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import ConfirmPopover from '@/components/base/ConfirmPopover.vue'
 import Icon from '@/components/base/Icon.vue'
 import IconBtn from '@/components/base/IconBtn.vue'
 import ClipTypeBadge from '@/components/clip/ClipTypeBadge.vue'
@@ -10,7 +9,7 @@ import { formatStamp } from '@/utils/datetime'
 /**
  * 面板剪贴板卡片（原型 renderClips 的 .clip-item）。
  *
- * - 右上角 `.card-close`（悬浮显示，二次确认走卡片上方浮层）；
+ * - 右上角 .card-close（悬浮显示；二次确认浮层由 ClipPage 的 CardConfirm 按 data-id 锚定）；
  * - 头部 `.clip-head`：时间（置顶带 📌 前缀）→ 来源应用 `.clip-from`（spec D20，无值不渲染）→ 类型徽章；
  * - 正文最多两行，超出省略；
  * - 右下 `.clip-ops`：粘贴 / 打开链接(仅 link) / 编辑(仅文本类) / 收藏置顶，全部内联 SVG 图标；
@@ -25,8 +24,6 @@ const emit = defineEmits<{
   (e: 'pin'): void
   (e: 'open-link'): void
   (e: 'ask-delete'): void
-  (e: 'confirm-delete'): void
-  (e: 'cancel-delete'): void
 }>()
 
 /** 时间口径：内容被修改过则显示最后修改时间。 */
@@ -37,14 +34,13 @@ const isLink = computed(() => props.entry.content_type === 'link')
 </script>
 
 <template>
-  <li class="clip-item" :class="{ pinned: props.entry.pinned }" :title="props.entry.preview" @dblclick="emit('paste')">
-    <ConfirmPopover
-      v-if="props.confirming"
-      text="⚠️ 确认删除该剪贴板条目？"
-      @confirm="emit('confirm-delete')"
-      @cancel="emit('cancel-delete')"
-    />
-
+  <li
+    class="clip-item"
+    :class="{ pinned: props.entry.pinned, confirming: props.confirming }"
+    :data-id="props.entry.id"
+    :title="props.entry.preview"
+    @dblclick="emit('paste')"
+  >
     <button type="button" class="card-close" title="删除该条目" @click="emit('ask-delete')">
       <Icon name="close" />
     </button>

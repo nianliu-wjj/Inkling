@@ -2,6 +2,7 @@
 import { computed, ref } from 'vue'
 import { vStaggerList } from '@/motion'
 import TodoCard from '@/components/card/TodoCard.vue'
+import CardConfirm from '@/components/base/CardConfirm.vue'
 import PriorityMenu from '@/components/todo/PriorityMenu.vue'
 import { useConfirmDelete } from '@/composables/useConfirmDelete'
 import type { Priority, RemarkStyle, Todo } from '@/typings/domain'
@@ -32,13 +33,24 @@ const props = withDefaults(
     hitIds?: ReadonlySet<string>
     /** 归档页形态：不限高。 */
     archive?: boolean
+    /** 删除确认浮层左右都放不下时的兜底：面板 'below'（D27）、主窗口 'center'。 */
+    confirmFallback?: 'center' | 'below'
   }>(),
-  { remarkStyle: 'mixed', showDateChip: false, query: '', forceExpand: undefined, hitIds: undefined, archive: false },
+  {
+    remarkStyle: 'mixed',
+    showDateChip: false,
+    query: '',
+    forceExpand: undefined,
+    hitIds: undefined,
+    archive: false,
+    confirmFallback: 'below',
+  },
 )
 
 const emit = defineEmits<{
   (e: 'toggle-done', todo: Todo): void
   (e: 'edit', todo: Todo): void
+  (e: 'edit-remark', todo: Todo): void
   (e: 'edit-due', todo: Todo): void
   (e: 'edit-remind', todo: Todo): void
   (e: 'edit-repeat', todo: Todo, anchor: HTMLElement): void
@@ -49,6 +61,21 @@ const emit = defineEmits<{
 }>()
 
 const confirm = useConfirmDelete('todo-tree')
+/** 列表根元素：CardConfirm 反查卡片、Task 3 的编辑浮层锚点都从这里查。 */
+const listEl = ref<HTMLElement | null>(null)
+
+/** 待确认项的文案：子任务与父待办措辞不同（原型 pendingDeleteText）。 */
+const confirmText = computed(() => {
+  const id = confirm.pendingId.value
+  const target = id ? props.todos.find((todo) => todo.id === id) : undefined
+  return target?.parent_id ? '确认删除该子任务？' : '确认删除该待办事项？'
+})
+
+/** 按待办 id 取卡片元素（编辑浮层锚点，spec D28）。 */
+function cardOf(id: string): HTMLElement | null {
+  return listEl.value?.querySelector<HTMLElement>(`[data-id="${CSS.escape(id)}"]`) ?? null
+}
+
 /** 折叠状态按待办 id 记录，默认展开。 */
 const collapsed = ref<Set<string>>(new Set())
 
@@ -94,8 +121,11 @@ function askDelete(todo: Todo): void {
   confirm.ask(todo.id)
 }
 
-function confirmDelete(todo: Todo): void {
-  if (confirm.confirm()) emit('delete', todo)
+/** CardConfirm 确认：pendingId 就是要删的 id，从当前列表找回对象派发。 */
+function confirmDelete(): void {
+  const id = confirm.confirm()
+  const target = id ? props.todos.find((todo) => todo.id === id) : undefined
+  if (target) emit('delete', target)
 }
 
 /** 取消待确认的删除（面板 Esc 链 / 切页副作用用）；有待确认项返回 true。 */
@@ -105,11 +135,11 @@ function dismissConfirm(): boolean {
   return true
 }
 
-defineExpose({ dismissConfirm })
+defineExpose({ dismissConfirm, cardOf })
 </script>
 
 <template>
-  <ul v-stagger-list class="todo-list" :class="{ 'todo-arch-list': props.archive }">
+  <ul ref="listEl" v-stagger-list class="todo-list" :class="{ 'todo-arch-list': props.archive }">
     <template v-for="(node, index) in ordered" :key="node.todo.id">
       <!-- ⚠️ 逾期分区标题：置于首个逾期项之前 -->
       <li v-if="index === 0 && partitioned.overdue.length" class="todo-section">
@@ -129,14 +159,13 @@ defineExpose({ dismissConfirm })
         @toggle-collapse="toggleCollapse(node.todo.id)"
         @open-priority="openPriority(node.todo, $event)"
         @edit="emit('edit', node.todo)"
+        @edit-remark="emit('edit-remark', node.todo)"
         @edit-due="emit('edit-due', node.todo)"
         @edit-remind="emit('edit-remind', node.todo)"
         @edit-repeat="emit('edit-repeat', node.todo, $event)"
         @add-sub="emit('add-sub', node.todo)"
         @open-tags="emit('open-tags', node.todo)"
         @ask-delete="askDelete(node.todo)"
-        @confirm-delete="confirmDelete(node.todo)"
-        @cancel-delete="confirm.cancel()"
       >
         <template #children>
           <ul v-if="node.children.length && !isCollapsed(node.todo.id)" class="todo-children">
@@ -152,13 +181,12 @@ defineExpose({ dismissConfirm })
               @toggle-done="emit('toggle-done', child)"
               @open-priority="openPriority(child, $event)"
               @edit="emit('edit', child)"
+              @edit-remark="emit('edit-remark', child)"
               @edit-due="emit('edit-due', child)"
               @edit-remind="emit('edit-remind', child)"
               @edit-repeat="emit('edit-repeat', child, $event)"
               @open-tags="emit('open-tags', child)"
               @ask-delete="askDelete(child)"
-              @confirm-delete="confirmDelete(child)"
-              @cancel-delete="confirm.cancel()"
             />
           </ul>
         </template>
@@ -166,5 +194,13 @@ defineExpose({ dismissConfirm })
     </template>
 
     <PriorityMenu ref="priorityMenu" @select="onPrioritySelected" />
+    <CardConfirm
+      :text="confirmText"
+      :target-id="confirm.pendingId.value"
+      :container="listEl"
+      :fallback="props.confirmFallback"
+      @confirm="confirmDelete"
+      @cancel="confirm.cancel()"
+    />
   </ul>
 </template>

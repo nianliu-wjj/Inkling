@@ -3,6 +3,7 @@ import { computed, ref } from 'vue'
 import { vStaggerList } from '@/motion'
 import ClipEditorModal from '@/components/clip/ClipEditorModal.vue'
 import ClipCard from '@/components/card/ClipCard.vue'
+import CardConfirm from '@/components/base/CardConfirm.vue'
 import { useConfirmDelete } from '@/composables/useConfirmDelete'
 import { useClips } from '@/composables/useData'
 import { useToast } from '@/composables/useToast'
@@ -25,6 +26,7 @@ const { toast } = useToast()
 const confirm = useConfirmDelete('panel-clip')
 
 const keyword = ref('')
+const listEl = ref<HTMLElement | null>(null)
 /** 正在编辑的条目；非空即弹出编辑框。 */
 const editing = ref<ClipboardEntry | null>(null)
 
@@ -99,10 +101,12 @@ async function saveEdit(content: string): Promise<void> {
   }
 }
 
-async function remove(entry: ClipboardEntry): Promise<void> {
-  if (!confirm.confirm()) return
+/** CardConfirm 确认：按 pendingId 删除。 */
+async function remove(): Promise<void> {
+  const id = confirm.confirm()
+  if (!id) return
   try {
-    await api.clipboard.remove(entry.id)
+    await api.clipboard.remove(id)
     toast('已删除')
   } catch (error) {
     logger.error('panel-clip', '删除失败', error)
@@ -131,7 +135,7 @@ defineExpose({ dismissOverlays })
   <section class="panel-page">
     <input v-model="keyword" class="search-input" placeholder="搜索剪贴板历史…（双击条目 = 粘贴并置顶）" />
 
-    <ul v-stagger-list class="clip-list">
+    <ul ref="listEl" v-stagger-list class="clip-list">
       <ClipCard
         v-for="entry in visible"
         :key="entry.id"
@@ -142,13 +146,18 @@ defineExpose({ dismissOverlays })
         @edit="startEdit(entry)"
         @open-link="openLink(entry)"
         @ask-delete="confirm.ask(entry.id)"
-        @confirm-delete="remove(entry)"
-        @cancel-delete="confirm.cancel()"
       />
       <li v-if="!visible.length" class="tag-mgr-empty">
         {{ keyword ? '没有匹配的剪贴板记录' : '还没有剪贴板记录' }}
       </li>
     </ul>
+    <CardConfirm
+      text="确认删除该条目？"
+      :target-id="confirm.pendingId.value"
+      :container="listEl"
+      @confirm="remove"
+      @cancel="confirm.cancel()"
+    />
 
     <ClipEditorModal v-if="editing" :content="editing.content" @save="saveEdit" @close="closeEdit" />
   </section>

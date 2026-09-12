@@ -2,6 +2,7 @@
 import { computed, ref } from 'vue'
 import { vStaggerList } from '@/motion'
 import NoteCard from '@/components/card/NoteCard.vue'
+import CardConfirm from '@/components/base/CardConfirm.vue'
 import TagManagerModal from '@/components/tag/TagManagerModal.vue'
 import { useConfirmDelete } from '@/composables/useConfirmDelete'
 import { useShakeConfirm } from '@/composables/useShakeConfirm'
@@ -28,6 +29,7 @@ const confirm = useConfirmDelete('notes-view')
 const shake = useShakeConfirm()
 
 const keyword = ref('')
+const listEl = ref<HTMLElement | null>(null)
 /** 正在管理标签的笔记。 */
 const tagTarget = ref<Note | null>(null)
 /**
@@ -87,10 +89,12 @@ async function togglePin(note: Note): Promise<void> {
   }
 }
 
-async function remove(note: Note): Promise<void> {
-  if (!confirm.confirm()) return
+/** CardConfirm 确认：按 pendingId 删除。 */
+async function remove(): Promise<void> {
+  const id = confirm.confirm()
+  if (!id) return
   try {
-    await api.notes.remove(note.id)
+    await api.notes.remove(id)
     toast('已删除')
   } catch (error) {
     logger.error('notes-view', '删除失败', error)
@@ -170,7 +174,7 @@ async function saveTags(tags: string[]): Promise<void> {
       </button>
     </div>
 
-    <div v-stagger-list>
+    <div ref="listEl" v-stagger-list>
       <NoteCard
         v-for="note in visible"
         :key="note.id"
@@ -183,11 +187,17 @@ async function saveTags(tags: string[]): Promise<void> {
         @open-tags="tagTarget = note"
         @remove-tag="removeTag(note, $event)"
         @ask-delete="confirm.ask(note.id)"
-        @confirm-delete="remove(note)"
-        @cancel-delete="confirm.cancel()"
       />
       <div v-if="!visible.length" class="todo-empty">{{ emptyHint }}</div>
     </div>
+    <CardConfirm
+      text="确认删除该笔记？"
+      :target-id="confirm.pendingId.value"
+      :container="listEl"
+      fallback="center"
+      @confirm="remove"
+      @cancel="confirm.cancel()"
+    />
 
     <!-- 标签区：仅管理标签 -->
     <TagManagerModal

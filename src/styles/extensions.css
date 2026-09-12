@@ -100,6 +100,23 @@ textarea,
 .nav-dots {
   --dot-c: var(--accent-rgb);
 }
+/* 删除确认态：该待办自身的 ✕ 常显（原型无此态；浮层在 body 级 CardConfirm，卡片只留 .confirming 类）。
+   用直接子代限定到本卡片的 todo-body，父待办确认态不会把子任务的 ✕ 也点亮。 */
+.todo-item.confirming > .todo-body > .todo-del {
+  opacity: 1;
+  pointer-events: auto;
+}
+/* D27：面板 480px 内卡片左右都放不下时，浮层落在卡片下方——箭头改为朝上贴顶缘、水平靠左。
+   生成层 .cc-caret 默认在左缘（top: --caret-y），这里覆写为顶缘并把可见边改成上 + 左两条。 */
+#cardConfirm.below .cc-caret {
+  top: calc(-1 * var(--sp-sm));
+  left: var(--sp-xl);
+  right: auto;
+  border: 1px solid rgba(255, 95, 87, 0.5);
+  border-right: none;
+  border-bottom: none;
+  transform: rotate(45deg);
+}
 
 /* ═══ 4. 错落入场动画态（新增，2026-09-10） ═══
  * src/motion 的预设在动画期间给元素加 .is-animating：打字机主题的卡片自带 transform 过渡，
@@ -108,26 +125,8 @@ textarea,
   transition: none !important;
 }
 
-/* ═══ 5. 过渡桥接：旧原型规则（阶段四迁移后整节删除） ═══
- * ConfirmPopover / TodoEditorModal 目前仍按旧原型结构实现（卡片上方行内确认框、居中遮罩弹窗）；
- * 新原型改为全局锚定浮层 #cardConfirm 与锚定卡片右侧的 #todoEditorPanel，
- * 生成层因此不再提供下列规则或改变了 #todoEditorOverlay 的布局。阶段四对齐后删除本节与第 6 节中
- * 的 .card-confirm / #todoEditorModal 相关规则。 */
-@keyframes confirmIn {
-  from {
-    opacity: 0;
-    transform: translateY(-4px);
-  }
-  to {
-    opacity: 1;
-  }
-}
-.card-confirm-text {
-  flex: 1;
-  font-size: 12px;
-  color: var(--red-soft);
-  text-align: left;
-}
+/* ═══ 5. 过渡桥接：旧原型规则（阶段四 A Task 3 迁移后整节删除） ═══
+ * TodoEditorModal 仍按旧原型居中遮罩弹窗实现；新原型的 #todoEditorOverlay 是透明无遮罩的锚定浮层容器。 */
 #todoEditorOverlay {
   background: rgba(8, 10, 18, 0.45);
   backdrop-filter: blur(2px);
@@ -420,30 +419,6 @@ body:not(:focus-within) .mac-dot {
 }
 :root[data-maximized] .win-controls-win .win-btn:last-child {
   border-top-right-radius: 0;
-}
-/* ═══ 删除二次确认浮层（悬浮于卡片上方，不占满卡片、不推挤布局；笔记/粘贴板/待办统一） ═══ */
-.card-confirm {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 8px;
-  position: absolute;
-  bottom: calc(100% + 6px);
-  left: 0;
-  right: 0;
-  z-index: 7;
-  background: var(--confirm-bg);
-  backdrop-filter: blur(8px);
-  border: 1px solid rgba(255, 95, 87, 0.5);
-  border-radius: 9px;
-  padding: 6px 10px;
-  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.5);
-  animation: confirmIn 0.18s ease;
-}
-/* 确认态下该条目删除按钮保持常显 */
-.todo-item:has(.card-confirm) .todo-del {
-  opacity: 1;
-  pointer-events: auto;
 }
 /* 文本类输入框：上面的规则只覆盖了 select 与 number，
    SMTP 配置用到 text / password，不补样式会是浏览器默认外观。 */

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import { vStaggerList } from '@/motion'
-import ConfirmPopover from '@/components/base/ConfirmPopover.vue'
+import CardConfirm from '@/components/base/CardConfirm.vue'
 import Icon from '@/components/base/Icon.vue'
 import IconBtn from '@/components/base/IconBtn.vue'
 import ClipEditorModal from '@/components/clip/ClipEditorModal.vue'
@@ -39,6 +39,7 @@ const confirm = useConfirmDelete('day-view')
 const items = ref<DayDetailItem[]>([])
 const filter = ref<'all' | 'note' | 'clip' | 'todo'>('all')
 const keyword = ref('')
+const listEl = ref<HTMLElement | null>(null)
 
 /** 标题按原型：YYYY-MM-DD，今天追加「 · 今天」。 */
 const dateLabel = computed(() => formatDateKey(props.dateKey, { todaySuffix: true }))
@@ -80,6 +81,16 @@ function haystackOf(item: DayDetailItem): string {
 function idOf(item: DayDetailItem): string {
   return `${item.kind}:${item.note?.id ?? item.clip?.id ?? item.todo?.id ?? ''}`
 }
+
+/** 确认文案按类别（原型 pendingDeleteText）：笔记 / 条目 / 待办 / 子任务。 */
+const confirmText = computed(() => {
+  const id = confirm.pendingId.value
+  if (!id) return ''
+  if (id.startsWith('note:')) return '确认删除该笔记？'
+  if (id.startsWith('clip:')) return '确认删除该条目？'
+  const todo = items.value.find((item) => idOf(item) === id)?.todo
+  return todo?.parent_id ? '确认删除该子任务？' : '确认删除该待办事项？'
+})
 
 /** 待办条目是否逾期：未完成且完成时刻已过。 */
 function overdueOf(item: DayDetailItem): boolean {
@@ -194,8 +205,11 @@ async function saveTodo(input: TodoInput): Promise<void> {
   }
 }
 
-async function remove(item: DayDetailItem): Promise<void> {
-  if (!confirm.confirm()) return
+/** CardConfirm 确认：pendingId 形如 `${kind}:${id}`，从当前条目里找回对象。 */
+async function remove(): Promise<void> {
+  const id = confirm.confirm()
+  const item = id ? items.value.find((entry) => idOf(entry) === id) : undefined
+  if (!item) return
   try {
     if (item.kind === 'note' && item.note) await api.notes.remove(item.note.id)
     else if (item.kind === 'clip' && item.clip) await api.clipboard.remove(item.clip.id)
@@ -236,21 +250,15 @@ async function remove(item: DayDetailItem): Promise<void> {
 
     <div class="day-hint">按时间先后排序（待办取完成时间）· 悬浮卡片可编辑 / 删除</div>
 
-    <div v-stagger-list>
+    <div ref="listEl" v-stagger-list>
       <div
         v-for="item in visible"
         :key="idOf(item)"
         class="day-item"
-        :class="[item.kind, { done: item.todo?.status === 'done' }]"
+        :class="[item.kind, { done: item.todo?.status === 'done', confirming: confirm.isPending(idOf(item)) }]"
         :data-kind="item.kind"
+        :data-id="idOf(item)"
       >
-        <ConfirmPopover
-          v-if="confirm.isPending(idOf(item))"
-          text="⚠️ 确认删除该记录？"
-          @confirm="remove(item)"
-          @cancel="confirm.cancel()"
-        />
-
         <span class="day-time">{{ formatClock(item.time) }}</span>
         <span class="day-badge" :class="item.kind">{{ TYPE_LABEL[item.kind] ?? item.kind }}</span>
 
@@ -304,6 +312,14 @@ async function remove(item: DayDetailItem): Promise<void> {
 
       <div v-if="!visible.length" class="todo-empty">{{ emptyHint }}</div>
     </div>
+    <CardConfirm
+      :text="confirmText"
+      :target-id="confirm.pendingId.value"
+      :container="listEl"
+      fallback="center"
+      @confirm="remove"
+      @cancel="confirm.cancel()"
+    />
 
     <!-- 编辑弹窗：按类别只会打开其一 -->
     <ClipEditorModal v-if="editClip" :content="editClip.content" @save="saveClip" @close="editClip = null" />
