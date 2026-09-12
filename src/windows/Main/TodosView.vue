@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import TodoTree from '@/components/card/TodoTree.vue'
+import RepeatMenu from '@/components/todo/RepeatMenu.vue'
 import { useEditorWindow } from '@/composables/useEditorWindow'
 import type { TodoEditorMode } from '@/constants/todoEditor'
 import { useSettings, useTodos } from '@/composables/useData'
@@ -29,6 +30,9 @@ const { openTodoEditor } = useEditorWindow('todos-view')
 const currentDate = ref(todayKey())
 const keyword = ref('')
 const tree = ref<InstanceType<typeof TodoTree> | null>(null)
+const repeatMenu = ref<InstanceType<typeof RepeatMenu> | null>(null)
+/** 正在改重复规则的待办；菜单选中后据此写库。 */
+let repeatTarget: Todo | null = null
 
 const isToday = computed(() => currentDate.value === todayKey())
 /** 搜索态：跨日期查询，日期切换条的日期口径不再生效。 */
@@ -144,6 +148,28 @@ async function removeTodo(todo: Todo): Promise<void> {
     toast(String(error))
   }
 }
+
+/** 🔁 徽章 → 重复菜单（原型 showRepeatMenu）。 */
+async function openRepeat(todo: Todo, anchor: HTMLElement): Promise<void> {
+  if (guardDone(todo, '修改重复提醒')) return
+  repeatTarget = todo
+  await repeatMenu.value?.open(anchor, todo.repeat_rule)
+}
+
+/** 菜单选中：只改 repeat_rule，其余提醒字段原样回写。 */
+async function applyRepeat(rule: string | null): Promise<void> {
+  const todo = repeatTarget
+  repeatTarget = null
+  if (!todo || (todo.repeat_rule ?? null) === rule) return
+  logger.info('todos-view', `设置重复提醒 id=${todo.id} rule=${rule ?? '(none)'}`)
+  try {
+    await api.todos.reminder(todo.id, todo.remind_offset_minutes, todo.remind_desktop, todo.remind_email, rule)
+    toast(`已设为${rule === 'daily' ? '每天重复' : rule === 'weekly' ? '每周重复' : '不重复'}`)
+  } catch (error) {
+    logger.error('todos-view', '设置重复提醒失败', error)
+    toast(String(error))
+  }
+}
 </script>
 
 <template>
@@ -187,11 +213,13 @@ async function removeTodo(todo: Todo): Promise<void> {
       @edit-due="openEditor('due', $event, null, cardOf($event))"
       @edit-remind="openEditor('remind', $event, null, cardOf($event))"
       @edit-remark="openEditor('remark', $event, null, cardOf($event))"
+      @edit-repeat="openRepeat"
       @add-sub="openEditor('child', null, $event, cardOf($event))"
       @open-tags="openEditor('tags', $event, null, cardOf($event))"
       @priority="changePriority"
       @delete="removeTodo"
     />
+    <RepeatMenu ref="repeatMenu" @pick="applyRepeat" />
 
     <div v-if="!visible.length" class="todo-empty">
       {{ searching ? `未找到匹配「${keyword.trim()}」的待办事项` : '该日暂无待办事项' }}

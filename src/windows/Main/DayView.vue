@@ -7,6 +7,7 @@ import IconBtn from '@/components/base/IconBtn.vue'
 import ClipEditorModal from '@/components/clip/ClipEditorModal.vue'
 import ClipTypeBadge from '@/components/clip/ClipTypeBadge.vue'
 import PriorityBadge from '@/components/todo/PriorityBadge.vue'
+import RepeatMenu from '@/components/todo/RepeatMenu.vue'
 import { useTodos } from '@/composables/useData'
 import { useEditorWindow } from '@/composables/useEditorWindow'
 import { useConfirmDelete } from '@/composables/useConfirmDelete'
@@ -41,6 +42,9 @@ const items = ref<DayDetailItem[]>([])
 const filter = ref<'all' | 'note' | 'clip' | 'todo'>('all')
 const keyword = ref('')
 const listEl = ref<HTMLElement | null>(null)
+const repeatMenu = ref<InstanceType<typeof RepeatMenu> | null>(null)
+/** 正在改重复规则的待办；菜单选中后据此写库。 */
+let repeatTarget: Todo | null = null
 
 /** 标题按原型：YYYY-MM-DD，今天追加「 · 今天」。 */
 const dateLabel = computed(() => formatDateKey(props.dateKey, { todaySuffix: true }))
@@ -214,6 +218,32 @@ async function remove(): Promise<void> {
     toast(String(error))
   }
 }
+
+/** 🔁 徽章 → 重复菜单（原型 showRepeatMenu）；已完成待办拦截。 */
+async function openRepeat(todo: Todo, anchor: HTMLElement): Promise<void> {
+  if (todo.status === 'done') {
+    toast('已完成的待办不允许修改')
+    return
+  }
+  repeatTarget = todo
+  await repeatMenu.value?.open(anchor, todo.repeat_rule)
+}
+
+/** 菜单选中：只改 repeat_rule，其余提醒字段原样回写；日期详情不走 useTodos 列表，成功后主动重载。 */
+async function applyRepeat(rule: string | null): Promise<void> {
+  const todo = repeatTarget
+  repeatTarget = null
+  if (!todo || (todo.repeat_rule ?? null) === rule) return
+  logger.info('day-view', `设置重复提醒 id=${todo.id} rule=${rule ?? '(none)'}`)
+  try {
+    await api.todos.reminder(todo.id, todo.remind_offset_minutes, todo.remind_desktop, todo.remind_email, rule)
+    await load()
+    toast(`已设为${rule === 'daily' ? '每天重复' : rule === 'weekly' ? '每周重复' : '不重复'}`)
+  } catch (error) {
+    logger.error('day-view', '设置重复提醒失败', error)
+    toast(String(error))
+  }
+}
 </script>
 
 <template>
@@ -282,7 +312,11 @@ async function remove(): Promise<void> {
             <span v-if="item.todo.remind_offset_minutes !== null" class="todo-meta"
               ><span class="ix">⏰</span> {{ remindOffsetLabel(item.todo.remind_offset_minutes) }}</span
             >
-            <span v-if="repeatLabel(item.todo)" class="todo-meta"
+            <span
+              v-if="repeatLabel(item.todo)"
+              class="todo-meta repeat"
+              title="重复提醒（点击切换 / 结束）"
+              @click.stop="openRepeat(item.todo, $event.currentTarget as HTMLElement)"
               ><span class="ix">🔁</span> {{ repeatLabel(item.todo) }}</span
             >
           </div>
@@ -313,6 +347,7 @@ async function remove(): Promise<void> {
       @confirm="remove"
       @cancel="confirm.cancel()"
     />
+    <RepeatMenu ref="repeatMenu" @pick="applyRepeat" />
 
     <!-- 编辑弹窗：按类别只会打开其一 -->
     <ClipEditorModal v-if="editClip" :content="editClip.content" @save="saveClip" @close="editClip = null" />
