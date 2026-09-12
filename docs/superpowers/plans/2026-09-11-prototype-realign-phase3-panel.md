@@ -83,7 +83,7 @@ docs/superpowers/plans/2026-09-11-prototype-realign-phase3-acceptance.md   验�
   - Rust：`AppState::set_pending_panel_intent(Option<String>)`、`AppState::take_pending_panel_intent() -> Option<String>`；`windows::panel_open_note(app, note_id: &str) -> Result<(), String>`；`windows::panel_set_zen(app, on: bool) -> Result<(), String>`；`windows::PANEL_ZEN: AtomicBool`；`Store::get_note(&self, id) -> Result<Option<Note>, String>`；命令 `panel_take_intent() -> Option<String>`、`panel_open_note(note_id: String)`（async）、`panel_set_zen(on: bool)`（async）、`note_get(id: String) -> Result<Option<Note>, String>`。
   - TS：`export interface PanelIntent { page: string; noteId?: string }`；`api.windows.panelTakeIntent(): Promise<PanelIntent | null>`、`api.windows.panelOpenNote(noteId: string)`、`api.windows.panelSetZen(on: boolean)`；`api.notes.get(id: string): Promise<Note | null>`。
 
-- [ ] **Step 1: `state.rs` 改名为意图槽位**
+- [x] **Step 1: `state.rs` 改名为意图槽位**
 
 把第 28–31 行的字段与注释替换为：
 
@@ -116,7 +116,7 @@ docs/superpowers/plans/2026-09-11-prototype-realign-phase3-acceptance.md   验�
     }
 ```
 
-- [ ] **Step 2: `windows.rs` 意图写入、`panel_open_note`、Zen**
+- [x] **Step 2: `windows.rs` 意图写入、`panel_open_note`、Zen**
 
 文件顶部 `use tauri::{…}` 之后追加：
 
@@ -243,7 +243,7 @@ pub fn panel_resize(app: &AppHandle, height: f64) -> Result<(), String> {
 }
 ```
 
-- [ ] **Step 3: `notes.rs` 暴露 `get_note`**
+- [x] **Step 3: `notes.rs` 暴露 `get_note`**
 
 在第 45 行 `active_draft` 之后插入：
 
@@ -263,7 +263,7 @@ pub fn panel_resize(app: &AppHandle, height: f64) -> Result<(), String> {
     }
 ```
 
-- [ ] **Step 4: `ipc.rs` 命令**
+- [x] **Step 4: `ipc.rs` 命令**
 
 在第 184 行 `note_draft` 之后插入：
 
@@ -302,7 +302,7 @@ pub async fn panel_set_zen(app: AppHandle, on: bool) -> Result<(), String> {
 }
 ```
 
-- [ ] **Step 5: `main.rs` 注册**
+- [x] **Step 5: `main.rs` 注册**
 
 第 111 行 `ipc::note_draft,` 之后加 `ipc::note_get,`；第 142 行 `ipc::panel_take_page,` 替换为：
 
@@ -312,12 +312,12 @@ pub async fn panel_set_zen(app: AppHandle, on: bool) -> Result<(), String> {
             ipc::panel_set_zen,
 ```
 
-- [ ] **Step 6: Rust 校验**
+- [x] **Step 6: Rust 校验**
 
 Run: `cargo fmt --manifest-path src-tauri/Cargo.toml --check && cargo check --manifest-path src-tauri/Cargo.toml && cargo test --manifest-path src-tauri/Cargo.toml 2>&1 | grep "^test result"`
 Expected: fmt 干净、check 通过（无新增警告）、既有测试全部通过。
 
-- [ ] **Step 7: `tauri.ts` 契约**
+- [x] **Step 7: `tauri.ts` 契约**
 
 在 `LauncherStatus` 接口之后追加：
 
@@ -362,7 +362,7 @@ function parsePanelIntent(raw: string | null): PanelIntent | null {
     get: (id: string) => invoke<Note | null>('note_get', { id }),
 ```
 
-- [ ] **Step 8: `PanelApp.vue` 最小适配**
+- [x] **Step 8: `PanelApp.vue` 最小适配**
 
 把第 331–334 行替换为：
 
@@ -375,7 +375,7 @@ function parsePanelIntent(raw: string | null): PanelIntent | null {
 
 （noteId 的消费在 Task 4 接入。）
 
-- [ ] **Step 9: 校验并提交**
+- [x] **Step 9: 校验并提交**
 
 ```bash
 pnpm typecheck
@@ -399,7 +399,7 @@ git commit -m "feat(ipc): 面板 intent 槽位、panel_open_note / note_get / pa
 **Interfaces:**
 - Produces: `platform::foreground_app_name() -> Option<String>`、`platform::app_name_from_path(&str) -> Option<String>`；`data::clipboard::Capture.source_app: Option<String>`；`ClipboardEntry.source_app: Option<String>`（getter `source_app()`，序列化时 None 省略）；TS `ClipboardEntry.source_app?: string | null`。
 
-- [ ] **Step 1: 写失败的单测（迁移 + 入库 + 纯函数）**
+- [x] **Step 1: 写失败的单测（迁移 + 入库 + 纯函数）**
 
 `src-tauri/src/data/mod.rs` 测试模块末尾（`default_settings_theme_is_typewriter` 之后）追加：
 
@@ -524,12 +524,12 @@ mod tests {
 }
 ```
 
-- [ ] **Step 2: 运行，确认失败**
+- [x] **Step 2: 运行，确认失败**
 
 Run: `cargo test --manifest-path src-tauri/Cargo.toml 2>&1 | grep -E "error\[|^test result" | head`
 Expected: 编译错误（`with_v6` / `source_app` / `app_name_from_path` 不存在）。
 
-- [ ] **Step 3: `Cargo.toml` 特性**
+- [x] **Step 3: `Cargo.toml` 特性**
 
 第 48–53 行替换为：
 
@@ -545,7 +545,7 @@ windows-sys = { version = "0.59", features = [
 ] }
 ```
 
-- [ ] **Step 4: `platform.rs` 前台应用名**
+- [x] **Step 4: `platform.rs` 前台应用名**
 
 在 `is_silent_start` 之后（测试模块之前）追加：
 
@@ -620,7 +620,7 @@ pub fn app_name_from_path(path: &str) -> Option<String> {
 }
 ```
 
-- [ ] **Step 5: `data/mod.rs` v6 迁移**
+- [x] **Step 5: `data/mod.rs` v6 迁移**
 
 第 86 行的文档注释末尾追加 `→ v6（clipboard_entries.source_app）`。第 187 行 `}`（v5 分支结束）之后、`Ok(())` 之前插入：
 
@@ -643,7 +643,7 @@ pub fn app_name_from_path(path: &str) -> Option<String> {
     }
 ```
 
-- [ ] **Step 6: `models.rs` 与 `data/clipboard.rs`**
+- [x] **Step 6: `models.rs` 与 `data/clipboard.rs`**
 
 `models.rs` 第 39–44 行之间，在 `pinned: bool,` 之前加：
 
@@ -705,7 +705,7 @@ fn row_entry(r: &rusqlite::Row<'_>) -> rusqlite::Result<ClipboardEntry> {
             .map_err(db_err)?;
 ```
 
-- [ ] **Step 7: `clipboard_watcher.rs` 写入来源**
+- [x] **Step 7: `clipboard_watcher.rs` 写入来源**
 
 `capture_text` 中的 `Capture` 字面量（第 99–105 行）替换为：
 
@@ -738,12 +738,12 @@ fn row_entry(r: &rusqlite::Row<'_>) -> rusqlite::Result<ClipboardEntry> {
 
 （`ipc::clipboard_capture` 复用 `capture_text`，手动捕获随之带上来源，无需另改。）
 
-- [ ] **Step 8: 运行测试通过**
+- [x] **Step 8: 运行测试通过**
 
 Run: `cargo fmt --manifest-path src-tauri/Cargo.toml --check && cargo check --manifest-path src-tauri/Cargo.toml && cargo test --manifest-path src-tauri/Cargo.toml 2>&1 | grep -E "v6_migration|insert_capture_persists|app_name_from_path|^test result"`
 Expected: 三个新测试 `ok`，`test result: ok`。
 
-- [ ] **Step 9: 前端类型**
+- [x] **Step 9: 前端类型**
 
 `src/typings/domain.ts` 第 37 行 `file_path?: string | null` 之后加：
 
@@ -752,7 +752,7 @@ Expected: 三个新测试 `ok`，`test result: ok`。
   source_app?: string | null
 ```
 
-- [ ] **Step 10: 校验并提交**
+- [x] **Step 10: 校验并提交**
 
 ```bash
 pnpm typecheck
@@ -775,7 +775,7 @@ git commit -m "feat(clipboard): 采集来源应用（v6 迁移 source_app）"
 **Interfaces:**
 - Produces: `PanelPlugin.dotClass: string`（内置 `'dot-note' | 'dot-clip' | 'dot-todo'`）；`PanelApp` 的 `hotkeyTitle(plugin, index): string`。
 
-- [ ] **Step 1: 注册表 `dot` → `dotClass`**
+- [x] **Step 1: 注册表 `dot` → `dotClass`**
 
 `src/panel-plugins/index.ts` 第 24–25 行替换为：
 
@@ -798,7 +798,7 @@ export const builtinPlugins: readonly PanelPlugin[] = [
 ] as const
 ```
 
-- [ ] **Step 2: `PanelApp.vue` 圆点模板**
+- [x] **Step 2: `PanelApp.vue` 圆点模板**
 
 第 363 行 `const activeLabel = …` 之后追加：
 
@@ -835,7 +835,7 @@ function hotkeyTitle(plugin: PanelPlugin, index: number): string {
     </div>
 ```
 
-- [ ] **Step 3: `SettingsView.vue` 插件行**
+- [x] **Step 3: `SettingsView.vue` 插件行**
 
 第 279 行 `<span>{{ plugin.dot }} {{ plugin.label }}</span>` 改为：
 
@@ -845,7 +845,7 @@ function hotkeyTitle(plugin: PanelPlugin, index: number): string {
 
 （不再有 emoji 可显示；生成层 `.nav-dot` 是 `display: grid` 的 22px 块级盒，内联进 label 会把文字挤到下一行，且设置页的插件行原型本就只有文字。）
 
-- [ ] **Step 4: 样式：删桥接、补兜底**
+- [x] **Step 4: 样式：删桥接、补兜底**
 
 `src/styles/extensions.css`：删除第 133–149 行（「圆点导航仍是 emoji 字符…」两段及其注释，共两个规则块 `.nav-dot:hover` / `.nav-dot.active` 与 `.nav-dot::before { content: none }`）。在 §3 末尾（第 96 行 `.prio-opt {…}` 之后、§4 之前）追加：
 
@@ -860,7 +860,7 @@ function hotkeyTitle(plugin: PanelPlugin, index: number): string {
 
 `src/styles/motion.css`：删除第 58–69 行（「── 圆点导航：选中与悬浮的缩放反馈 ──」整段，生成层 `::before` 自带 transition）。
 
-- [ ] **Step 5: `panel.ts` 设置窗口标识**
+- [x] **Step 5: `panel.ts` 设置窗口标识**
 
 ```ts
 /**
@@ -879,7 +879,7 @@ document.documentElement.dataset.window = 'panel'
 createApp(PanelApp).mount('#app')
 ```
 
-- [ ] **Step 6: 校验并提交**
+- [x] **Step 6: 校验并提交**
 
 ```bash
 pnpm sync:styles --check && pnpm typecheck
@@ -906,7 +906,7 @@ git commit -m "feat(panel): 矢量圆点导航与 ARIA，删除 emoji 桥接"
   - `PanelApp`：`pageRefs: Record<string, PanelPageExpose | null>`、`setZen(on: boolean): Promise<void>`、`zen: Ref<boolean>`、`visible: Ref<boolean>`、`consumeIntent(): Promise<void>`。
   - `NotePage` expose：`archive / focus / dismissOverlays / loadNote / onPanelHide / isEditing`；emits `modal` / `zen-exit`（Task 5 再加 `archived`）。
 
-- [ ] **Step 1: `PanelPageExpose` 契约**
+- [x] **Step 1: `PanelPageExpose` 契约**
 
 `src/panel-plugins/index.ts` 在 `PanelPlugin` 接口之前插入：
 
@@ -930,7 +930,7 @@ export interface PanelPageExpose {
 }
 ```
 
-- [ ] **Step 2: `NotePage.vue` 整体重写**
+- [x] **Step 2: `NotePage.vue` 整体重写**
 
 ```vue
 <script setup lang="ts">
@@ -1223,7 +1223,7 @@ defineExpose({ archive, focus, dismissOverlays, loadNote, onPanelHide, isEditing
 </template>
 ```
 
-- [ ] **Step 3: `PanelApp.vue` 脚本改动**
+- [x] **Step 3: `PanelApp.vue` 脚本改动**
 
 （a）第 2 行与第 8–10 行 import 改为：
 
@@ -1385,7 +1385,7 @@ async function consumeIntent(): Promise<void> {
 }
 ```
 
-- [ ] **Step 4: `PanelApp.vue` 模板改动**
+- [x] **Step 4: `PanelApp.vue` 模板改动**
 
 根元素 `:class` 改为 `:class="{ 'modal-open': modalDepth > 0, 'zen-mode': zen }"`。
 
@@ -1420,7 +1420,7 @@ async function consumeIntent(): Promise<void> {
     />
 ```
 
-- [ ] **Step 5: 主窗口 ✏️ 改为回显到面板**
+- [x] **Step 5: 主窗口 ✏️ 改为回显到面板**
 
 `src/windows/Main/NotesView.vue`：
 - 删除第 5 行 `import NoteEditModal …`；第 13 行改为 `import type { Note } from '@/typings/domain'`；
@@ -1461,7 +1461,7 @@ function openNoteInPanel(id: string): void {
 
 删除文件：`git rm src/components/note/NoteEditModal.vue`（目录随之为空）。
 
-- [ ] **Step 6: `window-fit.css` Zen 纵向撑满**
+- [x] **Step 6: `window-fit.css` Zen 纵向撑满**
 
 第 68 行 `#panel {…}` 块之后插入：
 
@@ -1475,7 +1475,7 @@ function openNoteInPanel(id: string): void {
 }
 ```
 
-- [ ] **Step 7: 校验并提交**
+- [x] **Step 7: 校验并提交**
 
 ```bash
 pnpm typecheck && grep -rn "NoteEditModal\|panelTakePage\|plugin\.dot\b" src || echo "无残留引用"
@@ -1496,7 +1496,7 @@ git commit -m "feat(panel): 笔记回显编辑态 + Zen 专注模式，主窗口
 - Consumes: Task 4 的 `pageRefs` / `hide()` / `consumeIntent()`。
 - Produces: `TagList` prop `moreAction?: 'expand' | 'open'`（默认 `'expand'`）；`NotePage` emit `archived`；`PanelApp.onArchived()`。
 
-- [ ] **Step 1: `TagList.vue` 的 `moreAction`**
+- [x] **Step 1: `TagList.vue` 的 `moreAction`**
 
 props 里 `shaking?: boolean` 之后加：
 
@@ -1534,7 +1534,7 @@ function onMore(event: MouseEvent): void {
       </span>
 ```
 
-- [ ] **Step 2: `NotePage.vue` 暂存三段文案与 `.saving` 时机**
+- [x] **Step 2: `NotePage.vue` 暂存三段文案与 `.saving` 时机**
 
 原型：初始「已暂存」；输入中「输入中…」+ `.saving`；500ms 落库后「已暂存 SQLite」。失败态是项目扩展（原型无失败路径，静默显示「已暂存」会误导）。
 
@@ -1570,7 +1570,7 @@ const saveLabel = computed(() => {
 
 模板 `.save-state` 的 class 改为 `:class="{ saving: saveState === 'typing' }"`。
 
-- [ ] **Step 3: `NotePage.vue` 标签预览与副标题**
+- [x] **Step 3: `NotePage.vue` 标签预览与副标题**
 
 脚本里 `archiveLabel` 之后加：
 
@@ -1591,7 +1591,7 @@ const tagSubtitle = computed(() =>
 
 `TagManagerModal` 的 `subtitle="当前笔记的标签"` 改为 `:subtitle="tagSubtitle"`。
 
-- [ ] **Step 4: 归档后 emit `archived`**
+- [x] **Step 4: 归档后 emit `archived`**
 
 `defineEmits` 里加一行：
 
@@ -1602,7 +1602,7 @@ const tagSubtitle = computed(() =>
 
 `archive()` 里编辑态分支的 `toast('修改已保存 ✔')` 之后、`return` 之前加 `emit('archived')`；新建态分支的 `toast('念头已归档 ✔')` 之后加 `emit('archived')`。
 
-- [ ] **Step 5: `PanelApp.vue` 归档收起与呼出聚焦**
+- [x] **Step 5: `PanelApp.vue` 归档收起与呼出聚焦**
 
 `onExternalEditorOpen` 之后插入：
 
@@ -1623,7 +1623,7 @@ function onArchived(): void {
 
 模板 `<component>` 增加 `@archived="onArchived"`（放在 `@zen-exit` 之前）。
 
-- [ ] **Step 6: 校验并提交**
+- [x] **Step 6: 校验并提交**
 
 ```bash
 pnpm typecheck
@@ -1644,12 +1644,12 @@ git commit -m "feat(panel): 编辑器底栏文案 / 标签预览 / 归档收起 
 - Consumes: `Icon` 的 `close / pin / edit / paste / link`；`ClipboardEntry.source_app`（Task 2）。
 - Produces: `ClipCard` props 只剩 `entry` / `confirming?`（删除 `archive`）；emits 不变。
 
-- [ ] **Step 1: 核对图标**
+- [x] **Step 1: 核对图标**
 
 Run: `grep -n "name === 'paste'" src/components/base/Icon.vue`
 Expected: 命中一行（阶段二已按 `ICON_PASTE` 补齐，本任务不改 Icon.vue）。
 
-- [ ] **Step 2: `ClipCard.vue` 重写**
+- [x] **Step 2: `ClipCard.vue` 重写**
 
 ```vue
 <script setup lang="ts">
@@ -1733,7 +1733,7 @@ const isLink = computed(() => props.entry.content_type === 'link')
 </template>
 ```
 
-- [ ] **Step 3: `ClipArchiveCard.vue` 加来源应用**
+- [x] **Step 3: `ClipArchiveCard.vue` 加来源应用**
 
 第 51 行 `<ClipTypeBadge …/>` 之后、时间 `<span>` 之前插入（原型 renderArchive 的顺序：类型 → 来源 → 时间）：
 
@@ -1743,7 +1743,7 @@ const isLink = computed(() => props.entry.content_type === 'link')
       >
 ```
 
-- [ ] **Step 4: 校验并提交**
+- [x] **Step 4: 校验并提交**
 
 ```bash
 pnpm typecheck && grep -rn ":archive" src/windows/Panel/ClipPage.vue || echo "ClipPage 未传 archive"
@@ -1765,7 +1765,7 @@ git commit -m "feat(panel): 粘贴板卡片对齐原型（来源应用 / 类型�
 - Consumes: `PanelPageExpose.dismissOverlays`；`useConfirmDelete().pendingId / cancel`；`TodoPage.openEditor(mode, todo, parent, focus)`（既有）。
 - Produces: `TodoTree` expose `dismissConfirm(): boolean`；`ClipPage` / `TodoPage` expose `dismissOverlays(): boolean`。
 
-- [ ] **Step 1: `PanelApp.vue` 鼠标触发源（spec D17）**
+- [x] **Step 1: `PanelApp.vue` 鼠标触发源（spec D17）**
 
 第 301–307 行两个函数替换为：
 
@@ -1789,7 +1789,7 @@ function onPointerLeave(): void {
 
 （监听仍挂在 `document.documentElement`，原因见第 49–53 行注释：弹窗 Teleport 到 body 后不再是 `#panel` 后代。）
 
-- [ ] **Step 2: `PanelApp.vue` Esc 链与切页副作用**
+- [x] **Step 2: `PanelApp.vue` Esc 链与切页副作用**
 
 `onKeydown` 的 Escape 分支里，`if (zen.value) {…}` 之后、`void hide()` 之前插入：
 
@@ -1811,7 +1811,7 @@ watch(activeId, (_next, prev) => {
 })
 ```
 
-- [ ] **Step 3: `ClipPage.vue` 暴露 `dismissOverlays`**
+- [x] **Step 3: `ClipPage.vue` 暴露 `dismissOverlays`**
 
 `remove()` 之后追加：
 
@@ -1833,7 +1833,7 @@ function dismissOverlays(): boolean {
 defineExpose({ dismissOverlays })
 ```
 
-- [ ] **Step 4: `TodoTree.vue` 暴露 `dismissConfirm`**
+- [x] **Step 4: `TodoTree.vue` 暴露 `dismissConfirm`**
 
 `confirmDelete` 之后追加：
 
@@ -1848,7 +1848,7 @@ function dismissConfirm(): boolean {
 defineExpose({ dismissConfirm })
 ```
 
-- [ ] **Step 5: `TodoPage.vue` 提示行、🔁 接线、`dismissOverlays`**
+- [x] **Step 5: `TodoPage.vue` 提示行、🔁 接线、`dismissOverlays`**
 
 脚本：`const priorityFilter = …` 之后加
 
@@ -1881,7 +1881,7 @@ defineExpose({ dismissOverlays })
       @edit-repeat="openEditor('edit', $event, null, 'remind')"
 ```
 
-- [ ] **Step 6: 校验并提交**
+- [x] **Step 6: 校验并提交**
 
 ```bash
 pnpm typecheck && pnpm exec vite build 2>&1 | grep -E "built in|error"
@@ -1897,12 +1897,12 @@ git commit -m "feat(panel): 失焦触发源并存、Esc 链、切页清确认、
 - Create: `docs/superpowers/plans/2026-09-11-prototype-realign-phase3-acceptance.md`
 - Modify: spec §9；必要时 `src/styles/extensions.css`（新开「§10 阶段三验收补丁」分节注明原因）
 
-- [ ] **Step 1: 静态检查全绿**
+- [x] **Step 1: 静态检查全绿**
 
 Run: `pnpm sync:styles --check && pnpm typecheck && pnpm test && cargo fmt --manifest-path src-tauri/Cargo.toml --check && cargo test --manifest-path src-tauri/Cargo.toml && pnpm exec vite build`
 Expected: 全部通过；记录 `cargo test` 通过数与 `panel-*.js` 体积。
 
-- [ ] **Step 2: 实机（`pnpm tauri:dev` 后台，沿用 `.tmp/win.ps1` 驱动；打字机 + 深色各一轮）按 spec §6 九项逐条验证并截图**
+- [x] **Step 2: 实机（`pnpm tauri:dev` 后台，沿用 `.tmp/win.ps1` 驱动；打字机 + 深色各一轮）按 spec §6 九项逐条验证并截图**
 
 1. 圆点：三色矢量圆、hover / active 光环、⌃1/2/3 切页、Tab 焦点环、`aria-selected` 随切换。
 2. 笔记页：暂存三段文案「已暂存 → 输入中…（金色）→ 已暂存 SQLite」；标签预览无标签 / ≤3 / +N 三形态，+N 打开管理弹窗且副标题为「当前正在编写的念头（未归档）的标签」；归档后 toast「念头已归档 ✔」并 250ms 收面板；呼出后光标在编辑器。
@@ -1914,11 +1914,11 @@ Expected: 全部通过；记录 `cargo test` 通过数与 `panel-*.js` 体积。
 8. 待办页：提示行文案；🔁 徽章点击打开独立编辑窗且焦点在提醒下拉。
 9. `data-window='panel'` 生效后面板内弹窗（标签管理 / 粘贴板编辑）整页化观感：顶对齐、铺满、标题与底栏常显；若观感倒退，删除 `window-fit.css` 第 122–161 行「面板内的编辑弹窗」整组规则并记录。
 
-- [ ] **Step 3: 写验收记录并回填 spec §9**
+- [x] **Step 3: 写验收记录并回填 spec §9**
 
 验收记录按阶段二 `2026-09-10-prototype-realign-phase2-acceptance.md` 的结构：环境 / 方法 → 自动化校验表 → 逐项比对表（打字机、深色各一列）→ 发现的问题与补丁清单 → 未验证项。spec §9 三条「待填」改为：Zen 放大 / 还原结论（含多屏）、来源应用采集命中率（记事本 / VS Code / 浏览器 / 提权进程各试一次）、补丁清单（含 `data-window='panel'` 去留）。
 
-- [ ] **Step 4: 提交**
+- [x] **Step 4: 提交**
 
 ```bash
 git add docs/superpowers/plans/2026-09-11-prototype-realign-phase3-acceptance.md docs/superpowers/specs/2026-09-11-prototype-realign-phase3-panel-design.md src/styles/extensions.css src/styles/window-fit.css
