@@ -3,11 +3,10 @@ import { computed } from 'vue'
 import { useSettings, useTodos } from '@/composables/useData'
 import { useToast } from '@/composables/useToast'
 import { builtinIslandPlugins, resolveIslandPlugins, serializeIslandPlugins } from '@/island-plugins'
-import { pickTodayTodos } from '@/island-plugins/today-todos'
+import { pickIslandTodos } from '@/utils/island'
 import { logger } from '@/service/logger'
 import type { Settings } from '@/typings/domain'
-import { formatClock } from '@/utils/datetime'
-import { isOverdue } from '@/utils/todo'
+import { todayKey } from '@/utils/datetime'
 
 /**
  * 归档 · 灵动岛页（原型 #archive-island）。
@@ -30,13 +29,15 @@ async function patch(partial: Partial<Settings>): Promise<void> {
   }
 }
 
-/** 当日待办口径与胶囊一致（顶级、未完成、今天或逾期，按完成时间升序）。 */
-const todayTodos = computed(() => pickTodayTodos(todos.value))
-const first = computed(() => todayTodos.value[0] ?? null)
+/** 播放口径与胶囊同源（utils/island.ts：含子任务、按播放范围、逾期优先）。 */
+const islandRows = computed(() => pickIslandTodos(todos.value, settings.value.island_scope))
+const first = computed(() => islandRows.value[0] ?? null)
+/** 预览里非当天条目带 MM-DD 徽章（原型 .di-date）。 */
+const firstDate = computed(() => (first.value && first.value.date !== todayKey() ? first.value.date.slice(5) : ''))
 
 /** 状态行（原型 islandPageStat）。 */
 const stat = computed(() => {
-  const parts = [`当前播放 ${todayTodos.value.length} 条待办`, `每条停留 ${settings.value.island_cycle_seconds} 秒`]
+  const parts = [`当前播放 ${islandRows.value.length} 条待办`, `每条停留 ${settings.value.island_cycle_seconds} 秒`]
   if (!settings.value.island_enabled) parts.push('灵动岛已停用')
   if (settings.value.island_click_through) parts.push('点击穿透')
   return parts.join(' · ')
@@ -106,12 +107,19 @@ function toggleIslandPlugin(id: string, enabled: boolean): void {
         <div class="di-item island-preview-item">
           <template v-if="first">
             <span class="di-dot" :class="first.priority" />
-            <span class="di-text">{{ first.content }}</span>
-            <span class="di-time" :class="{ ovd: isOverdue(first) }">{{ formatClock(first.due_at) }}</span>
+            <span class="di-text"
+              ><span v-if="firstDate" class="di-date">{{ firstDate }}</span
+              >{{ first.text }}</span
+            >
+            <span class="di-time" :class="{ ovd: first.overdue }">{{
+              first.overdue ? `逾期 ${first.time}` : first.time
+            }}</span>
           </template>
           <template v-else>
             <span class="di-dot idle" />
-            <span class="di-text dim">今日待办已全部完成 🎉</span>
+            <span class="di-text dim">{{
+              settings.island_scope === 'all' ? '没有未完成待办 🎉' : '今日待办已全部完成 🎉'
+            }}</span>
           </template>
         </div>
       </div>

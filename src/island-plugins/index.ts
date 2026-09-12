@@ -1,4 +1,5 @@
 import type { Component, Ref } from 'vue'
+import type { Priority } from '@/typings/domain'
 import { useTodayTodos } from './today-todos'
 import TodoDetail from './TodoDetail.vue'
 
@@ -17,8 +18,14 @@ export interface IslandItem {
   title: string
   /** 胶囊右侧短文案（时间 / 数量等）。 */
   meta?: string
-  /** 左侧色点（CSS 颜色）。 */
+  /** 左侧色点（CSS 颜色，悬停详情组件用）。 */
   dot?: string
+  /** 非当天条目的日期徽章（MM-DD，原型 .di-date）；当天不设。 */
+  date?: string
+  /** 已逾期（原型 .di-time.ovd）。 */
+  overdue?: boolean
+  /** 优先级 → 原型 .di-dot.{high|medium|low}；不设时渲染 .idle。 */
+  priority?: Priority
   /** 悬停详情组件，接收 `item` prop；不提供则悬停只放大显示 title。 */
   detail?: Component
   /** 原始数据，交给 detail 组件使用。 */
@@ -44,7 +51,7 @@ export const builtinIslandPlugins: readonly IslandPlugin[] = [
     label: '当日待办',
     useItems: useTodayTodos,
     panelPage: 'todo',
-    emptyText: '今天没有待办 · 点此新建',
+    emptyText: '今日待办已全部完成 🎉',
   },
 ]
 
