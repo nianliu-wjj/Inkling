@@ -12,7 +12,9 @@ import { anchorBeside, type AnchorResult } from '@/utils/anchor'
  *   面板 'below' = 卡片下方箭头朝上，spec D27）；
  * - 首次显示横向 10px 滑入（--dur-fast）；浮层自身尺寸变化（ResizeObserver）与列表重渲染
  *   （容器 MutationObserver，childList + subtree）合帧重定位；卡片消失 → emit cancel；
- * - 任意滚动（capture）与窗口 resize → emit cancel（原型 app.js:209–210）；Esc 由各页 dismissOverlays 负责。
+ * - 任意滚动（capture）与窗口 resize → emit cancel（原型 app.js:209–210）；
+ * - Esc → emit cancel：document 捕获阶段监听并 stopPropagation，主窗口各页没有 Esc 链也能关；面板里则先于
+ *   PanelApp 的窗口冒泡 Esc 处理器吃掉这一次按键（与 ModalShell / TodoEditorPanel 同法），Esc 链仍是「确认 → 收面板」两步。
  *
  * 一个列表页 / TodoTree 各渲染一个实例；同一窗口内同一时刻只会有一个 targetId 非空（v-if 互斥的视图）。
  */
@@ -94,6 +96,14 @@ function onResize(): void {
   emit('cancel')
 }
 
+/** Esc 关闭确认：capture 阶段拦截并阻断冒泡，不让窗口级 Esc 处理器（PanelApp 收面板）在同一次按键里再触发。 */
+function onKeydown(event: KeyboardEvent): void {
+  if (event.key !== 'Escape') return
+  event.stopPropagation()
+  logger.debug('card-confirm', 'Esc 取消确认')
+  emit('cancel')
+}
+
 function attach(): void {
   detach()
   if (popRef.value) {
@@ -106,6 +116,7 @@ function attach(): void {
   }
   window.addEventListener('scroll', onScroll, true)
   window.addEventListener('resize', onResize)
+  document.addEventListener('keydown', onKeydown, true)
 }
 
 function detach(): void {
@@ -115,6 +126,7 @@ function detach(): void {
   mutationObserver = null
   window.removeEventListener('scroll', onScroll, true)
   window.removeEventListener('resize', onResize)
+  document.removeEventListener('keydown', onKeydown, true)
   if (frame) {
     cancelAnimationFrame(frame)
     frame = 0

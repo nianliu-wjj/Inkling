@@ -58,13 +58,23 @@ const isNew = computed(() => props.mode === 'create' || props.mode === 'child')
 
 // ── 表单状态：全部从 todo 原值初始化，聚焦模式下未显示的字段保持原值提交 ──
 
+/**
+ * 新建子任务且父待办未完成时继承父级（原型 app.js:1052–1064）：完成时间默认取父级完成时间（日期上限也锁在父级），
+ * 优先级默认取父级。父待办已完成时父级时间必然已过，回落到「当前 + 1 小时 / 中」。
+ */
+const inheritParent = props.mode === 'child' && props.parent?.status === 'open' ? props.parent : null
+
 /** 默认完成时间 = 当前 + 1 小时（需求指定）；历史补录时日期归入所选日。 */
 function defaultDue(): { date: string; time: string } {
   const value = toDateAndTimeInputs(new Date(Date.now() + 3_600_000).toISOString())
   return props.presetDate ? { date: props.presetDate, time: value.time } : value
 }
 
-const initialDue = props.todo ? toDateAndTimeInputs(props.todo.due_at) : defaultDue()
+const initialDue = props.todo
+  ? toDateAndTimeInputs(props.todo.due_at)
+  : inheritParent
+    ? toDateAndTimeInputs(inheritParent.due_at)
+    : defaultDue()
 
 const content = ref(props.todo?.content ?? '')
 const tags = ref<string[]>([...(props.todo?.tags ?? [])])
@@ -75,7 +85,9 @@ const dueTime = ref(initialDue.time)
 const remindOffset = ref<number | null>(props.todo ? props.todo.remind_offset_minutes : DEFAULT_REMIND_OFFSET)
 const remindDesktop = ref(props.todo ? props.todo.remind_desktop : true)
 const remindEmail = ref(props.todo ? props.todo.remind_email : false)
-const priority = ref<Priority>((props.todo?.priority as Priority) ?? 'medium')
+const priority = ref<Priority>(
+  (props.todo?.priority as Priority) ?? (inheritParent?.priority as Priority | undefined) ?? 'medium',
+)
 
 const contentInput = ref<HTMLInputElement | null>(null)
 const tagInputEl = ref<HTMLInputElement | null>(null)

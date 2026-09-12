@@ -484,6 +484,8 @@ onMounted(() => {
         logger.warn('panel', '检测到后端直接收起（快捷键 / 粘贴），补跑前端收起清理')
         // 与 hide() 同步：后端直接收起时 body 级删除确认也没被清掉，补关一次再通知各页。
         dismissAllOverlays()
+        // 补关粘贴板编辑器会 emit modal:false → onModalToggle 可能刚在面板出现的瞬间安排了一次收起，取消它。
+        clearCollapseTimer()
         await runPagesHide()
       }
     }

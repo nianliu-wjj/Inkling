@@ -233,10 +233,11 @@ async function openRepeat(todo: Todo, anchor: HTMLElement): Promise<void> {
 async function applyRepeat(rule: string | null): Promise<void> {
   const todo = repeatTarget
   repeatTarget = null
-  if (!todo || (todo.repeat_rule ?? null) === rule) return
-  logger.info('day-view', `设置重复提醒 id=${todo.id} rule=${rule ?? '(none)'}`)
-  // 菜单打开期间提醒可能被独立编辑窗改过，回写前取最新值。
+  if (!todo) return
+  // 菜单打开期间提醒可能被独立编辑窗改过，回写前取最新值；「是否有变化」也要按最新值判断。
   const fresh = todos.value.find((t) => t.id === todo.id) ?? todo
+  if ((fresh.repeat_rule ?? null) === rule) return
+  logger.info('day-view', `设置重复提醒 id=${todo.id} rule=${rule ?? '(none)'}`)
   try {
     await api.todos.reminder(todo.id, fresh.remind_offset_minutes, fresh.remind_desktop, fresh.remind_email, rule)
     await load()

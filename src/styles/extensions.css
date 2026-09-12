@@ -106,6 +106,10 @@ textarea,
   opacity: 1;
   pointer-events: auto;
 }
+/* 日期详情页 🔁 现在可点击（打开重复菜单）；生成层只给 .todo-item 下的 .todo-meta.repeat 加了 pointer。 */
+.day-meta .todo-meta.repeat {
+  cursor: pointer;
+}
 /* D27：面板 480px 内卡片左右都放不下时，浮层落在卡片下方——箭头改为朝上贴顶缘、水平靠左。
    生成层 .cc-caret 默认在左缘（top: --caret-y），这里覆写为顶缘并把可见边改成上 + 左两条。 */
 #cardConfirm.below .cc-caret {

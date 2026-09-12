@@ -7,6 +7,7 @@ import { useSettings, useTodos } from '@/composables/useData'
 import type { EditorAnchor, TodoEditorPayload } from '@/composables/useEditorWindow'
 import { applyCachedGlass, useGlass } from '@/composables/useGlass'
 import { applyCachedTheme, useTheme } from '@/composables/useTheme'
+import { useToast } from '@/composables/useToast'
 import { logger } from '@/service/logger'
 import { api } from '@/service/tauri'
 import type { Todo, TodoInput } from '@/typings/domain'
@@ -39,6 +40,7 @@ const { todos } = useTodos()
 const { settings } = useSettings()
 const { applyTheme } = useTheme()
 const { applyGlass } = useGlass()
+const { toast } = useToast()
 
 /** 本次打开参数，挂载后由后端拉取填入。 */
 const payload = ref<TodoEditorPayload | null>(null)
@@ -126,7 +128,9 @@ async function saveTodo(input: TodoInput): Promise<void> {
     logger.info('editor', '待办已保存')
   } catch (error) {
     // 保存失败时保留窗口与已填内容，让用户能修正后重试；同时解除面板的保存在途守卫，否则再点保存会被吞掉。
+    // 主窗口的待办保存也走本窗，后端拒绝（如「最多 5 个子任务」）必须在这里 toast 出来，否则用户只看到保存无反应。
     logger.error('editor', '保存待办失败', error)
+    toast(String(error))
     panelRef.value?.resetSaving()
     return
   }
@@ -148,6 +152,14 @@ watch(
   },
   { immediate: true },
 )
+
+// 编辑中的待办 / 父待办被别处删除时不能留下一个吞点击的透明置顶窗：ready 由 true 翻回 false 即自毁。
+watch(ready, (now, prev) => {
+  if (prev && !now) {
+    logger.warn('editor', '目标待办或父待办已不存在，关闭窗口')
+    void close()
+  }
+})
 
 // 立刻取参数，不等挂载：窗口是为这次打开新建的，越早拿到越早能渲染出对话框。
 void api.windows
