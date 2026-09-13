@@ -1,6 +1,6 @@
 # 启动器搜索（Launcher）
 
-全局快捷键呼出的本地搜索框，检索并启动系统程序、UWP 应用、文件与文件夹。全部在本地完成，**不联网、不上传、不采集**。
+全局快捷键呼出的本地搜索框，检索并启动系统程序、UWP 应用、文件与文件夹，并检索笔记、待办与浏览器历史。全部在本地完成，**不联网、不上传**（浏览器历史是读取本机 Chrome / Edge 的 `History` 库到自有表，见下「浏览器历史」；无痕访问不落库，也不会外传）。
 
 ## 用法
 
@@ -21,7 +21,10 @@
 | 程序 | 公共开始菜单、用户开始菜单、用户桌面下的 `*.exe / *.lnk / *.url`（深度 5，排除含 uninstall / 卸载 / help / 帮助 的项） |
 | UWP 应用 | 系统「所有应用」列表（`Get-StartApps`） |
 | 文件 / 文件夹 | 用户在设置里配置的根目录（默认：文档 / 下载 / 桌面 / 图片，深度 4） |
-| 内置命令 | 打开设置、重建索引、退出 |
+| 内置命令 | 9 条：📚 历史归档 / ✅ 待办清单 / 📋 剪贴板历史 / 🧠 新建思维导图 / 📊 统计报表 / ⚙️ 偏好设置 / 🧮 计算器（打开系统计算器）/ 🔄 重建启动器索引 / ⏻ 退出 Inkling |
+| 笔记 | 正文 / 标签 / 导图节点文本命中；回车回显到面板或打开导图编辑器 |
+| 待办 | 内容命中；回车打开主窗口待办页 |
+| 浏览器历史 | 标题或 URL 命中；回车用默认浏览器打开（见下「浏览器历史」） |
 
 索引常驻内存，上限 20 万条；启动时先加载上次快照即可搜索，随后后台全量重扫，此后每 30 分钟重扫一次。设置页可「立即重建」。
 
@@ -62,17 +65,30 @@
 ## 设置（偏好设置 → 启动器搜索）
 
 - **全局快捷键（启动器）**：录制式改键，与面板快捷键冲突会被拒绝。
+- **检索范围（5 个开关）**：应用与命令 / 笔记 / 待办 / 计算器（`=` 开头）/ 浏览器历史。浮窗与启动台页共用同一份偏好，关掉后对应分类立刻从结果里消失（**开关只控制「检索」，不停止后台采集**，见下）。
+- **历史保留天数**：1–365，默认 100；改动后后端立即清理超期记录。
+- **已记录历史地址**：显示条数（进入页面时读取；导入完成后不会自动刷新，离开再进即可）。
 - **索引**：显示条目数与是否重建中，可「立即重建」。
 - **文件扫描目录**：增删根目录、调每个目录的扫描深度（1–8）；改动后自动重建索引。
+
+## 浏览器历史
+
+- 来源：Chrome 与 Edge 的 `User Data/Default` 与 `Profile 1..8` 下的 `History`（Chromium 表结构）。文件被浏览器独占时**先复制到临时文件再只读打开**，副本用完即删。
+- 时机：启动后 30 秒首扫，之后每 10 分钟一轮；每轮末尾按「保留天数」清理超期行。
+- 换算：Chromium 的 `last_visit_time` 是 1601 起微秒 → Unix 秒 = `微秒 / 1_000_000 - 11_644_473_600`。
+- 单轮每个库最多取**最近访问的 20000 条**（`ORDER BY last_visit_time DESC LIMIT`）。
 
 ## 数据存放与隐私
 
 - 索引快照 `app_data_dir/launcher/index.json`、使用历史 `app_data_dir/launcher/history.json`；都是本地可再生缓存，不进业务数据库。
-- 全程本地，无任何网络请求。
+- **浏览器历史进业务库**：`browser_history` 表（`url` 主键 / `title` / `visited_at`），按保留天数裁剪。
+- 全程本地，无任何网络请求（打开历史条目是把 URL 交给系统默认浏览器）。
 
 ## 代码位置
 
-`src-tauri/src/services/launcher/`：`model`（数据模型）、`keyword`（关键字管道）、`score`（标准引擎）、`history`（习惯加权）、`snapshot`（快照）、`scan`（数据源扫描）、`search`（并行搜索）、`launch`（启动）、`mod`（`LauncherState` + 后台索引线程）。前端 `src/windows/Launcher/LauncherApp.vue`、`src/styles/launcher.css`。
+`src-tauri/src/services/launcher/`：`model`（数据模型）、`keyword`（关键字管道）、`score`（标准引擎）、`history`（习惯加权）、`snapshot`（快照）、`scan`（数据源扫描 + 九条内置命令）、`search`（并行搜索）、`launch`（启动）、`mod`（`LauncherState` + 后台索引线程）。
+`src-tauri/src/services/browser_history.rs`：浏览器历史采集线程与查询 / 计数。
+前端：浮窗 `src/windows/Launcher/LauncherApp.vue`（窗口适配在 `src/styles/window-fit.css` 的启动台块、页脚两栏在 `src/styles/extensions.css` §11；原 `src/styles/launcher.css` 已删除）；启动台页 `src/windows/Main/LauncherPageView.vue`；两者共用结果源 `src/composables/useLauncherResults.ts` + 纯函数 `src/utils/launcherResults.ts`。
 
 ## 已知限制与后续
 

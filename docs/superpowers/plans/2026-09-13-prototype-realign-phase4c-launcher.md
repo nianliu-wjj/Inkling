@@ -2319,6 +2319,8 @@ git commit -m "docs(design): 阶段四C 实机验收记录"
   12. **`launcher.css` 删除后，`data-window='launcher'` 的透明底与 `#launcherWindow` 的浮层定位（`fixed + top:16vh + translateX(-50%) + min(92vw,560px)`，`components.css:1486`）没人接管**——Task 5 在 `window-fit.css` 补启动台窗口块（透明根 + 铺满 + `clip-path` 圆角裁剪 + 列表 `flex: 1` 撑满）。
   13. **`.glass` 用 `--glass-bg`，而四 B 的灵动岛曾因底色可读性改用 `--menu-bg`**（`extensions.css:727-746`）——核实：`themes.css` 里 30 套主题**都**覆盖了 `--glass-bg`（`grep -c` = 30），可读性有保障，故浮窗照原型用 `.glass`，不额外覆盖底色（验收第 1 项复核）。
   14. **（控制者订正 2026-09-13，Task 4 实施后）本计划 Task 4 的笔记段示例代码与同一任务的用例 5 自相矛盾**：示例把「正文 / 标签 / 导图」三种命中合成一个集合再 `slice(0, 8)`，而用例 5 断言标签命中（`note:tag`）与导图命中（`note:map`）必须出现——9 条正文命中会把它们整段挤掉（实测 1 例失败）。已按用例改为**按命中原因分档限流**（正文 → 标签 → 导图，各 ≤8，合计 ≤24），实现见 `513fd53`，口径已回填 spec §4.1。同时订正两处过时措辞：① spec §4.1 笔记段的「取前 8 条」；② spec §3 #11 的「`presets` 无 scale 参数」（本节第 3 条已确认存在，此处同步正文）。另外把笔记副文案的「否则显示时间」落实为 `formatStamp(updated_at)`（原型 `n.time` 同格式），不再是空串。
-  14. **rusqlite 只读打开外部库的 `OpenFlags` 在仓库里此前没有先例**（`grep OpenFlags src-tauri/src` 无命中）——Task 2 首次引入 `Connection::open_with_flags(…, OpenFlags::SQLITE_OPEN_READ_ONLY)`，并在验收记录里确认能打开浏览器副本。
-  15. **`Keyword::generate` 对含 emoji 的名称是否仍产出拼音关键字，spec 未讨论**——Task 3 的单测显式断言 9 条命令的 `keywords` 非空（含「📚 历史归档」这类混合串），避免 emoji 名称让命令在拼音 / 首字母检索里漏掉。
-  16. **`useLauncherSearch.ts` 的删除时机**：Task 4 引入 `useLauncherResults` 时它仍被 `LauncherPageView` 使用，若同期删除会留下一个编译不过的中间态——放在 Task 6（最后一个调用方改完）删除，保证每个提交都是绿的。
+  15. **rusqlite 只读打开外部库的 `OpenFlags` 在仓库里此前没有先例**（`grep OpenFlags src-tauri/src` 无命中）——Task 2 首次引入 `Connection::open_with_flags(…, OpenFlags::SQLITE_OPEN_READ_ONLY)`，并在验收记录里确认能打开浏览器副本。
+  16. **`Keyword::generate` 对含 emoji 的名称是否仍产出拼音关键字，spec 未讨论**——Task 3 的单测显式断言 9 条命令的 `keywords` 非空（含「📚 历史归档」这类混合串），避免 emoji 名称让命令在拼音 / 首字母检索里漏掉。
+  17. **`useLauncherSearch.ts` 的删除时机**：Task 4 引入 `useLauncherResults` 时它仍被 `LauncherPageView` 使用，若同期删除会留下一个编译不过的中间态——放在 Task 6（最后一个调用方改完）删除，保证每个提交都是绿的。
+  18. **（控制者订正 2026-09-13，实机验收后）两处 doc/实现不一致随 §9 记录一并订正**：① spec §4.2 的浮窗页脚示例写成**页面**版文案「点击直接执行」（浮窗原型是「Esc 关闭」，`docs/app.js:3300`）、模板里是 `@mousemove`（实现与原型用 `mouseenter`）、右栏写的是带「当前动作：」前缀的旧形态（受 560 宽限制改为动作芯片）；② 本节第 4 条说的「`actionsHint` 前置『当前动作：X』」同样已被芯片方案取代。
+

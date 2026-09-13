@@ -87,23 +87,24 @@ export function mergeLauncherResults(input: MergeInputs): LauncherResult[]
     <input id="launcherInput" v-model="query" placeholder="搜索应用 / 命令 / 笔记 / 待办 / 历史，= 开头打开计算器" spellcheck="false" autocomplete="off" @keydown="onKeydown" />
   </div>
   <div class="launcher-list">
-    <div v-for="(r, i) in results" :key="r.id" class="launcher-item" :class="{ active: i === active }" @click="runActive(i)" @mousemove="active = i">
+    <div v-for="(r, i) in results" :key="r.id" class="launcher-item" :class="{ active: i === active }" @click="runActive(i)" @mouseenter="active = i">
       <span class="li-ico">{{ r.ico }}</span>
       <span class="li-name">{{ r.name }}<small v-if="r.sub">{{ r.sub }}</small></span>
       <span class="li-cat">{{ r.cat }}</span>
     </div>
-    <div v-if="!results.length" class="launcher-empty">未找到匹配项，按 Enter 用默认浏览器搜索「{{ query.trim() }}」</div>
+    <div v-if="!results.length" class="launcher-empty">{{ emptyHint }}</div>
   </div>
   <div class="launcher-footer">
-    <span>{{ footerHint }}</span>
-    <span class="launcher-keys">{{ actionsHint }}</span>
+    <span class="launcher-nav">{{ footerHint }}</span>
+    <span v-if="actionsHint" class="launcher-keys"><span v-if="currentAction" class="launcher-act">{{ currentAction }}</span>{{ actionsHint }}</span>
   </div>
 </div>
 ```
 
-- `footerHint`：有结果 `↑↓ 导航 · ↵ 执行 · 点击直接执行 · 共 N 项`；无结果 `↵ 回车搜索 · Esc 退出`。
-- `actionsHint`：`Tab 切换动作 · Alt+1..9 直达 · Ctrl+Enter 管理员`（当前项无多动作时省略 Tab 段）。
-- 键盘：↑↓ 循环、Enter 执行（无结果 → 浏览器搜索）、Tab 循环动作、`Alt+数字` 直达、`Ctrl+Enter` 管理员、Esc 隐藏。
+- `footerHint`：有结果 `↑↓ 导航 · ↵ 执行 · Esc 关闭 · 共 N 项`；无结果 `↵ 回车搜索 · Esc 退出`（均为**浮窗**原型文案，`docs/app.js:3300` / `:3289`；启动台**页**是另一套「点击直接执行」，两处不要统一——2026-09-13 实施期订正）。
+- `emptyHint`：有查询词用原型的 `未找到匹配项，按 Enter 用默认浏览器搜索「X」`；「空查询且无结果」（索引未就绪 / 关掉应用范围）原型到不了，用 `索引尚未就绪`。
+- 右栏（D40，原型无此段）：多动作条目显示**当前动作芯片** + `Tab 切换 · Ctrl+Enter 管理员 · Alt+1..9`；单动作条目只显示 `Alt+1..9 直达`；无结果时整段不渲染。芯片取代了最初设计的「当前动作：X」前缀——560 逻辑宽下页脚两栏合计上限 516 px（GDI+ 实测左栏 189.4 px），带前缀的写法最坏 605 px 必然折行（2026-09-13 实施期订正）。
+- 键盘：↑↓ 循环（选中项 `scrollIntoView({ block: 'nearest' })`，原型 `docs/app.js:3326`）、Enter 执行（无结果 → 浏览器搜索）、Tab 循环动作、`Alt+数字` 直达、`Ctrl+Enter` 管理员（**仅浮窗**，页面不接动作键）、Esc 隐藏。
 - 显示时：清空查询、`active = 0`、`nextTick` 聚焦、`enter(root, { axis: 'y', distance: -18 })`；失焦隐藏保留。
 - 删除 `launcher.css`；`launcher.ts` 改为只引 `@/styles`。
 
@@ -199,8 +200,8 @@ CREATE INDEX IF NOT EXISTS idx_browser_history_visited ON browser_history(visite
 | `=` 前缀与普通查询冲突 | 只在 `=` 开头或匹配「计算器」时触发 |
 | 浮窗 560 宽下长路径截断 | `.li-name` / `small` 已 ellipsis（生成层已有） |
 
-## 9. 实机结论（实施后填写）
+## 9. 实机结论（2026-09-13 回填，详见 `../plans/2026-09-13-prototype-realign-phase4c-acceptance.md`）
 
-- 各数据源命中情况：待填。
-- 历史采集（Chrome / Edge）与保留天数清理：待填。
-- 补丁清单：待填。
+- 各数据源命中情况：**应用 / 命令 / 笔记 / 待办 / 历史 / 计算器六类均命中**。应用靠后端模糊 + 拼音；笔记行 `📝 笔记: …` 副文案为 `formatStamp(updated_at)`（`今天 15:14`），徽章 `笔记`；待办行 `✅ 待办: …` 副文案 `日期 · 优先级`，徽章 `待办`；历史行 `🌐 标题 + URL 副文案`，徽章 `历史`；`=` → 首条 `🧮 计算器`，回车后日志 `[launcher] 执行内置命令 cmd:calc → calc.exe` 且 **`CalculatorApp.exe` 真的拉起**（原担心的 UWP 存根静默失败不成立）。段落顺序与原型一致（计算器 → 应用 / 命令 → 笔记 → 待办 → 历史）。
+- 历史采集（Chrome / Edge）与保留天数清理：启动 +30 s 首扫 `导入 1576 条 ← Chrome Default`、`导入 110 条 ← Edge Default`、`本轮写入 1686 条，清理过期 0 条，保留 100 天`，10 分钟后第二轮照常（周期循环正常）；**Chrome 的 1576 与事前独立勘察该库行数完全一致**，库内 1659 行（27 条跨浏览器同 URL 合并）、42 条空标题（NULL 标题降级）、最新一条与 Chrome 库 mtime 分秒吻合；设置页「已记录历史地址 1659 条」与库一致。保留天数**未实测调小后的清理**（需构造超期行）。
+- 补丁清单：`OpenFlags::SQLITE_OPEN_READ_ONLY` 读副本 **可用**（两库均成功导入）；`calc.exe` 在 WebView2 宿主下 **正常拉起**；删除 `launcher.css` 后浮窗在打字机主题下底色可读（深色轮未跑）。**实机发现 1 处缺陷并修复**：换查询时列表不回到顶部（`search()` 复位 `active` 为 0 时 `watch(active)` 不触发），已在浮窗与页面各加一条 `watch(query) → scrollTop = 0`。另记两条工具链实测：`Set-Clipboard` 可能静默失败（改为写入后读回校验再粘贴）、中文输入法候选窗会吞掉方向键与 Esc。
