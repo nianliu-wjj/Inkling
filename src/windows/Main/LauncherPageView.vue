@@ -79,8 +79,8 @@ const { recording, start: startRecording } = useShortcutRecorder({
 /** 页面说明：放在脚本里拼接，避免模板换行在中文之间引入空格。 */
 const legend = computed(
   () =>
-    `键盘优先的全局启动器：${settings.value.launcher_shortcut} 呼出浮窗；本地检索程序、UWP 应用、文件与文件夹，` +
-    '支持拼音 / 首字母 / 拼写纠错，不联网、不上传',
+    `键盘优先的全局启动器：${settings.value.launcher_shortcut} 呼出浮窗；本地检索程序、UWP 应用、文件与文件夹、` +
+    '笔记、待办与浏览器历史，= 开头打开系统计算器；支持拼音 / 首字母 / 拼写纠错，不联网、不上传',
 )
 
 /**
@@ -128,8 +128,13 @@ async function refreshHistoryCount(): Promise<void> {
  * 历史保留天数：钳制到 1–365 后写库（后端会顺手清理过期记录），再刷新条数。
  * 钳制规则与原型一致（`docs/app.js` 的 lpHistoryRetention change 分支）：非法输入回落到默认 100。
  */
-async function setHistoryRetention(raw: string): Promise<void> {
+async function setHistoryRetention(event: Event): Promise<void> {
+  const input = event.target as HTMLInputElement
+  const raw = input.value
   const days = Math.min(365, Math.max(1, Number(raw) || 100))
+  // 回写钳制结果（原型同款 `e.target.value = days`）：`:value` 绑定只在设置值**变化**时才更新 DOM，
+  // 所以「已是 365 又输入 999」时不回写的话，输入框会一直显示 999 而库里是 365。
+  input.value = String(days)
   logger.info('launcher-page', `历史保留天数改为 ${days} 天（输入 ${raw}）`)
   await patch({ launcher_history_retention_days: days })
   await refreshHistoryCount()
@@ -245,7 +250,7 @@ onMounted(() => {
           min="1"
           max="365"
           :value="settings.launcher_history_retention_days"
-          @change="setHistoryRetention(($event.target as HTMLInputElement).value)"
+          @change="setHistoryRetention($event)"
         />
         天
       </label>
