@@ -614,6 +614,10 @@ pub async fn settings_save(
         pass_hover: *settings.island_pass_hover(),
         auto_hide: *settings.island_auto_hide(),
     });
+    // 历史保留天数改小后立即生效：不等下一轮 10 分钟导入，否则设置页的「已记录历史地址」要等很久才变。
+    if let Err(error) = crate::services::browser_history::prune_now(&app) {
+        eprintln!("[settings] 清理过期浏览器历史失败: {error}");
+    }
     if *settings.start_on_boot() {
         let _ = app.autolaunch().enable();
     } else {
@@ -753,6 +757,26 @@ pub fn launcher_status(
     state: State<'_, crate::services::launcher::LauncherState>,
 ) -> crate::services::launcher::LauncherStatus {
     state.status()
+}
+
+/// 按标题 / URL 模糊查询浏览器历史，按访问时刻倒序。
+#[tauri::command]
+pub fn browser_history_search(
+    state: State<'_, AppState>,
+    query: String,
+    limit: usize,
+) -> Result<Vec<crate::domain::models::BrowserHistoryRow>, String> {
+    // 先绑定守卫再取引用：`&state.lock_store()?` 会把 `?` 的 Ok 类型推成 `Store`，
+    // 与守卫实际类型 `MutexGuard<Store>` 不匹配。
+    let store = state.lock_store()?;
+    crate::services::browser_history::search(&store, &query, limit)
+}
+
+/// 已记录的历史地址条数（设置页展示）。
+#[tauri::command]
+pub fn browser_history_count(state: State<'_, AppState>) -> Result<i64, String> {
+    let store = state.lock_store()?;
+    crate::services::browser_history::count(&store)
 }
 
 #[tauri::command]

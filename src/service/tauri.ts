@@ -32,6 +32,15 @@ export interface LauncherStatus {
   rebuilding: boolean
 }
 
+/** 浏览器历史条目（对应 Rust domain::models::BrowserHistoryRow）。 */
+export interface BrowserHistoryRow {
+  url: string
+  /** 页面标题；浏览器未记录时为空串。 */
+  title: string
+  /** 访问时刻（Unix 秒）。 */
+  visited_at: number
+}
+
 // 意图解析抽到纯模块以便单测；类型在此转出口，PanelApp 等仍从 tauri.ts 引入。
 export type { PanelIntent }
 
@@ -100,6 +109,13 @@ export const api = {
     show: () => invoke<void>('launcher_show'),
     /** 改绑启动器全局快捷键。 */
     rebindShortcut: (combo: string) => invoke<string>('rebind_launcher_shortcut', { combo }),
+  },
+  /** 浏览器历史（Chrome / Edge 定时导入，spec 4C D35）。 */
+  browserHistory: {
+    /** 按标题 / URL 模糊查询，按访问时刻倒序。 */
+    search: (query: string, limit = 20) => invoke<BrowserHistoryRow[]>('browser_history_search', { query, limit }),
+    /** 已记录的历史地址条数（设置页展示）。 */
+    count: () => invoke<number>('browser_history_count'),
   },
   shortcut: {
     rebind: (combo: string) => invoke<string>('rebind_shortcut', { combo }),

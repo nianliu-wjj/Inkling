@@ -59,6 +59,7 @@ fn main() {
             services::hotzone_watcher::start(app.clone());
             services::mailer::start(app.clone());
             services::launcher::start(app.clone());
+            services::browser_history::start(app.clone());
             // 启动时按保留策略清理一次过期剪贴板。
             let handle_for_cleanup = app.clone();
             std::thread::spawn(move || {
@@ -151,7 +152,9 @@ fn main() {
             ipc::launcher_status,
             ipc::launcher_hide,
             ipc::launcher_show,
-            ipc::rebind_launcher_shortcut
+            ipc::rebind_launcher_shortcut,
+            ipc::browser_history_search,
+            ipc::browser_history_count
         ])
         .run(tauri::generate_context!())
         .expect("启动 Inkling 失败");

@@ -351,3 +351,15 @@ crate::dto! {
         todo: Option<Todo>,
     }
 }
+
+crate::dto! {
+    /// 一条浏览器历史（Chrome / Edge 导入，spec 4C §4.4）。
+    #[derive(Debug, Serialize, Deserialize, Clone)]
+    pub struct BrowserHistoryRow {
+        url: String,
+        /// 页面标题；浏览器未记录时为空串（前端回退显示 URL）。
+        title: String,
+        /// 访问时刻（Unix 秒）。
+        visited_at: i64,
+    }
+}
