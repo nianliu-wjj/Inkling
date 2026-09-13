@@ -104,6 +104,20 @@ watch(active, () => {
   })
 })
 
+/**
+ * 换查询时列表回到顶部（2026-09-13 实机验收补丁，见 4C 验收记录 §3）。
+ *
+ * 原型每次输入都重建 `innerHTML`（`docs/app.js:3310`），滚动位置天然归零；
+ * 我们用的是 keyed `v-for`，节点复用会**保留 scrollTop**，而 `search()` 把 `active`
+ * 复位为 0 时上面的 `watch(active)` 并不触发（值没变）——于是出现「选中项是第 0 条
+ * （回车执行它），视野里却停在一屏看不到它的中间行」。
+ */
+watch(query, () => {
+  void nextTick(() => {
+    if (list.value) list.value.scrollTop = 0
+  })
+})
+
 /** 窗口每次显示：清空、聚焦、重拉缓存、播入场（原型 openLauncher）。 */
 function onFocus(): void {
   reset()

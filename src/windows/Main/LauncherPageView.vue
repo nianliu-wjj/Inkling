@@ -62,6 +62,20 @@ watch(active, () => {
   })
 })
 
+/**
+ * 换查询时列表回到顶部（2026-09-13 实机验收补丁，见 4C 验收记录 §3）。
+ *
+ * 原型每次输入都重建 `innerHTML`（`docs/app.js:3383`），滚动位置天然归零；
+ * 我们用的是 keyed `v-for`，节点复用会**保留 scrollTop**。`search()` 虽把 `active` 复位为 0，
+ * 但 `watch(active)` 只在值**变化**时触发——原本就是 0 时不会滚，于是出现
+ * 「选中项是第 0 条（Enter 会执行它），视野里却是一屏看不到它的中间行」。
+ */
+watch(query, () => {
+  void nextTick(() => {
+    if (list.value) list.value.scrollTop = 0
+  })
+})
+
 const {
   launcherStatus,
   rebuilding,
