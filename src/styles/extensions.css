@@ -863,13 +863,32 @@ body:not(:focus-within) .mac-dot {
 /* ═══ 11. 浮窗启动台页脚（阶段四 C，2026-09-13） ═══
  * 原型 .launcher-footer 只有左侧一行导航提示；D40 把现有的动作 / 快捷键提示并入其右侧。
  * 生成层没有对应的两栏布局，这里只补 flex 与右对齐——内距 / 字号 / 颜色 / 分隔线仍由生成层提供。
- * 用 :root[data-window='launcher'] 限定，避免影响主窗口启动台页的 .launcher-footer（原型页脚只有左侧一段）。 */
+ * 用 :root[data-window='launcher'] 限定，避免影响主窗口启动台页的 .launcher-footer（原型页脚只有左侧一段）。
+ * 两栏宽度（Microsoft YaHei 11px 实测）：左栏原型文案 189.4px、右栏最坏 305px，
+ * 页脚可用 528px 减 gap 12 → 上限 516px，故左栏不收缩、右栏可收缩并省略。 */
 :root[data-window='launcher'] .launcher-footer {
   display: flex;
   align-items: center;
   gap: 12px;
 }
+/* 左栏是原型文案，永不截断；右栏可收缩并在极限情况下省略，避免页脚折成 2–3 行。 */
+:root[data-window='launcher'] .launcher-nav {
+  flex: none;
+}
 :root[data-window='launcher'] .launcher-keys {
   margin-left: auto;
-  flex: none;
+  flex: 0 1 auto;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+/* 当前动作芯片（Tab 循环的可见反馈）：沿用旧动作栏 .launcher-action.active 的配色。 */
+:root[data-window='launcher'] .launcher-act {
+  display: inline-block;
+  margin-right: 6px;
+  padding: 1px 8px;
+  border-radius: 999px;
+  background: rgba(var(--accent-rgb), 0.25);
+  color: var(--accent);
 }

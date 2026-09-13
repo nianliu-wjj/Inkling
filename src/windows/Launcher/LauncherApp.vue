@@ -13,11 +13,12 @@ import { api } from '@/service/tauri'
  *
  * - DOM 按原型：`.glass > .launcher-input-row(.launcher-ico + #launcherInput) + .launcher-list + .launcher-footer`；
  * - 结果源与主窗口启动台页共用 `useLauncherResults`（应用 / 命令 / 笔记 / 待办 / 计算器 / 浏览器历史，
- *   各受检索范围开关控制）；页脚两态：有结果「↑↓ 导航 · ↵ 执行 · 点击直接执行 · 共 N 项」、
- *   无结果「↵ 回车搜索 · Esc 退出」，右侧并入动作 / 快捷键提示（D40）；
- * - 键盘：↑↓ 循环、Enter 执行（无结果 → 默认浏览器搜索）、Tab 切动作、Alt+1..9 直达、
- *   Ctrl+Enter 管理员、Esc 隐藏——监听器挂 window 而非输入框：点击条目后焦点会离开输入框，
- *   挂 window 才能继续响应键盘（现有实现即如此）；
+ *   各受检索范围开关控制）；页脚两态按原型（`docs/app.js` renderLauncherResults）：有结果
+ *   「↑↓ 导航 · ↵ 执行 · Esc 关闭 · 共 N 项」、无结果「↵ 回车搜索 · Esc 退出」，
+ *   有结果时右侧再并入动作芯片 / 快捷键提示（D40，原型无此段）；
+ * - 键盘：↑↓ 循环（选中项 `scrollIntoView`，原型 app.js:3325）、Enter 执行（无结果 → 默认浏览器搜索）、
+ *   Tab 切动作、Alt+1..9 直达、Ctrl+Enter 管理员、Esc 隐藏——监听器挂 window 而非输入框：
+ *   点击条目后焦点会离开输入框，挂 window 才能继续响应键盘（现有实现即如此）；
  * - 每次显示（window focus）：清空查询、选中归零、聚焦输入框、播入场（y −18 + 淡入 + scale .98）；
  * - 失焦即隐藏（点了别处）——与原型「点击窗外关闭」能力等价。
  */
@@ -46,31 +47,53 @@ const { query, results, active, actions, actionIndex, reset, runActive, onKeydow
 
 const root = ref<HTMLElement | null>(null)
 const input = ref<HTMLInputElement | null>(null)
+const list = ref<HTMLElement | null>(null)
 
-/** 页脚左侧（原型 renderLauncherResults 的两态文案）。 */
+/** 页脚左侧（原型 renderLauncherResults 的两态文案，`docs/app.js:3279` / `:3300`）。 */
 const footerHint = computed(() =>
-  results.value.length ? `↑↓ 导航 · ↵ 执行 · 点击直接执行 · 共 ${results.value.length} 项` : '↵ 回车搜索 · Esc 退出',
+  results.value.length ? `↑↓ 导航 · ↵ 执行 · Esc 关闭 · 共 ${results.value.length} 项` : '↵ 回车搜索 · Esc 退出',
 )
 
 /**
- * 页脚右侧（D40，原型无此段）：当前动作 + 键位提示。
- * 无结果时整段不显示——原型无结果页脚只有左侧一段（`docs/app.js` renderLauncherResults 的空分支），
+ * 页脚右侧的动作芯片（D40）：只有应用 / 文件 / 文件夹这类多动作条目才有可选动作，
+ * 其余条目（命令 / UWP / 笔记 / 待办 / 计算器 / 历史）芯片留空。
+ * 芯片本身就是「当前动作」的可见反馈，因此尾巴里不必再重复「当前动作：」前缀
+ * ——那是 11px 字号下页脚折行的主因（560px 窗口两栏合计上限 516px）。
+ */
+const currentAction = computed(() =>
+  actions.value.length < 2 ? '' : (actions.value[actionIndex.value]?.label ?? '打开'),
+)
+
+/**
+ * 页脚右侧的键位提示（D40，原型无此段）。
+ * 无结果时整段不显示——原型无结果页脚只有左侧一段（`docs/app.js:3279`），
  * 且此时组合式的 `actions` 仍是 `[打开]`（长度 1 而非空数组），照下面分支会紧挨着空列表
  * 提示一个没有任何条目可跳的「Alt+1..9 直达」。
- * 命令 / UWP 等只有「打开」的条目省略 Tab 与 Ctrl+Enter 段——它们没有管理员 / 定位动作，
- * 提示了也执行不了（后端会直接报错）。
+ * 单动作条目省略 Tab 与 Ctrl+Enter 段——它们没有管理员 / 定位动作，提示了也执行不了（后端会直接报错）。
  */
 const actionsHint = computed(() => {
   if (!results.value.length) return ''
   if (actions.value.length < 2) return 'Alt+1..9 直达'
-  const current = actions.value[actionIndex.value]?.label ?? '打开'
-  return `当前动作：${current} · Tab 切换动作 · Alt+1..9 直达 · Ctrl+Enter 管理员`
+  return 'Tab 切换 · Ctrl+Enter 管理员 · Alt+1..9'
 })
 
 /** 点击条目：默认「打开」。 */
 function run(index: number): void {
   void runActive(index)
 }
+
+/**
+ * 选中项滚动进视野（原型 ↑↓ 分支的 `scrollIntoView({ block: 'nearest' })`，`docs/app.js:3325`）。
+ * 订阅 `active` 而不是写在键盘处理里：键盘在组合式内（`useLauncherResults.onKeydown`），这里只能订阅结果。
+ * 鼠标悬停同样会改 `active`，但悬停项本就在视野内，`nearest` 不会产生位移。
+ * 只滚 `.launcher-list` 这一个最近的可滚动祖先——窗口与 body 都是 overflow: hidden，不会带动整页。
+ */
+watch(active, () => {
+  void nextTick(() => {
+    if (!results.value.length) return
+    list.value?.children[active.value]?.scrollIntoView({ block: 'nearest' })
+  })
+})
 
 /** 窗口每次显示：清空、聚焦、播入场（原型 openLauncher）。 */
 function onFocus(): void {
@@ -115,13 +138,13 @@ onBeforeUnmount(() => {
       />
     </div>
 
-    <div class="launcher-list">
+    <div ref="list" class="launcher-list">
       <div
         v-for="(result, index) in results"
         :key="result.id"
         class="launcher-item"
         :class="{ active: index === active }"
-        @mousemove="active = index"
+        @mouseenter="active = index"
         @click="run(index)"
       >
         <span class="li-ico">{{ result.ico }}</span>
@@ -136,9 +159,12 @@ onBeforeUnmount(() => {
     </div>
 
     <div class="launcher-footer">
-      <span>{{ footerHint }}</span>
-      <!-- 空串（无结果）时整段不渲染：留一个空 span 也会占掉 footer 的 12px gap。 -->
-      <span v-if="actionsHint" class="launcher-keys">{{ actionsHint }}</span>
+      <span class="launcher-nav">{{ footerHint }}</span>
+      <!-- 无结果（actionsHint 为空串）时整段不渲染：留一个空 span 也会占掉 footer 的 12px gap。 -->
+      <span v-if="actionsHint" class="launcher-keys"
+        ><span v-if="currentAction" class="launcher-act">{{ currentAction }}</span
+        >{{ actionsHint }}</span
+      >
     </div>
   </div>
 </template>
