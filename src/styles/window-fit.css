@@ -125,6 +125,21 @@
   clip-path: inset(0 round 8px);
 }
 
+/* ═══ 灵动岛窗口 ═══
+ * 原型把 #dynamicIsland 当桌面浮层（fixed + translateX(-50%) + 320×36）；真实窗口就是胶囊本身，
+ * 由 Rust 落位并 set_size，这里铺满窗宽、高度走 --cap-h（折叠 = 设置高，展开 = max(高, 120)）。
+ * 毛玻璃绘制会盖掉 999px 圆角，与面板同理用 clip-path 裁齐（spec §8 风险项）。 */
+#dynamicIsland {
+  position: relative;
+  top: auto;
+  left: auto;
+  transform: none;
+  box-sizing: border-box;
+  width: 100%;
+  height: var(--cap-h);
+  clip-path: inset(0 round 999px);
+}
+
 /* ═══ 面板内的编辑弹窗：整页编辑器 ═══
  * 面板窗口只有 480px 宽、高度随内容伸缩（≤600px），在这么小的窗口里再叠一层
  * 「遮罩 + 居中浮窗」既局促又容易被裁切。这里把 ModalShell 覆写为顶对齐、
