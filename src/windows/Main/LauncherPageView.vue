@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import { computed, onMounted } from 'vue'
+import { computed, nextTick, onMounted, ref, watch } from 'vue'
 import { useSettings } from '@/composables/useData'
-import { LAUNCHER_KIND_ICON, LAUNCHER_KIND_LABEL, useLauncherSearch } from '@/composables/useLauncherSearch'
+import { useLauncherResults } from '@/composables/useLauncherResults'
 import { useLauncherSettings } from '@/composables/useLauncherSettings'
 import { useShortcutRecorder } from '@/composables/useShortcutRecorder'
 import { useToast } from '@/composables/useToast'
@@ -12,10 +12,11 @@ import type { Settings } from '@/typings/domain'
 /**
  * 归档 · 启动台页（原型 #archive-launcher）。
  *
- * 标题 + 说明 + 内嵌试用区（复用浮窗启动台的输入行 / 列表 / 页脚样式，数据走同一份 Rust 索引）
- * + 「启动台设置」：全局快捷键录制、全盘索引开关、额外排除目录、索引状态与重建、扫描根目录、
- * 「呼出浮窗启动台」。原型中依赖笔记 / 待办 / 计算器 / 浏览器历史检索的控件，当前后端没有这些
- * 检索源，不渲染（spec D10，留阶段四）。
+ * 标题 + 说明 + 内嵌试用区（复用浮窗启动台的输入行 / 列表 / 页脚样式，结果走共享结果源
+ * `useLauncherResults`，与浮窗启动台完全同源，新数据源在本页即可试用）
+ * + 「启动台设置」：全局快捷键录制、五个检索范围开关、历史保留天数与已记录地址数、全盘索引开关、
+ * 额外排除目录、索引状态与重建、扫描根目录、「呼出浮窗启动台」
+ * （spec 4C §4.7；全盘索引等项目扩展行排在原型行之后）。
  */
 const { settings, save } = useSettings()
 const { toast } = useToast()
@@ -30,7 +31,31 @@ async function patch(partial: Partial<Settings>): Promise<void> {
   }
 }
 
-const { query, hits, active, run, onKeydown } = useLauncherSearch()
+// 结果源与浮窗启动台同源（useLauncherResults + mergeLauncherResults），页面内可直接试用全部数据源。
+const { query, results, active, runActive, onKeydown } = useLauncherResults({ scope: 'launcher-page' })
+
+/** 点击条目：默认「打开」。 */
+function run(index: number): void {
+  void runActive(index)
+}
+
+/** 内嵌列表容器：方向键翻页后把选中项滚进视野用（原型 `$('launcherPageList')`）。 */
+const list = ref<HTMLElement | null>(null)
+
+/**
+ * 选中项滚动进视野（原型 ↑↓ 分支里的 `scrollIntoView({ block: 'nearest' })`，`docs/app.js:3406`）。
+ * 订阅 `active` 而不是写在键盘处理里：键盘在组合式 `useLauncherResults.onKeydown` 内，本页只能订阅结果。
+ * 鼠标悬停同样会改 `active`，但悬停项本就在视野内，`nearest` 不会产生位移。
+ * `block: 'nearest'` 只滚最近的这一个可滚动祖先（`.launcher-list`），不会带动整页。
+ */
+watch(active, () => {
+  void nextTick(() => {
+    // 空列表时不滚：此时 children[0] 是空态提示，且 active 必为 0。
+    if (!results.value.length) return
+    list.value?.children[active.value]?.scrollIntoView({ block: 'nearest' })
+  })
+})
+
 const {
   launcherStatus,
   rebuilding,
@@ -58,12 +83,25 @@ const legend = computed(
     '支持拼音 / 首字母 / 拼写纠错，不联网、不上传',
 )
 
-/** 页脚提示（原型 renderLauncherPageResults）。 */
+/**
+ * 页脚提示（原型 renderLauncherPageResults 的两态文案，`docs/app.js:3379` / `:3390`）。
+ * 与浮窗**不同**，不要统一：页面是「点击直接执行」，浮窗那句才是「Esc 关闭」。
+ */
 const footer = computed(() =>
-  hits.value.length ? `↑↓ 导航 · ↵ 执行 · 点击直接执行 · 共 ${hits.value.length} 项` : '输入关键词开始搜索',
+  results.value.length
+    ? `↑↓ 导航 · ↵ 执行 · 点击直接执行 · 共 ${results.value.length} 项`
+    : '↵ 回车搜索 · 点击条目直接执行',
 )
 
-const emptyHint = computed(() => (query.value.trim() ? `未找到匹配「${query.value.trim()}」的项` : '索引尚未就绪'))
+/**
+ * 空态文案（原型 `docs/app.js:3378`）：有查询词说明没搜到，回车会用默认浏览器搜该词
+ * （`useLauncherResults` 的 Enter 分支对浮窗与页面一视同仁，本页确实会开浏览器）。
+ * 「空查询且无结果」这一态原型到不了（空查询时应用 / 命令段非空），保留自造的「索引尚未就绪」
+ * ——比显示「…搜索「」」诚实。
+ */
+const emptyHint = computed(() =>
+  query.value.trim() ? `未找到匹配项，按 Enter 用默认浏览器搜索「${query.value.trim()}」` : '索引尚未就绪',
+)
 
 /** 呼出浮窗启动台：与 Alt+Space 同一入口。 */
 async function showLauncher(): Promise<void> {
@@ -75,7 +113,39 @@ async function showLauncher(): Promise<void> {
   }
 }
 
-onMounted(() => void refreshLauncherStatus())
+/** 已记录历史地址条数（原型 lpHistoryCount：`N 条（保留近 M 天 · 无痕访问不记录）`）。 */
+const historyCount = ref(0)
+
+async function refreshHistoryCount(): Promise<void> {
+  try {
+    historyCount.value = await api.browserHistory.count()
+  } catch (error) {
+    logger.error('launcher-page', '读取历史条数失败', error)
+  }
+}
+
+/**
+ * 历史保留天数：钳制到 1–365 后写库（后端会顺手清理过期记录），再刷新条数。
+ * 钳制规则与原型一致（`docs/app.js` 的 lpHistoryRetention change 分支）：非法输入回落到默认 100。
+ */
+async function setHistoryRetention(raw: string): Promise<void> {
+  const days = Math.min(365, Math.max(1, Number(raw) || 100))
+  logger.info('launcher-page', `历史保留天数改为 ${days} 天（输入 ${raw}）`)
+  await patch({ launcher_history_retention_days: days })
+  await refreshHistoryCount()
+  toast(`浏览器历史保留天数已设为 ${days} 天`)
+}
+
+const historyCountText = computed(
+  () => `${historyCount.value} 条（保留近 ${settings.value.launcher_history_retention_days} 天 · 无痕访问不记录）`,
+)
+
+onMounted(() => {
+  void refreshLauncherStatus()
+  // 原型进入启动台页即 pruneBrowserHistory 并刷新计数；这里等价地在挂载时读一次
+  // （保留天数在设置页改动后由 settings_save 触发的 prune 保证库是最新的）。
+  void refreshHistoryCount()
+})
 </script>
 
 <template>
@@ -90,30 +160,28 @@ onMounted(() => void refreshLauncherStatus())
         <input
           id="launcherPageInput"
           v-model="query"
-          placeholder="在此试用：搜索程序 / 文件 / 文件夹，支持拼音与首字母"
+          placeholder="在此试用：搜索应用 / 命令 / 笔记 / 待办 / 历史，= 开头打开计算器"
           spellcheck="false"
           autocomplete="off"
           @keydown="onKeydown"
         />
       </div>
-      <div class="launcher-list">
-        <template v-if="hits.length">
-          <div
-            v-for="(hit, index) in hits"
-            :key="hit.id"
-            class="launcher-item"
-            :class="{ active: index === active }"
-            @mouseenter="active = index"
-            @click="run(index)"
+      <div ref="list" class="launcher-list">
+        <div
+          v-for="(result, index) in results"
+          :key="result.id"
+          class="launcher-item"
+          :class="{ active: index === active }"
+          @mouseenter="active = index"
+          @click="run(index)"
+        >
+          <span class="li-ico">{{ result.ico }}</span>
+          <span class="li-name"
+            >{{ result.name }}<small v-if="result.sub">{{ result.sub }}</small></span
           >
-            <span class="li-ico">{{ LAUNCHER_KIND_ICON[hit.kind] }}</span>
-            <span class="li-name"
-              >{{ hit.name }}<small v-if="hit.kind !== 'command'">{{ hit.path }}</small></span
-            >
-            <span class="li-cat">{{ LAUNCHER_KIND_LABEL[hit.kind] }}</span>
-          </div>
-        </template>
-        <div v-else class="launcher-empty">{{ emptyHint }}</div>
+          <span class="li-cat">{{ result.cat }}</span>
+        </div>
+        <div v-if="!results.length" class="launcher-empty">{{ emptyHint }}</div>
       </div>
       <div class="launcher-footer">
         <span>{{ footer }}</span>
@@ -128,6 +196,69 @@ onMounted(() => void refreshLauncherStatus())
         <kbd>{{ recording ? '按下组合键…' : settings.launcher_shortcut }}</kbd>
         <button type="button" class="btn tiny" :disabled="recording" @click="startRecording">重新录制</button>
       </div>
+      <!-- 检索范围（原型 #lpScopeApps..：浮窗与页面共用同一份偏好，改这里浮窗同步生效） -->
+      <label class="setting-row">
+        <span>检索范围：应用与命令</span>
+        <input
+          type="checkbox"
+          :checked="settings.launcher_scope_apps"
+          @change="patch({ launcher_scope_apps: ($event.target as HTMLInputElement).checked })"
+        />
+      </label>
+      <label class="setting-row">
+        <span>检索范围：笔记</span>
+        <input
+          type="checkbox"
+          :checked="settings.launcher_scope_notes"
+          @change="patch({ launcher_scope_notes: ($event.target as HTMLInputElement).checked })"
+        />
+      </label>
+      <label class="setting-row">
+        <span>检索范围：待办</span>
+        <input
+          type="checkbox"
+          :checked="settings.launcher_scope_todos"
+          @change="patch({ launcher_scope_todos: ($event.target as HTMLInputElement).checked })"
+        />
+      </label>
+      <label class="setting-row">
+        <span>计算器（= 开头，打开系统计算器）</span>
+        <input
+          type="checkbox"
+          :checked="settings.launcher_scope_calc"
+          @change="patch({ launcher_scope_calc: ($event.target as HTMLInputElement).checked })"
+        />
+      </label>
+      <label class="setting-row">
+        <span>检索范围：浏览器历史</span>
+        <input
+          type="checkbox"
+          :checked="settings.launcher_scope_history"
+          @change="patch({ launcher_scope_history: ($event.target as HTMLInputElement).checked })"
+        />
+      </label>
+      <!-- 保留天数（原型 #lpHistoryRetention）：改小后后端在写库时顺手清理超期记录 -->
+      <label class="setting-row">
+        <span>历史保留天数</span>
+        <input
+          type="number"
+          min="1"
+          max="365"
+          :value="settings.launcher_history_retention_days"
+          @change="setHistoryRetention(($event.target as HTMLInputElement).value)"
+        />
+        天
+      </label>
+      <div class="setting-row">
+        <span>已记录历史地址</span>
+        <span class="clip-editor-hint">{{ historyCountText }}</span>
+      </div>
+      <!-- 本项目原有行；按 spec §4.7 / §3 #15「项目扩展行排在原型行之后」放在原型行（含本行）之后 -->
+      <div class="setting-row">
+        <span>浮窗启动台</span>
+        <button type="button" class="btn tiny" @click="showLauncher">呼出浮窗启动台</button>
+      </div>
+      <!-- 以下为项目扩展行（原型没有），同样按「排在原型行之后」落在最后 -->
       <label class="setting-row">
         <span>全盘文件索引（搜索所有文件 / 文件夹）</span>
         <input
@@ -180,10 +311,6 @@ onMounted(() => void refreshLauncherStatus())
             <button type="button" class="btn tiny" @click="addLauncherRoot">添加</button>
           </div>
         </div>
-      </div>
-      <div class="setting-row">
-        <span>浮窗启动台</span>
-        <button type="button" class="btn tiny" @click="showLauncher">呼出浮窗启动台</button>
       </div>
     </div>
   </div>
