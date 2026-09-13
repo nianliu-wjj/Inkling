@@ -26,7 +26,11 @@ const FIRST_SCAN_DELAY: Duration = Duration::from_secs(30);
 const WEBKIT_EPOCH_OFFSET_SECS: i64 = 11_644_473_600;
 /// 之后每 10 分钟导入一次（spec §4.4）。
 const SCAN_INTERVAL: Duration = Duration::from_secs(10 * 60);
-/// 单次导入的查询上限（保留窗口内通常远小于它；兜底防止异常库把内存吃满）。
+/// 单次导入取「最近访问的 N 条」的上限（保留窗口内通常远小于它；兜底防止异常库把内存吃满）。
+///
+/// 语义是「最近」而不是「任意 N 条」：`read_rows` 用 `ORDER BY last_visit_time DESC` 截断，
+/// 超限时被淘汰的必须是窗口内最**旧**的访问——否则每轮取到的都是同一批旧行，
+/// 窗口内的新历史永远进不来，且轮次之间结果相同、不会自愈。
 const MAX_IMPORT_ROWS: usize = 20_000;
 /// 每个浏览器的 Profile 目录探测上限（`Profile 1` … `Profile 8`）。
 const MAX_PROFILES: u32 = 8;
@@ -105,16 +109,28 @@ fn open_copy(path: &Path) -> Result<(Connection, TempCopy), String> {
 }
 
 /// 读一个 History 副本里保留窗口内的行（`last_visit_time` 是 WebKit 微秒）。
-fn read_rows(conn: &Connection, since: i64) -> Result<Vec<BrowserHistoryRow>, String> {
+///
+/// 必须 `ORDER BY last_visit_time DESC` 后再 `LIMIT`：按扫描顺序截断会取到窗口内最早的
+/// 那一批，窗口内 URL 数超过 `limit` 的用户新历史永远导入不进来（每轮结果相同、不会自愈）。
+/// 不按 `id` 排序——Chromium 里重复访问保留原 rowid、只更新 `last_visit_time`，
+/// 按 id 排退化成「最近新建」而不是「最近访问」。排序每 10 分钟一轮，成本可接受。
+fn read_rows(
+    conn: &Connection,
+    since: i64,
+    limit: usize,
+) -> Result<Vec<BrowserHistoryRow>, String> {
     let webkit_min = (since + WEBKIT_EPOCH_OFFSET_SECS) * 1_000_000;
     let mut stmt = conn
-        .prepare("SELECT url, title, last_visit_time FROM urls WHERE last_visit_time > ? LIMIT ?")
+        .prepare(
+            "SELECT url, title, last_visit_time FROM urls \
+             WHERE last_visit_time > ? ORDER BY last_visit_time DESC LIMIT ?",
+        )
         .map_err(|e| format!("读取历史表失败: {e}"))?;
     // 解码失败（URL 列不是文本 / 时间戳类型异常）的行只丢自己，最后按数量记一条日志，
     // 不像以前那样静默丢弃、事后无法分辨「库里没有」与「解析失败」。
     let mut skipped = 0usize;
     let rows = stmt
-        .query_map(rusqlite::params![webkit_min, MAX_IMPORT_ROWS as i64], |r| {
+        .query_map(rusqlite::params![webkit_min, limit as i64], |r| {
             Ok((
                 r.get::<_, String>(0)?,
                 // `urls.title` 可空（Chromium 允许 NULL）：必须读 `Option` 再降级成空串，
@@ -153,7 +169,7 @@ fn read_rows(conn: &Connection, since: i64) -> Result<Vec<BrowserHistoryRow>, St
 /// 状态下完成外部文件 IO（几十 MB 的复制可能几十毫秒到几秒），只把 INSERT 放回锁内。
 fn read_file_rows(path: &Path, since: i64) -> Result<Vec<BrowserHistoryRow>, String> {
     let (conn, copy) = open_copy(path)?;
-    let rows = read_rows(&conn, since);
+    let rows = read_rows(&conn, since, MAX_IMPORT_ROWS);
     // 先显式关连接再丢副本：Windows 下 SQLite 仍持有句柄时删文件会失败。
     drop(conn);
     // 副本在这里（或上面的提前返回、panic 展开）由 TempCopy::drop 删除。
@@ -440,6 +456,40 @@ mod tests {
         assert_eq!(import_file(&store, &src, 1_600_000_100).unwrap(), 1);
         assert_eq!(count(&store).unwrap(), 1);
         std::fs::remove_dir_all(&dir).ok();
+    }
+
+    /// 导入侧按访问时刻倒序截断（超限时保留最近访问的 N 条，而不是扫描顺序里最旧的一批）：
+    /// 漏掉 ORDER BY 的话，窗口内 URL 数超过上限的用户**新历史永远进不来**（每轮结果相同、不会自愈），
+    /// 且日志只报「导入 N 条」，事后无从察觉。
+    #[test]
+    fn read_rows_keeps_most_recent_within_limit() {
+        let conn = rusqlite::Connection::open_in_memory().unwrap();
+        conn.execute_batch(
+            "CREATE TABLE urls (id INTEGER PRIMARY KEY, url TEXT, title TEXT, last_visit_time INTEGER);",
+        )
+        .unwrap();
+        // 三条都在保留窗口内，访问时刻分别是早 / 中 / 晚。
+        for (url, title, unix) in [
+            ("https://oldest.example/", "最早", 1_600_000_000i64),
+            ("https://middle.example/", "居中", 1_700_000_000),
+            ("https://newest.example/", "最新", 1_800_000_000),
+        ] {
+            conn.execute(
+                "INSERT INTO urls(url, title, last_visit_time) VALUES(?,?,?)",
+                rusqlite::params![url, title, (unix + WEBKIT_EPOCH_OFFSET_SECS) * 1_000_000],
+            )
+            .unwrap();
+        }
+
+        // 窗口起点早于三条（都在窗口内），limit = 2 时取到的必须是最近的两条。
+        let rows = read_rows(&conn, 1_500_000_000, 2).unwrap();
+        assert_eq!(
+            rows.iter().map(|r| r.url().as_str()).collect::<Vec<_>>(),
+            vec!["https://newest.example/", "https://middle.example/"],
+            "超限时应保留最近访问的两条，而不是扫描顺序里最旧的两条"
+        );
+        assert_eq!(*rows[0].visited_at(), 1_800_000_000);
+        assert_eq!(*rows[1].visited_at(), 1_700_000_000);
     }
 
     /// `urls.title` 可空（Chromium 允许 NULL）：NULL 标题降级成空串照常导入，不能整行（含 URL）被丢；
