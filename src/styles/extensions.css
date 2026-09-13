@@ -859,3 +859,17 @@ body:not(:focus-within) .mac-dot {
   font-size: 13px;
   line-height: 1.55;
 }
+
+/* ═══ 11. 浮窗启动台页脚（阶段四 C，2026-09-13） ═══
+ * 原型 .launcher-footer 只有左侧一行导航提示；D40 把现有的动作 / 快捷键提示并入其右侧。
+ * 生成层没有对应的两栏布局，这里只补 flex 与右对齐——内距 / 字号 / 颜色 / 分隔线仍由生成层提供。
+ * 用 :root[data-window='launcher'] 限定，避免影响主窗口启动台页的 .launcher-footer（原型页脚只有左侧一段）。 */
+:root[data-window='launcher'] .launcher-footer {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+:root[data-window='launcher'] .launcher-keys {
+  margin-left: auto;
+  flex: none;
+}

@@ -1147,14 +1147,20 @@ pub fn quit_app(app: &AppHandle) {
 // ═══════════════════════════════════════════════════════════════════════
 
 pub const LAUNCHER_LABEL: &str = "launcher";
-const LAUNCHER_WIDTH: f64 = 640.0;
-/// 输入框高度 + 9 条结果 × 每条 44 + 上下留白。
-const LAUNCHER_HEIGHT: f64 = 56.0 + 9.0 * 44.0 + 12.0;
+/// 宽对齐原型 `#launcherWindow` 的 `min(92vw, 560px)`（spec 4C D37）。
+const LAUNCHER_WIDTH: f64 = 560.0;
+/// 高对齐原型启动台窗口（列表按内容撑满，spec 4C D37）。
+const LAUNCHER_HEIGHT: f64 = 420.0;
 
 /// 呼出启动器：光标所在屏水平居中、垂直偏上（顶部 22%），物理像素落位后 show + focus。
 ///
 /// 与面板不同，启动器需要键盘输入，因此**要抢焦点**（focused / set_focus）。
 pub fn launcher_show(app: &AppHandle) -> Result<(), String> {
+    // D39：呼出前先收起面板（原型 openLauncher 的 hidePanel）；主窗口保持原样，
+    // 用户在主窗口的操作上下文不丢（原型的 closeAllWindows 不采用）。
+    if let Err(error) = panel_hide(app) {
+        eprintln!("[launcher] 呼出前收起面板失败: {error}");
+    }
     let monitor = cursor_monitor(app).ok_or("未找到可用显示器")?;
     let work = WorkArea::of(&monitor);
     let x = work.left + (work.width - LAUNCHER_WIDTH * work.scale) / 2.0;

@@ -140,6 +140,35 @@
   clip-path: inset(0 round 999px);
 }
 
+/* ═══ 启动台窗口 ═══
+ * 原型把 #launcherWindow 当桌面浮层（fixed + top:16vh + translateX(-50%) + min(92vw, 560px)）；
+ * 真实窗口就是启动台本身，位置与 560×420 由 Rust 落位（windows.rs::launcher_show），
+ * 这里铺满窗口、取消浮层定位，并让结果列表吃掉输入行与页脚之外的剩余高度（D37「列表按内容撑满」）。
+ * 毛玻璃绘制会盖掉圆角，与面板同理用 clip-path 裁齐。 */
+:root[data-window='launcher'],
+:root[data-window='launcher'] body,
+:root[data-window='launcher'] #app {
+  background: transparent !important;
+  overflow: hidden;
+}
+#launcherWindow {
+  position: static;
+  top: auto;
+  left: auto;
+  transform: none;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100vh;
+  clip-path: inset(0 round 14px);
+}
+:root[data-window='launcher'] .launcher-list {
+  flex: 1;
+  min-height: 0;
+  max-height: none;
+}
+
 /* ═══ 面板内的编辑弹窗：整页编辑器 ═══
  * 面板窗口只有 480px 宽、高度随内容伸缩（≤600px），在这么小的窗口里再叠一层
  * 「遮罩 + 居中浮窗」既局促又容易被裁切。这里把 ModalShell 覆写为顶对齐、
