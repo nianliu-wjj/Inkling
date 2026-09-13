@@ -33,6 +33,26 @@ const MAX_PROFILES: u32 = 8;
 /// 临时副本序号：同进程内两次导入不撞名。
 static COPY_SEQ: AtomicU64 = AtomicU64::new(0);
 
+/// 临时副本的 RAII 守卫：离开作用域（正常返回、`?` 提前返回、panic 展开）即删除副本文件。
+///
+/// 历史库副本可能有几十 MB，复制中断的半截文件 / 打开失败的无效库 / 读取途中的 panic
+/// 都会留下残渣；用 Drop 兜底比在每个出口手写 `remove_file` 更不容易漏。
+struct TempCopy(PathBuf);
+
+impl TempCopy {
+    /// 副本路径（交给 SQLite 打开）。
+    fn path(&self) -> &Path {
+        &self.0
+    }
+}
+
+impl Drop for TempCopy {
+    fn drop(&mut self) {
+        // 删除失败只吞掉：临时目录的残渣不值得打断导入（复制文件名带序号，不会重名冲突）。
+        let _ = std::fs::remove_file(&self.0);
+    }
+}
+
 /// Chromium 时间戳（1601-01-01 起的**微秒**）→ Unix 秒（spec §4.4）。
 pub fn webkit_to_unix(webkit_micros: i64) -> i64 {
     webkit_micros / 1_000_000 - WEBKIT_EPOCH_OFFSET_SECS
@@ -62,26 +82,25 @@ pub fn candidate_paths() -> Vec<PathBuf> {
     out
 }
 
-/// 复制副本并只读打开。返回连接与临时文件路径（调用方负责删除副本）。
+/// 复制副本并只读打开。返回连接与临时副本守卫（守卫离开作用域即删除副本）。
 ///
 /// 浏览器占用原文件时 `std::fs::copy` 仍能成功（Windows 下浏览器以共享读打开），
 /// 但直接对原文件跑 SQLite 查询可能撞锁，所以一律读副本。
-fn open_copy(path: &Path) -> Result<(Connection, PathBuf), String> {
+fn open_copy(path: &Path) -> Result<(Connection, TempCopy), String> {
     let seq = COPY_SEQ.fetch_add(1, Ordering::Relaxed);
-    let copy = std::env::temp_dir().join(format!("inkling-hist-{}-{seq}.tmp", std::process::id()));
-    if let Err(error) = std::fs::copy(path, &copy) {
-        // 复制中断可能在目标留下半个文件，先清掉再报错。
-        let _ = std::fs::remove_file(&copy);
+    // 先建守卫再复制：复制中断留下的半个文件由 Drop 清掉，不必等调用方拿到路径。
+    let copy = TempCopy(
+        std::env::temp_dir().join(format!("inkling-hist-{}-{seq}.tmp", std::process::id())),
+    );
+    if let Err(error) = std::fs::copy(path, copy.path()) {
         return Err(format!("复制历史库失败: {error}"));
     }
-    match Connection::open_with_flags(&copy, OpenFlags::SQLITE_OPEN_READ_ONLY) {
+    match Connection::open_with_flags(copy.path(), OpenFlags::SQLITE_OPEN_READ_ONLY) {
+        // 守卫随连接一起交给调用方：删副本的时机由它的作用域决定。
         Ok(conn) => Ok((conn, copy)),
-        Err(error) => {
-            // 副本打不开（不是合法 SQLite / 被截断）也要删掉：调用方此时还拿不到路径，
-            // 若在这里直接返回，临时目录会被无效 History 文件一点点堆满。
-            let _ = std::fs::remove_file(&copy);
-            Err(format!("只读打开历史副本失败: {error}"))
-        }
+        // 副本打不开（不是合法 SQLite / 被截断）：`copy` 在此处被 Drop 删除，
+        // 临时目录不会被无效 History 文件一点点堆满。
+        Err(error) => Err(format!("只读打开历史副本失败: {error}")),
     }
 }
 
@@ -91,16 +110,28 @@ fn read_rows(conn: &Connection, since: i64) -> Result<Vec<BrowserHistoryRow>, St
     let mut stmt = conn
         .prepare("SELECT url, title, last_visit_time FROM urls WHERE last_visit_time > ? LIMIT ?")
         .map_err(|e| format!("读取历史表失败: {e}"))?;
+    // 解码失败（URL 列不是文本 / 时间戳类型异常）的行只丢自己，最后按数量记一条日志，
+    // 不像以前那样静默丢弃、事后无法分辨「库里没有」与「解析失败」。
+    let mut skipped = 0usize;
     let rows = stmt
         .query_map(rusqlite::params![webkit_min, MAX_IMPORT_ROWS as i64], |r| {
             Ok((
                 r.get::<_, String>(0)?,
-                r.get::<_, String>(1)?,
+                // `urls.title` 可空（Chromium 允许 NULL）：必须读 `Option` 再降级成空串，
+                // 与 DTO 约定一致（前端回退显示 URL）；直接 `get::<String>` 会整行报错，
+                // 连 URL 一起被丢掉。
+                r.get::<_, Option<String>>(1)?.unwrap_or_default(),
                 r.get::<_, i64>(2)?,
             ))
         })
         .map_err(|e| format!("查询历史失败: {e}"))?
-        .filter_map(|row| row.ok())
+        .filter_map(|row| match row {
+            Ok(item) => Some(item),
+            Err(_) => {
+                skipped += 1;
+                None
+            }
+        })
         .filter(|(url, _, _)| !url.is_empty())
         .map(|(url, title, webkit)| {
             BrowserHistoryRow::builder()
@@ -110,24 +141,34 @@ fn read_rows(conn: &Connection, since: i64) -> Result<Vec<BrowserHistoryRow>, St
                 .build()
         })
         .collect::<Result<Vec<_>, String>>()?;
+    if skipped > 0 {
+        eprintln!("[history] 跳过 {skipped} 条无法解析的历史行");
+    }
     Ok(rows)
 }
 
-/// 导入一个 `History` 文件，返回写入行数。副本无论读取成败都会被删除。
-pub fn import_file(store: &Store, path: &Path, since: i64) -> Result<usize, String> {
+/// 锁外的重活：复制副本 → 只读解析，返回待写入的行。
+///
+/// 与 [`import_rows`] 分开是为了锁纪律：调用方（[`run_once`]）要在**不持 store 锁**的
+/// 状态下完成外部文件 IO（几十 MB 的复制可能几十毫秒到几秒），只把 INSERT 放回锁内。
+fn read_file_rows(path: &Path, since: i64) -> Result<Vec<BrowserHistoryRow>, String> {
     let (conn, copy) = open_copy(path)?;
-    let read = read_rows(&conn, since);
+    let rows = read_rows(&conn, since);
+    // 先显式关连接再丢副本：Windows 下 SQLite 仍持有句柄时删文件会失败。
     drop(conn);
-    if let Err(error) = std::fs::remove_file(&copy) {
-        eprintln!("[history] 删除临时副本失败 {}: {error}", copy.display());
-    }
-    let rows = read?;
+    // 副本在这里（或上面的提前返回、panic 展开）由 TempCopy::drop 删除。
+    drop(copy);
+    rows
+}
+
+/// 锁内的写：一个事务写完一个历史库的全部行，返回写入条数。
+fn import_rows(store: &Store, rows: &[BrowserHistoryRow]) -> Result<usize, String> {
     if rows.is_empty() {
         return Ok(0);
     }
     // 一次导入一个事务：几百到几万行的逐条 INSERT OR REPLACE 走事务才不会慢到卡住其他查询。
     let tx = store.tx()?;
-    for row in &rows {
+    for row in rows {
         tx.execute(
             "INSERT OR REPLACE INTO browser_history(url, title, visited_at) VALUES(?,?,?)",
             rusqlite::params![row.url(), row.title(), row.visited_at()],
@@ -204,6 +245,11 @@ pub fn prune_now(app: &AppHandle) -> Result<usize, String> {
 }
 
 /// 导入一轮：扫描候选 → 逐个导入 → 清理过期（spec §4.4）。返回本轮写入行数。
+///
+/// 锁纪律：`Store` 是「单连接 + 单个 Mutex」，IPC 里每个 `lock_store` 都排在它后面，
+/// 所以这里只在两处短暂持锁——开头读一次设置、每个库的写事务与末尾清理；
+/// 复制 / 只读打开外部 History（几十 MB，耗时不可控）全部放在锁外，
+/// 否则整轮导入期间设置页与启动台查询都会被堵住（对照 `services::launcher` 读设置的做法）。
 pub fn run_once(app: &AppHandle) -> Result<usize, String> {
     let paths = candidate_paths();
     if paths.is_empty() {
@@ -211,22 +257,45 @@ pub fn run_once(app: &AppHandle) -> Result<usize, String> {
         return Ok(0);
     }
     let state = app.state::<AppState>();
-    let store = state.lock_store()?;
-    let days = *store.get_settings()?.launcher_history_retention_days();
-    let now = now_secs();
+    // 第一段临界区：只读一次设置（保留天数 + 当前时刻），拿到值立即释放锁。
+    let (days, now) = {
+        let store = state.lock_store()?;
+        (
+            *store.get_settings()?.launcher_history_retention_days(),
+            now_secs(),
+        )
+    };
     let since = now - days.clamp(1, 365) * 86_400;
     let mut written = 0usize;
     for path in paths {
-        match import_file(&store, &path, since) {
-            Ok(rows) => {
-                written += rows;
-                eprintln!("[history] 导入 {rows} 条 ← {}", path.display());
+        // 锁外：复制副本 + 只读解析，通常是本轮最慢的一步。
+        let rows = match read_file_rows(&path, since) {
+            Ok(rows) => rows,
+            // 复制失败（浏览器独占 / 权限）或库不合法只跳过本轮，不影响其他库。
+            Err(error) => {
+                eprintln!("[history] 导入失败 {}: {error}", path.display());
+                continue;
             }
-            // 复制失败（浏览器独占 / 权限）只跳过本轮，不影响其他库。
-            Err(error) => eprintln!("[history] 导入失败 {}: {error}", path.display()),
+        };
+        // 第二段临界区：只包含这个库的 INSERT，几毫秒级，写完（或出错）立刻释放。
+        let imported = {
+            let store = state.lock_store()?;
+            import_rows(&store, &rows)
+        };
+        match imported {
+            Ok(count) => {
+                written += count;
+                eprintln!("[history] 导入 {count} 条 ← {}", path.display());
+            }
+            // 单个库写失败（磁盘 / 库损坏）也只跳过它，其余库继续导入。
+            Err(error) => eprintln!("[history] 写入历史失败 {}: {error}", path.display()),
         }
     }
-    let removed = prune(&store, now, days)?;
+    // 第三段临界区：按保留天数清理过期行。
+    let removed = {
+        let store = state.lock_store()?;
+        prune(&store, now, days)?
+    };
     eprintln!("[history] 本轮写入 {written} 条，清理过期 {removed} 条，保留 {days} 天");
     Ok(written)
 }
@@ -286,6 +355,13 @@ mod tests {
                 rusqlite::params![url, title, visited_at],
             )
             .unwrap();
+    }
+
+    /// 生产代码里「锁外读 + 锁内写」是分开调用的（见 `run_once` 的锁纪律）；
+    /// 测试不涉及并发，这里合成一个入口，等价于原先的 `import_file`。
+    fn import_file(store: &Store, path: &Path, since: i64) -> Result<usize, String> {
+        let rows = read_file_rows(path, since)?;
+        import_rows(store, &rows)
     }
 
     /// 标题或 URL 命中，按访问时刻倒序（spec §4.4）。
@@ -363,6 +439,60 @@ mod tests {
         // 同 URL 再导入以最新时刻覆盖（INSERT OR REPLACE）。
         assert_eq!(import_file(&store, &src, 1_600_000_100).unwrap(), 1);
         assert_eq!(count(&store).unwrap(), 1);
+        std::fs::remove_dir_all(&dir).ok();
+    }
+
+    /// `urls.title` 可空（Chromium 允许 NULL）：NULL 标题降级成空串照常导入，不能整行（含 URL）被丢；
+    /// 顺带确认临时副本由 RAII 删除，不留残渣。
+    #[test]
+    fn import_file_tolerates_null_title_and_removes_copy() {
+        let dir = std::env::temp_dir().join(format!("inkling-hist-{}", uuid::Uuid::new_v4()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let src = dir.join("History");
+        let visited = (1_700_000_000 + WEBKIT_EPOCH_OFFSET_SECS) * 1_000_000;
+        {
+            let conn = rusqlite::Connection::open(&src).unwrap();
+            conn.execute_batch(
+                "CREATE TABLE urls (id INTEGER PRIMARY KEY, url TEXT, title TEXT, last_visit_time INTEGER);",
+            )
+            .unwrap();
+            // 一条正常标题 + 一条 NULL 标题：两条都要导入。
+            conn.execute(
+                "INSERT INTO urls(url, title, last_visit_time) VALUES(?,?,?)",
+                rusqlite::params!["https://titled.example/", "有标题", visited],
+            )
+            .unwrap();
+            conn.execute(
+                "INSERT INTO urls(url, title, last_visit_time) VALUES(?, NULL, ?)",
+                rusqlite::params!["https://null-title.example/", visited],
+            )
+            .unwrap();
+        }
+
+        let store = memory_store();
+        assert_eq!(import_file(&store, &src, 1_600_000_100).unwrap(), 2);
+        assert_eq!(count(&store).unwrap(), 2);
+        let rows = search(&store, "null-title", 10).unwrap();
+        assert_eq!(rows.len(), 1, "NULL 标题的行不能被整行丢弃");
+        assert_eq!(rows[0].title(), "", "NULL 标题降级为空串（DTO 约定）");
+        assert_eq!(*rows[0].visited_at(), 1_700_000_000);
+
+        // 副本文件由 TempCopy::drop 删除：守卫一离开作用域就不该再有这个文件。
+        let (conn, copy) = open_copy(&src).unwrap();
+        let copy_path = copy.path().to_path_buf();
+        assert!(
+            copy_path.is_file(),
+            "复制后副本应存在: {}",
+            copy_path.display()
+        );
+        // 先关连接再丢守卫：Windows 下 SQLite 仍持有句柄时删文件会失败。
+        drop(conn);
+        drop(copy);
+        assert!(
+            !copy_path.exists(),
+            "TempCopy::drop 应删除临时副本: {}",
+            copy_path.display()
+        );
         std::fs::remove_dir_all(&dir).ok();
     }
 }
