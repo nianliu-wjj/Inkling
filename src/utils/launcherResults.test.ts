@@ -92,7 +92,7 @@ test('mergeLauncherResults：顺序为 计算器 → 应用 / 命令 → 笔记 
     ],
     notes: [note({ id: 'n1', content: 'calc 笔记' })],
     todos: [todo({ id: 't1', content: 'calc 待办', due_at: at(2026, 9, 13, 10), priority: 'high' })],
-    history: [history('https://calc.example/', 'calc 页面')],
+    history: [history('https://calc.example/', '')],
     query: 'calc',
     scopes: ALL,
   })
@@ -107,8 +107,8 @@ test('mergeLauncherResults：顺序为 计算器 → 应用 / 命令 → 笔记 
   assert.equal(command.sub, undefined)
   // 待办副文案 = 归属日 · 优先级。
   assert.equal(rows[4].sub, '2026-09-13 · 优先级 高')
-  // 历史：标题为空时回退 URL。
-  assert.equal(rows[5].name, 'calc 页面')
+  // 历史：标题为空（后端没抓到 title）时回退 URL 当名称。
+  assert.equal(rows[5].name, 'https://calc.example/')
 })
 
 test('mergeLauncherResults：范围开关逐项关闭后对应分类消失', () => {
@@ -172,6 +172,14 @@ test('mergeLauncherResults：笔记按正文 / 标签 / 导图节点文本命中
   const noteRows = rows.filter((r) => r.cat === '笔记')
   // 9 条正文命中被限流到 8 条，标签与导图不算进这 8 条（它们排在其后）。
   assert.equal(noteRows.filter((r) => r.id.startsWith('note:n')).length, 8)
+  // 分档顺序与 NOTE_HIT_ORDER 一致（正文 → 标签 → 导图），笔记段总数 8 + 1 + 1。
+  // 断言完整 id 序列而非 some / find：否则将来有人改回「三合一后 slice(0, 8)」，
+  // 标签 / 导图被挤掉时只会挂一条 some，看不出顺序也看不出被截断。
+  assert.deepEqual(
+    noteRows.map((r) => r.id),
+    ['note:n0', 'note:n1', 'note:n2', 'note:n3', 'note:n4', 'note:n5', 'note:n6', 'note:n7', 'note:tag', 'note:map'],
+  )
+  assert.equal(noteRows.length, 10, '笔记段应为 8（正文）+ 1（标签）+ 1（导图）')
   assert.ok(noteRows.some((r) => r.id === 'note:tag'))
   const map = noteRows.find((r) => r.id === 'note:map')
   assert.ok(map, '导图节点文本应命中')

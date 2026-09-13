@@ -8,7 +8,8 @@ import { mergeLauncherResults, type LauncherResult, type LauncherScopes } from '
  * 启动台共享结果源（浮窗启动台与主窗口启动台页共用，spec 4C §4.1）。
  *
  * 取数：查询去抖 30ms → `api.launcher.search`（应用 / 命令 / 文件）与
- * `api.browserHistory.search`（仅历史开关打开时；关闭时清空本地结果，重新打开补一次查询）；
+ * `api.browserHistory.search`（仅历史开关打开且查询词非空时；否则清空本地结果，
+ * 开关重新打开时补一次查询）；
  * 笔记 / 待办来自 `useNotes` / `useTodos` 的全量列表（随数据变更事件自动刷新），
  * 怎么合并交给纯函数 `mergeLauncherResults`。
  *
@@ -78,8 +79,11 @@ export function useLauncherResults(options: { scope?: string; floating?: boolean
 
   async function search(): Promise<void> {
     const keyword = query.value
+    // 空查询不搜历史：后端 `LIKE '%%'` 会白取回一批行，纯函数又会整段丢掉；
+    // 历史条目只在有查询词时出现（原型同）。历史开关关闭同样走 else（本地结果清空）。
+    const withHistory = settings.value.launcher_scope_history && keyword.trim() !== ''
     try {
-      if (settings.value.launcher_scope_history) {
+      if (withHistory) {
         // 两路并行：历史走自有表，与应用检索互不依赖。
         const [hits, rows] = await Promise.all([api.launcher.search(keyword), api.browserHistory.search(keyword)])
         apps.value = hits
@@ -101,7 +105,17 @@ export function useLauncherResults(options: { scope?: string; floating?: boolean
   watch(
     query,
     () => {
-      if (debounce) clearTimeout(debounce)
+      if (debounce) {
+        clearTimeout(debounce)
+        debounce = null
+      }
+      // 空查询（挂载 / 呼出清空）立即取常用项，不走 30ms 去抖：
+      // 否则上一轮的应用结果会在入场动画期间继续显示，要等去抖 + 一次 IPC 往返才被替换。
+      if (!query.value.trim()) {
+        if (disposed) return
+        void search()
+        return
+      }
       debounce = setTimeout(() => {
         // 卸载时同步清掉已排队的定时器，这里的兜底只防「定时器已触发但组件刚卸载」。
         if (disposed) return
@@ -138,11 +152,21 @@ export function useLauncherResults(options: { scope?: string; floating?: boolean
     }),
   )
 
-  // 结果集变短时把选中拉回范围内（例如刚关掉某个检索范围）。
+  // 结果集变短时把选中拉回范围内（例如刚关掉某个检索范围）。本 watch 先于下面的 id watch 创建，
+  // 同一次 flush 内也先执行，因此 id watch 读到的已是钳制后的 active（越界时不会多复位一次动作）。
   watch(results, (list) => {
     if (active.value >= list.length) active.value = Math.max(0, list.length - 1)
-    if (actionIndex.value > 0) actionIndex.value = 0
   })
+
+  // 动作复位按「当前条目 id」变化触发，而不是按结果数组身份：results 是 computed，每次重算都返回新数组，
+  // 按数组身份复位会让数据刷新打断已选动作（浮窗里在某应用条目上 Tab 切到「管理员」，
+  // 此刻另一个窗口保存笔记 → actionIndex 悄悄回 0 → 回车执行的是「打开」）。
+  watch(
+    () => results.value[active.value]?.id,
+    () => {
+      if (actionIndex.value > 0) actionIndex.value = 0
+    },
+  )
 
   const actions = computed<LauncherActionItem[]>(() => {
     const action = results.value[active.value]?.action

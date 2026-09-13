@@ -1,6 +1,6 @@
 import type { BrowserHistoryRow, LauncherHit } from '@/service/tauri'
 import type { Note, Priority, Todo } from '@/typings/domain'
-import { dateKeyOf } from './datetime'
+import { dateKeyOf, formatStamp } from './datetime'
 import { mindmapAllText, mindmapRootText } from './search'
 
 /**
@@ -149,8 +149,9 @@ function fromNote(note: Note): LauncherResult {
     id: `note:${note.id}`,
     ico: mindmap ? '🧠' : '📝',
     name: `${mindmap ? '思维导图' : '笔记'}: ${label}`,
-    // 原型：有标签显示标签，否则显示时间；这里退化为空（不渲染 small）。
-    sub: note.tags.length ? `[${note.tags.join(', ')}]` : '',
+    // 副文案对齐原型 `n.tags?.length ? '[' + tags.join(', ') + ']' : n.time`：
+    // 有标签显示标签，否则显示更新时间（`formatStamp` 解析失败返回 ''，模板 v-if 自然不渲染）。
+    sub: note.tags.length ? `[${note.tags.join(', ')}]` : formatStamp(note.updated_at),
     cat: '笔记',
     action: { type: 'note', id: note.id, mindmap },
   }
