@@ -87,11 +87,18 @@ watch(opacity, (value) => {
   document.documentElement.style.opacity = String(value / 100)
 })
 
-/** 关闭浮窗：编辑态先等回写完成再关，✕ 不丢正在编辑的文字（Task 7 评审 E2）。 */
+/**
+ * 关闭浮窗：编辑态先等回写完成再关，✕ 不丢正在编辑的文字（Task 7 评审 E2）。
+ * 回写失败（后端拒绝 / 目标已删）时保留编辑态不关窗，否则草稿会随窗口一起丢失（整分支审查 I1）。
+ * 失焦保存与 ✕ 点击几乎同时触发时，save() 返回同一个 in-flight Promise，这里等的就是那次真正的回写。
+ */
 async function close(): Promise<void> {
   if (editing.value) {
     logger.info('pinned', '关闭前先保存编辑中的内容')
-    await save()
+    if (!(await save())) {
+      logger.warn('pinned', '回写失败，保留编辑态不关窗')
+      return
+    }
   }
   try {
     await api.windows.pinClose(label)
@@ -166,34 +173,46 @@ async function writeBack(kind: 'note' | 'todo' | 'clip', id: string, next: strin
   await api.clipboard.update(id, next)
 }
 
-/** 防重入：失焦与 Ctrl+Enter 可能连续触发 save，保存进行中直接忽略。 */
-let saving = false
+/**
+ * 进行中的回写 Promise；null = 没有回写在跑。
+ * 失焦、Ctrl+Enter、✕ 关闭可能连续触发 save：并发调用共享同一个 Promise，而不是用布尔旗标直接忽略后来者——
+ * 否则 close() 会在旗标为真时立刻返回并关窗，丢掉尚未落库的草稿。
+ */
+let inflight: Promise<boolean> | null = null
 
-/** Ctrl+Enter / 失焦保存：空内容或未改动只退出编辑态，不写库。 */
-async function save(): Promise<void> {
-  if (!editing.value || saving) return
+/** 回写；返回是否成功（空内容 / 未改动视为成功）。并发调用共享同一个 in-flight Promise。 */
+function save(): Promise<boolean> {
+  if (!editing.value) return Promise.resolve(true)
+  if (inflight) return inflight
+  inflight = doSave().finally(() => {
+    inflight = null
+  })
+  return inflight
+}
+
+/** Ctrl+Enter / 失焦保存的实际逻辑：空内容或未改动只退出编辑态，不写库；失败保留编辑态并返回 false。 */
+async function doSave(): Promise<boolean> {
   const target = parsed.value
   const next = draft.value
   if (!target || !next.trim() || next === content.value) {
     if (!next.trim()) toast('内容为空，未保存')
     await endEdit()
-    return
+    return true
   }
-  saving = true
   logger.info('pinned', `回写 ${target.kind} ${target.id}，长度 ${next.length}`)
   try {
     await writeBack(target.kind, target.id, next)
     content.value = next
     toast('已同步回数据库 ✔')
     await endEdit()
+    return true
   } catch (error) {
     logger.error('pinned', '回写失败', error)
     // 本地抛出的 Error 只取 message，避免 toast 显示「Error: …」前缀（Task 7 评审 E1）。
     toast(error instanceof Error ? error.message : String(error))
     // 保存失败保留编辑态让用户改，但失焦触发的保存不应反复弹 toast：重新聚焦。
     editor.value?.focus()
-  } finally {
-    saving = false
+    return false
   }
 }
 

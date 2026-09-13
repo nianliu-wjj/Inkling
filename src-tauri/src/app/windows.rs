@@ -690,16 +690,22 @@ pub fn island_apply(app: &AppHandle) -> Result<(), String> {
 /// 不经 `settings_save`：那条命令会顺带移动感应区 / 面板并可能建窗；这里窗口已存在，只做几何。
 pub fn island_resize(app: &AppHandle, width: i64, height: i64) -> Result<(), String> {
     let state = app.state::<AppState>();
-    let mut settings = state.lock_store()?.get_settings()?;
-    let params = island_clamp(
-        width,
-        height,
-        *settings.island_opacity(),
-        *settings.island_cycle_seconds(),
-    );
-    settings.set_island_width(params.width as i64);
-    settings.set_island_height(params.height as i64);
-    state.lock_store()?.save_settings(&settings)?;
+    // 读→改→写全程持同一把 store 锁：分两次 lock_store 会留下读改写间隙，
+    // 期间主窗口的 settings_save 落库会被这里的旧快照覆盖（整分支审查 R1）。摆窗前先释放锁。
+    let (settings, params) = {
+        let store = state.lock_store()?;
+        let mut settings = store.get_settings()?;
+        let params = island_clamp(
+            width,
+            height,
+            *settings.island_opacity(),
+            *settings.island_cycle_seconds(),
+        );
+        settings.set_island_width(params.width as i64);
+        settings.set_island_height(params.height as i64);
+        store.save_settings(&settings)?;
+        (settings, params)
+    };
     eprintln!(
         "[island] 手柄拖拽落库 width={} height={}",
         params.width, params.height

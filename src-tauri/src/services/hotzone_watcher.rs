@@ -44,6 +44,11 @@ fn run(app: AppHandle) {
     // 灵动岛：上一次是否在区内、上一次左键是否按下（用于边沿检测）。
     let mut island_inside = false;
     let mut left_was_down = false;
+    // 上一轮在岛内探测到左键按下边沿、待本轮裁决的点击。
+    // 前端的 mousedown 与本线程的探测是并发的：手柄 / 提醒卡按下后发 island_set_interacting(true) IPC
+    // 需要时间到达，若在按下边沿当轮就呼出面板，旗标很可能还没置上（整分支审查 I4a）。
+    // 因此延后一拍（80ms）再看旗标：足够 IPC 落地，肉眼又察觉不到延迟。
+    let mut pending_click = false;
     // 灵动岛是否已因前台全屏而隐藏（D30）；由本线程独占翻转。
     let mut fullscreen_hidden = false;
     // 显示器热插拔对账的节拍：每 25 轮（约 2 秒）检查一次拓扑是否变化。
@@ -134,13 +139,35 @@ fn run(app: AppHandle) {
         // 前端正在拖手柄 / 点提醒卡（island_set_interacting）时不做点击探测：
         // 这些 mousedown 落在胶囊矩形内，否则会被误判为「点击胶囊」呼出面板。
         let left_down = left_button_down();
-        let interacting = app.state::<AppState>().island_interacting();
-        if now_inside && left_down && !left_was_down && !interacting {
-            eprintln!("[island] 左键点击，呼出面板并切到待办页");
-            if let Err(error) = crate::app::windows::panel_show_page(&app, "todo") {
-                eprintln!("[island] 呼出面板失败: {error}");
+        let state = app.state::<AppState>();
+
+        // 1. 先裁决上一轮记下的点击：此时前端置旗标的 IPC 已有一整拍时间落地。
+        if pending_click {
+            pending_click = false;
+            if state.island_interacting() {
+                eprintln!("[island] 左键点击被交互旗标抑制（手柄拖拽 / 提醒卡）");
+            } else {
+                eprintln!("[island] 左键点击，呼出面板并切到待办页");
+                if let Err(error) = crate::app::windows::panel_show_page(&app, "todo") {
+                    eprintln!("[island] 呼出面板失败: {error}");
+                }
+                let _ = app.emit_to(crate::app::windows::ISLAND_LABEL, events::ISLAND_CLICK, ());
             }
-            let _ = app.emit_to(crate::app::windows::ISLAND_LABEL, events::ISLAND_CLICK, ());
+        }
+
+        // 2. 本轮在岛内探测到按下边沿：只记账，下一轮再裁决。
+        if now_inside && left_down && !left_was_down {
+            pending_click = true;
+        }
+
+        // 3. 左键释放边沿或光标离岛：后端兜底清掉交互旗标，前端随后的 setInteracting(false) 变为幂等。
+        //    否则 mouseup 落在窗外、或前端 IPC 失败时旗标会残留，之后所有点击都被抑制（整分支审查 I4b）。
+        //    顺序放在裁决之后：本轮待裁决的点击仍按按下时刻的旗标状态判定。
+        if (left_was_down && !left_down) || !now_inside {
+            if state.island_interacting() {
+                eprintln!("[island] 左键释放 / 离岛，清除交互旗标");
+                state.set_island_interacting(false);
+            }
         }
         left_was_down = left_down;
     }

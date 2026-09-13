@@ -180,6 +180,8 @@ function resetTicker(): void {
 
 watch(() => items.value.map((item) => item.id).join('|'), resetTicker)
 watch(stayMs, resetTicker)
+// 主窗口设置页改了胶囊高度：行高变了，带着 translateY(-i*h) 的轨道会错位，回到第一条重排（整分支审查 R2）。
+watch(() => settings.value.island_height, resetTicker)
 watch(canCycle, (can) => {
   if (can) scheduleStep()
   else stopTicker()
@@ -236,6 +238,12 @@ const current = computed<IslandItem | null>(() => items.value[diIndex.value % Ma
 
 /** 展开序号：async 期间用于「后来者优先」，避免快速进出导致窗口尺寸错乱。 */
 let expandSeq = 0
+/**
+ * 最近一次**请求**的展开态。去重要比对它而不是 expanded.value：
+ * expand(true) IPC 在途时 expanded 仍为 false，此时到来的 hover(false) 若按 expanded 比对会被当成「已收起」丢掉，
+ * 结果窗口撑开后没人再收回去（整分支审查 R3）。
+ */
+let wanted = false
 
 /**
  * 切换展开态。为消除窗口 set_size 的瞬时跳变：
@@ -243,7 +251,8 @@ let expandSeq = 0
  * - 收起：先置 expanded=false → 胶囊 CSS 收缩，待动画结束再缩窗。
  */
 async function setExpanded(next: boolean): Promise<void> {
-  if (expanded.value === next) return
+  if (wanted === next) return
+  wanted = next
   const seq = ++expandSeq
   try {
     if (next) {
@@ -308,6 +317,15 @@ async function onResizeEnd(): Promise<void> {
     dragWidth.value = null
     dragHeight.value = null
     resetTicker()
+    // 默认设置下手柄只在展开态可达（任何悬停都先展开），而 island_resize 只按折叠高摆窗：
+    // 松手后若仍处于展开态，需再让后端按 max(h, 120) 重新摆放，否则窗口会缩到胶囊下面把展开区裁掉（整分支审查 I3）。
+    if (expanded.value) {
+      try {
+        await api.island.expand(true)
+      } catch (error) {
+        logger.error('island', '拖拽结束后恢复展开高失败', error)
+      }
+    }
     // 落库完成（或失败）后再解除旗标，避免松手瞬间被后端当成点击。
     await setInteracting(false)
   }
