@@ -239,6 +239,15 @@ export function useLauncherResults(options: { scope?: string; floating?: boolean
           // 用系统默认浏览器打开；启动台靠失焦自动隐藏（不显式 hide，避免与浏览器抢焦点打架）。
           await api.system.openUrl(result.action.url)
           return
+        default: {
+          // 兜底分支：将来给 `LauncherAction` 加第 6 种 `type` 却忘了在这里分派时，
+          // 编译期由穷尽断言挡住（那时 `result.action` 不再是 `never`，这一行报错），
+          // 运行期再记一条日志——本仓库没有 eslint、tsconfig 也没开 noImplicitReturns，
+          // 光靠人眼审查的话，漏掉的类型会表现成「Enter 静默无反应」且无迹可查。
+          const unhandled: never = result.action
+          logger.error(scope, '未知的动作类型，已忽略', unhandled)
+          return
+        }
       }
     } catch (error) {
       logger.error(scope, '执行失败', error)
@@ -281,8 +290,12 @@ export function useLauncherResults(options: { scope?: string; floating?: boolean
         // Ctrl+Enter 只在多动作条目（应用 / 文件 / 文件夹）上强制管理员：命令 / UWP 等
         // 单动作条目没有管理员模式，硬传下去后端必然报错，故与「打开」等价
         // ——页脚也正因此对它们省略该提示。
+        // `floating` 守卫与 Tab / Esc / Alt+N 一致：页面不接动作键（原型页面键盘分支只有 ↑↓ 与 Enter），
+        // 否则在启动台页对应用 / 文件按 Ctrl+Enter 会静默走管理员模式、拉起 UAC。
         const mode: LauncherActionKey =
-          event.ctrlKey && actions.value.length > 1 ? 'admin' : (actions.value[actionIndex.value]?.key ?? 'open')
+          event.ctrlKey && floating && actions.value.length > 1
+            ? 'admin'
+            : (actions.value[actionIndex.value]?.key ?? 'open')
         void runActive(active.value, mode)
         return
       }
