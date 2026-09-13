@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { getCurrentWindow } from '@tauri-apps/api/window'
 import { computed, onMounted, ref, watch } from 'vue'
+import { enter, exit } from '@/motion'
 import { useSettings } from '@/composables/useData'
 import { applyCachedGlass, useGlass } from '@/composables/useGlass'
 import { applyCachedTheme, useTheme } from '@/composables/useTheme'
@@ -13,6 +14,7 @@ import { api } from '@/service/tauri'
  * 到期时在屏幕右上角弹出（非系统通知），支持：
  * - 直接关闭 = 稍后不再提醒（后端置 remind_off）；
  * - 下拉选择下次提醒时间（只改下一次 remind_at，不改计划完成时间）。
+ * 入场 x:60 → 0（--dur-slow，回弹）、退场 0 → x:60（--dur-base）后再关窗（原型 showReminder / hideReminder）。
  */
 applyCachedTheme()
 applyCachedGlass()
@@ -29,6 +31,16 @@ const label = getCurrentWindow().label
 const todoId = computed(() => label.replace(/^reminder-/, ''))
 
 const content = ref('')
+const card = ref<HTMLElement | null>(null)
+let closing = false
+
+/** 退场动效播完再关窗；关闭 / 顺延 / 完成三条路径共用，重复触发只走一次。 */
+async function closeCard(): Promise<void> {
+  if (closing) return
+  closing = true
+  if (card.value) await exit(card.value, { axis: 'x', distance: 60, duration: 'base' })
+  await api.windows.reminderClose(todoId.value).catch(() => undefined)
+}
 
 /** 顺延选项：分钟数，或 tomorrow 表示明天上午 9:00。 */
 const SNOOZE_OPTIONS = [
@@ -58,7 +70,7 @@ async function dismiss(): Promise<void> {
   } catch (error) {
     logger.error('reminder', '关闭提醒失败', error)
   }
-  await api.windows.reminderClose(todoId.value).catch(() => undefined)
+  await closeCard()
 }
 
 async function snooze(event: Event): Promise<void> {
@@ -71,7 +83,7 @@ async function snooze(event: Event): Promise<void> {
     } catch (error) {
       logger.error('reminder', '完成待办失败', error)
     }
-    await api.windows.reminderClose(todoId.value).catch(() => undefined)
+    await closeCard()
     return
   }
 
@@ -92,14 +104,17 @@ async function snooze(event: Event): Promise<void> {
   } catch (error) {
     logger.error('reminder', '顺延提醒失败', error)
   }
-  await api.windows.reminderClose(todoId.value).catch(() => undefined)
+  await closeCard()
 }
 
-onMounted(load)
+onMounted(() => {
+  void load()
+  if (card.value) void enter(card.value, { axis: 'x', distance: 60, duration: 'slow' })
+})
 </script>
 
 <template>
-  <div id="reminderCard" class="glass">
+  <div id="reminderCard" ref="card" class="glass">
     <!-- 仅标题行可拖拽：drag 区域会被子元素继承，放在根元素上会让整窗按钮全部点不动 -->
     <div class="reminder-header" data-tauri-drag-region>
       <button type="button" class="icon-btn reminder-close no-drag" title="关闭（稍后不再提醒）" @click="dismiss">
