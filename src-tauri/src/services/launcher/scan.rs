@@ -117,13 +117,22 @@ fn push(
     true
 }
 
-/// 内置命令。
+/// 内置命令（spec 4C D36 共 9 条）：原型 `LAUNCHER_APPS` 的 6 条 Inkling 功能入口
+/// ＋现有运维命令（重建索引 / 退出）＋计算器（D38，执行 `calc.exe`）。
+///
+/// 名称自带 emoji：前端对 `kind === 'command'` 直接显示名称（`cmd:spec` 这类 path 不作为副文案）。
 fn builtin_commands(out: &mut Vec<Candidate>, seen: &mut HashSet<String>) -> usize {
     let mut count = 0;
     for (id, name) in [
-        ("cmd:settings", "Inkling 设置"),
-        ("cmd:rebuild", "重建启动器索引"),
-        ("cmd:quit", "退出 Inkling"),
+        ("cmd:notes", "📚 历史归档"),
+        ("cmd:todos", "✅ 待办清单"),
+        ("cmd:clips", "📋 剪贴板历史"),
+        ("cmd:mindmap", "🧠 新建思维导图"),
+        ("cmd:stats", "📊 统计报表"),
+        ("cmd:settings", "⚙️ 偏好设置"),
+        ("cmd:calc", "🧮 计算器"),
+        ("cmd:rebuild", "🔄 重建启动器索引"),
+        ("cmd:quit", "⏻ 退出 Inkling"),
     ] {
         if push(out, seen, Kind::Command, name, id) {
             count += 1;
@@ -490,5 +499,39 @@ mod tests {
         assert!(is_program_file(Path::new("x.LNK")));
         assert!(!is_program_file(Path::new("x.txt")));
         assert!(name_excluded("Uninstall WeChat", &PROGRAM_EXCLUDES));
+    }
+
+    /// 内置命令 9 条、顺序与 id 固定（spec 4C D36 / §4.5），且名称里的 emoji 不阻碍拼音关键字生成。
+    #[test]
+    fn builtin_commands_cover_nine_ids() {
+        let mut out = Vec::new();
+        let mut seen = HashSet::new();
+        assert_eq!(builtin_commands(&mut out, &mut seen), 9);
+        let ids: Vec<&str> = out.iter().map(|c| c.path.as_str()).collect();
+        assert_eq!(
+            ids,
+            vec![
+                "cmd:notes",
+                "cmd:todos",
+                "cmd:clips",
+                "cmd:mindmap",
+                "cmd:stats",
+                "cmd:settings",
+                "cmd:calc",
+                "cmd:rebuild",
+                "cmd:quit",
+            ]
+        );
+        assert!(out.iter().all(|c| c.kind == Kind::Command));
+        // 名称自带 emoji，关键字仍要能生成（否则拼音 / 首字母检索会漏掉命令）。
+        assert!(
+            out.iter().all(|c| !c.keywords.is_empty()),
+            "{:?}",
+            out.iter()
+                .map(|c| (&c.name, &c.keywords))
+                .collect::<Vec<_>>()
+        );
+        // 同一批候选再次扫描时按 path 去重，不重复入表。
+        assert_eq!(builtin_commands(&mut out, &mut seen), 0);
     }
 }

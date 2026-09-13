@@ -694,8 +694,11 @@ pub fn launcher_search(
 
 /// 启动一个命中项。`mode`：open / admin / reveal。文件命中按 path 启动，故直接收 path/kind
 /// （命中项自带，无需按 id 回查——文件索引命中不在内存候选表里）。`query` 用于记录查询亲和度。
+///
+/// 必须是 **async** 命令：`cmd:mindmap` 会走 `windows::mindmap_open` 建窗，而建窗需要主线程的
+/// 事件循环；同步命令跑在主线程上会与事件循环互等（与 `editor_open` / `pin_create` 同款）。
 #[tauri::command]
-pub fn launcher_launch(
+pub async fn launcher_launch(
     app: AppHandle,
     state: State<'_, crate::services::launcher::LauncherState>,
     path: String,
@@ -703,7 +706,7 @@ pub fn launcher_launch(
     mode: String,
     query: String,
 ) -> Result<(), String> {
-    use crate::services::launcher::launch::{launch, LaunchMode};
+    use crate::services::launcher::launch::{launch, open_system_calculator, LaunchMode};
     use crate::services::launcher::model::{Candidate, Kind};
 
     let parsed_kind = match kind.as_str() {
@@ -715,10 +718,19 @@ pub fn launcher_launch(
         other => return Err(format!("未知类型 {other}")),
     };
 
-    // 内置命令直接在此执行。
+    // 内置命令直接在此执行（spec 4C §4.5 的九条）。
     if parsed_kind == Kind::Command {
         match path.as_str() {
+            // 主窗口各页（原型 LAUNCHER_APPS 的 6 条 Inkling 功能）。
+            "cmd:notes" => windows::show_main(&app, "notes")?,
+            "cmd:todos" => windows::show_main(&app, "todos")?,
+            "cmd:clips" => windows::show_main(&app, "clips")?,
+            "cmd:stats" => windows::show_main(&app, "stats")?,
             "cmd:settings" => windows::show_main(&app, "settings")?,
+            // 新建思维导图：会建窗，本命令已是 async，直接调同步实现（同 mindmap_open 命令的做法）。
+            "cmd:mindmap" => windows::mindmap_open(&app, None)?,
+            // 计算器：拉起系统 calc.exe（D38 不内置求值）。
+            "cmd:calc" => open_system_calculator()?,
             "cmd:rebuild" => crate::services::launcher::rebuild_async(app.clone()),
             "cmd:quit" => windows::quit_app(&app),
             other => return Err(format!("未知命令 {other}")),

@@ -59,6 +59,17 @@ pub fn launch(candidate: &Candidate, mode: LaunchMode) -> Result<(), String> {
     }
 }
 
+/// 打开系统计算器（D38：不内置表达式求值，直接把 `=` / 「计算器」的查询交给 `calc.exe`）。
+///
+/// 拉起失败（极少数环境没有 `calc.exe`）只回错误给前端展示并记日志，不 panic——启动器其余功能不受影响。
+pub fn open_system_calculator() -> Result<(), String> {
+    eprintln!("[launcher] 执行内置命令 cmd:calc → calc.exe");
+    spawn_detached("calc.exe", &[]).map_err(|e| {
+        eprintln!("[launcher] cmd:calc 启动失败: {e}");
+        e
+    })
+}
+
 /// 分离启动：不等待、不接管子进程；Windows 上不弹控制台窗口。
 fn spawn_detached(program: &str, args: &[&str]) -> Result<(), String> {
     let mut command = std::process::Command::new(program);
