@@ -83,7 +83,7 @@ docs/superpowers/plans/2026-09-12-prototype-realign-phase4b-acceptance.md   验�
 - Produces（Rust）：`Settings` 新增字段 `island_scope: String`（`"today"` / `"all"`，默认 `"today"`）、`island_pass_hover: bool`（默认 false）、`island_glow: bool`（默认 false）、`island_auto_hide: bool`（默认 true），`dto!` 自动生成 `island_scope()` / `set_island_scope()` 等访问器；`default_island_width()` 返回 320、`default_island_cycle_seconds()` 返回 3；`island_clamp` 范围宽 200–480 / 高 32–56 / 停留 1–10；`Store::with_v7()`；`ipc::settings_save` 签名改 `pub async fn settings_save(app: AppHandle, state: State<'_, AppState>, settings: Settings) -> Result<(), String>`（Tauri async 命令带借用参数须返回 `Result`，已满足）。
 - Produces（TS）：`export type IslandScope = 'today' | 'all'`；`Settings` 增 `island_scope: IslandScope`、`island_pass_hover: boolean`、`island_glow: boolean`、`island_auto_hide: boolean`。
 
-- [ ] **Step 1: 先写失败的 v7 迁移单测**
+- [x] **Step 1: 先写失败的 v7 迁移单测**
 
 `src-tauri/src/data/mod.rs` `mod tests` 末尾（`v6_migration_adds_source_app_and_keeps_old_rows_null` 之后、模块收尾 `}` 之前）追加：
 
@@ -117,12 +117,12 @@ docs/superpowers/plans/2026-09-12-prototype-realign-phase4b-acceptance.md   验�
     }
 ```
 
-- [ ] **Step 2: 运行，确认失败**
+- [x] **Step 2: 运行，确认失败**
 
 Run: `cd src-tauri && cargo test v7_migration 2>&1 | grep -E "assert|panicked|test result" | head`
 Expected: `assertion `left == right` failed`（left 6 right 7）——`migrate()` 尚无 v7 分支。
 
-- [ ] **Step 3: `data/mod.rs` 加 v7 链**
+- [x] **Step 3: `data/mod.rs` 加 v7 链**
 
 第 85 行注释改为：
 
@@ -158,7 +158,7 @@ Expected: `assertion `left == right` failed`（left 6 right 7）——`migrate()
 Run: `cd src-tauri && cargo test v7_migration 2>&1 | grep "test result"`
 Expected: `test result: ok. 1 passed`。
 
-- [ ] **Step 4: `domain/models.rs` 四字段与新默认**
+- [x] **Step 4: `domain/models.rs` 四字段与新默认**
 
 第 106–109 行 `default_island_width` 替换为：
 
@@ -213,7 +213,7 @@ fn default_island_scope() -> String {
             island_auto_hide: true,
 ```
 
-- [ ] **Step 5: `data/settings.rs` 读写四键**
+- [x] **Step 5: `data/settings.rs` 读写四键**
 
 第 117 行 `.island_plugins(pick(&values, "island_plugins", defaults.island_plugins()))` 之后插入：
 
@@ -243,7 +243,7 @@ fn default_island_scope() -> String {
 
 第 7 行注释 `17 个字段里大半都是这个形状` 改为 `三十余个字段里大半都是这个形状`。
 
-- [ ] **Step 6: `app/windows.rs` 钳制范围与单测断言**
+- [x] **Step 6: `app/windows.rs` 钳制范围与单测断言**
 
 第 529–532 行四个常量替换为：
 
@@ -286,7 +286,7 @@ const ISLAND_MAX_CYCLE: i64 = 10;
     }
 ```
 
-- [ ] **Step 7: `ipc.rs` `settings_save` 改 async**
+- [x] **Step 7: `ipc.rs` `settings_save` 改 async**
 
 第 601–624 行替换为：
 
@@ -321,7 +321,7 @@ pub async fn settings_save(
 }
 ```
 
-- [ ] **Step 8: 前端类型与默认值**
+- [x] **Step 8: 前端类型与默认值**
 
 `src/typings/domain.ts` 第 17 行 `GlassLevel` 之后加：
 
@@ -352,7 +352,7 @@ export type IslandScope = 'today' | 'all'
   island_auto_hide: true,
 ```
 
-- [ ] **Step 9: 校验并提交**
+- [x] **Step 9: 校验并提交**
 
 ```bash
 cd src-tauri && cargo fmt --check && cargo check && cargo test 2>&1 | grep -E "test result|FAILED"
@@ -383,7 +383,7 @@ git commit -m "feat(settings): 灵动岛四个新设置项（播放范围 / 悬�
   - `platform::foreground_is_fullscreen() -> bool`。
 - Produces（TS）：`api.island.resize(width: number, height: number): Promise<void>`。
 
-- [ ] **Step 1: `Cargo.toml` 加 Shell 特性**
+- [x] **Step 1: `Cargo.toml` 加 Shell 特性**
 
 第 47–55 行 `windows-sys` features 数组里 `"Win32_System_Threading",` 之后加：
 
@@ -392,7 +392,7 @@ git commit -m "feat(settings): 灵动岛四个新设置项（播放范围 / 悬�
   "Win32_UI_Shell",
 ```
 
-- [ ] **Step 2: `app/state.rs` 缓存灵动岛旗标**
+- [x] **Step 2: `app/state.rs` 缓存灵动岛旗标**
 
 第 1 行头注释改为 `//! 全局共享状态：数据库连接池 + 剪贴板回声抑制标记 + 编辑窗口打开参数 + 灵动岛轮询旗标。`。
 
@@ -466,7 +466,7 @@ pub struct IslandFlags {
     }
 ```
 
-- [ ] **Step 3: `windows.rs` 新增 `island_resize`**
+- [x] **Step 3: `windows.rs` 新增 `island_resize`**
 
 `island_apply` 之后（第 682 行 `}` 之后、`/// 悬停展开 / 收起` 之前）插入：
 
@@ -500,7 +500,7 @@ pub fn island_resize(app: &AppHandle, width: i64, height: i64) -> Result<(), Str
 }
 ```
 
-- [ ] **Step 4: `ipc.rs` 刷新缓存 + `island_resize` 命令**
+- [x] **Step 4: `ipc.rs` 刷新缓存 + `island_resize` 命令**
 
 `settings_save`（Task 1 Step 7 版本）里 `state.lock_store()?.save_settings(&settings)?;` 之后插入：
 
@@ -524,7 +524,7 @@ pub fn island_resize(app: AppHandle, width: i64, height: i64) -> Result<(), Stri
 
 `src-tauri/src/main.rs` 第 142 行 `ipc::island_expand,` 之后加 `ipc::island_resize,`。
 
-- [ ] **Step 5: `platform.rs` 全屏探测**
+- [x] **Step 5: `platform.rs` 全屏探测**
 
 第 108 行 `/// 当前前台应用的名字` 之前插入：
 
@@ -559,7 +559,7 @@ pub fn foreground_is_fullscreen() -> bool {
 }
 ```
 
-- [ ] **Step 6: `hotzone_watcher.rs` 守卫与全屏探测**
+- [x] **Step 6: `hotzone_watcher.rs` 守卫与全屏探测**
 
 头注释第 15 行 `//! outer_position：…` 之后追加两行：
 
@@ -641,7 +641,7 @@ const FULLSCREEN_PROBE_TICKS: u32 = 12;
         }
 ```
 
-- [ ] **Step 7: `tauri.ts` `api.island.resize`**
+- [x] **Step 7: `tauri.ts` `api.island.resize`**
 
 第 77–80 行 `island: {…}` 替换为：
 
@@ -655,7 +655,7 @@ const FULLSCREEN_PROBE_TICKS: u32 = 12;
   },
 ```
 
-- [ ] **Step 8: 校验并提交**
+- [x] **Step 8: 校验并提交**
 
 ```bash
 cd src-tauri && cargo fmt --check && cargo check && cargo test 2>&1 | grep -E "test result|FAILED"
@@ -697,7 +697,7 @@ export function pickIslandTodos(todos: readonly Todo[], scope: IslandScope, toda
 - `IslandItem` 新增可选字段 `date?: string`（非当天时 `MM-DD`）、`overdue?: boolean`、`priority?: Priority`。
 - `useTodayTodos()` 内部改为 `pickIslandTodos(todos.value, settings.value.island_scope)`；`pickTodayTodos` **删除**（仅 `IslandPageView` 引用，一并改掉）。
 
-- [ ] **Step 1: 写四个失败用例**
+- [x] **Step 1: 写四个失败用例**
 
 `src/utils/island.test.ts`：
 
@@ -808,12 +808,12 @@ test('pickIslandTodos：空集与全部完成返回空数组', () => {
 })
 ```
 
-- [ ] **Step 2: 运行，确认失败**
+- [x] **Step 2: 运行，确认失败**
 
 Run: `pnpm test:unit 2>&1 | grep -E "island|Cannot find" | head`
 Expected: `tsc -p tsconfig.test.json` 报 `Cannot find module './island'`（`tsconfig.test.json` include 已含 `src/utils/**/*.ts`）。
 
-- [ ] **Step 3: 实现 `src/utils/island.ts`**
+- [x] **Step 3: 实现 `src/utils/island.ts`**
 
 ```ts
 import type { IslandScope, Priority, Todo } from '@/typings/domain'
@@ -876,12 +876,12 @@ export function pickIslandTodos(
 }
 ```
 
-- [ ] **Step 4: 运行测试通过**
+- [x] **Step 4: 运行测试通过**
 
 Run: `pnpm test:unit 2>&1 | grep -E "pickIslandTodos|^# (pass|fail)"`
 Expected: 四个 `ok`，`# fail 0`。
 
-- [ ] **Step 5: `island-plugins/index.ts` 增字段、空态文案**
+- [x] **Step 5: `island-plugins/index.ts` 增字段、空态文案**
 
 第 1 行 `import type { Component, Ref } from 'vue'` 之后加一行 `import type { Priority } from '@/typings/domain'`。第 13–26 行 `IslandItem` 替换为：
 
@@ -910,7 +910,7 @@ export interface IslandItem {
 
 第 47 行 `emptyText: '今天没有待办 · 点此新建',` 改为 `emptyText: '今日待办已全部完成 🎉',`（scope = all 的文案由 `IslandApp` 按设置覆盖）。
 
-- [ ] **Step 6: `today-todos.ts` 整体重写**
+- [x] **Step 6: `today-todos.ts` 整体重写**
 
 ```ts
 import { computed, type Ref } from 'vue'
@@ -956,7 +956,7 @@ export function useTodayTodos(): Ref<IslandItem[]> {
 }
 ```
 
-- [ ] **Step 7: `IslandPageView.vue` 预览改用 `pickIslandTodos`**
+- [x] **Step 7: `IslandPageView.vue` 预览改用 `pickIslandTodos`**
 
 第 6 行 `import { pickTodayTodos } from '@/island-plugins/today-todos'` 改为 `import { pickIslandTodos } from '@/utils/island'`；第 9 行 `import { formatClock } from '@/utils/datetime'` 改为 `import { todayKey } from '@/utils/datetime'`；第 10 行 `import { isOverdue } from '@/utils/todo'` 删除。
 
@@ -988,7 +988,7 @@ const firstDate = computed(() => (first.value && first.value.date !== todayKey()
         </div>
 ```
 
-- [ ] **Step 8: 校验并提交**
+- [x] **Step 8: 校验并提交**
 
 ```bash
 pnpm test:unit 2>&1 | grep -E "^# (pass|fail)" && pnpm typecheck && pnpm format:check && (grep -rn "pickTodayTodos" src || echo "无残留引用")
@@ -1011,7 +1011,7 @@ git commit -m "feat(island): pickIslandTodos 纯函数（子任务 / 播放范�
 - Consumes：Task 2 `api.island.resize`；Task 3 `IslandItem.date / overdue / priority`；`Settings.island_scope / island_pass_hover / island_glow / island_click_through / island_cycle_seconds / island_height / island_opacity`；事件 `AppEvents.islandHover / islandClick / reminderFired / panelShown / panelHidden`；`useTodos().todos`（按 `reminderFired` 的 todo id 取内容）。
 - Produces：灵动岛窗口根元素 `#dynamicIsland.glass`，类 `di-fade` / `di-pass-click` / `di-glow` / `expanded` / `clicked`，CSS 变量 `--island-alpha` / `--cap-h`；`extensions.css` §10 规则 `#dynamicIsland.glass` 底色按 `--island-alpha` 混合、`--cap-h` 过渡、`.expanded`、`.island-expanded` 系列、`.island-fade-*`、`.clicked`、`.pinned-editor`（Task 7 用）；`window-fit.css` 灵动岛窗铺满 + `clip-path: inset(0 round 999px)`。
 
-- [ ] **Step 1: 重写 `src/windows/Island/IslandApp.vue`**
+- [x] **Step 1: 重写 `src/windows/Island/IslandApp.vue`**
 
 ```vue
 <script setup lang="ts">
@@ -1391,7 +1391,7 @@ onBeforeUnmount(() => {
 </template>
 ```
 
-- [ ] **Step 2: `island.ts` 删 `island.css` 引入；删除文件**
+- [x] **Step 2: `island.ts` 删 `island.css` 引入；删除文件**
 
 `src/windows/island.ts` 第 8–11 行替换为：
 
@@ -1405,7 +1405,7 @@ import '@/styles'
 
 `git rm src/styles/island.css`。
 
-- [ ] **Step 3: `extensions.css` §8 删 `.island,`；新增 §10**
+- [x] **Step 3: `extensions.css` §8 删 `.island,`；新增 §10**
 
 （a）第 698–707 行 §8：注释第一行改为 `/* ═══ 8. 阶段一验收补丁（实机发现，Task 6 感应区指示器令牌化后整节删除） ═══`，第 702 行 `.island,` 整行删除（选择器只剩 `.hotzone-indicator {`）；注释第二行 `island.css 的胶囊与本文件第 6 节的感应区指示器` 改为 `本文件第 6 节的感应区指示器`。
 
@@ -1547,7 +1547,7 @@ import '@/styles'
 }
 ```
 
-- [ ] **Step 4: `window-fit.css` 灵动岛窗铺满 + 圆角裁剪**
+- [x] **Step 4: `window-fit.css` 灵动岛窗铺满 + 圆角裁剪**
 
 `#pinnedWindow, #reminderCard { border-radius: 8px; clip-path: inset(0 round 8px); }`（第 122–126 行）之后插入：
 
@@ -1569,7 +1569,7 @@ import '@/styles'
 }
 ```
 
-- [ ] **Step 5: 校验并提交**
+- [x] **Step 5: 校验并提交**
 
 ```bash
 pnpm sync:styles --check && pnpm typecheck && pnpm format:check && (grep -rn "island\.css\|island-line\|island-row\|island-title\|island-meta\|island-count\|island-roll" src || echo "无残留引用")
@@ -1589,7 +1589,7 @@ git commit -m "feat(island): 灵动岛 DOM 与逐条停留轮播对齐原型，�
 - Consumes：Task 1 `Settings.island_scope / island_pass_hover / island_glow / island_auto_hide`、`IslandScope`。
 - Produces：`ISLAND_LIMITS = { width: 200–480, height: 32–56, opacity: 0.3–1, cycle: 1–10 }`；状态行含「范围：仅当天待办 / 全部未完成待办」与「悬停穿透」；设置顺序按原型：启用 → 停留 → 播放范围 → 透明度 → 点击穿透 → 悬停穿透 → 流光 → 全屏隐藏 → 宽 → 高 → 插件。
 
-- [ ] **Step 1: 脚本段**
+- [x] **Step 1: 脚本段**
 
 第 8 行 `import type { Settings } from '@/typings/domain'` 改为 `import type { IslandScope, Settings } from '@/typings/domain'`。
 
@@ -1629,7 +1629,7 @@ const ISLAND_LIMITS = {
 } as const
 ```
 
-- [ ] **Step 2: 模板补四行**
+- [x] **Step 2: 模板补四行**
 
 「滚动停留时间」`</label>`（第 143 行）之后插入：
 
@@ -1675,7 +1675,7 @@ const ISLAND_LIMITS = {
       </label>
 ```
 
-- [ ] **Step 3: 校验并提交**
+- [x] **Step 3: 校验并提交**
 
 ```bash
 pnpm typecheck && pnpm format:check
@@ -1695,15 +1695,15 @@ git commit -m "feat(island): 灵动岛页补四个设置项与状态行"
 - Consumes：`enter(el, { axis: 'x', distance: 60, duration: 'slow' })` / `exit(el, { axis: 'x', distance: 60, duration: 'base' })`（`src/motion/presets.ts` 既有签名，`enter` slow 档 = outBack(1.6)，原型 back.out(1.5) 差异接受）；`--glass-bg` / `--glass-border` 令牌（`tokens.css:73-74`，30 套主题均有覆盖）。
 - Produces：`ReminderApp` 内部 `closeCard(): Promise<void>`（退场后 `reminderClose`），`dismiss` / `snooze` 改调它。
 
-- [ ] **Step 1: §6 指示器令牌化**
+- [x] **Step 1: §6 指示器令牌化**
 
 第 141–163 行 `.hotzone-indicator {…}` 里两条声明替换：`border: 1px solid rgba(var(--wsa), 0.16);` → `border: 1px solid var(--glass-border);`；`background: rgba(24, 26, 40, 0.74);` → `background: var(--glass-bg);`。其余声明（`--hz-rest` / `--hz-in` / 尺寸 / 阴影 / `backdrop-filter` / 过渡）不动；`.hotzone-indicator-label` 已是 `color: var(--text-dim)`，不改。
 
-- [ ] **Step 2: 删除 §8 整节**
+- [x] **Step 2: 删除 §8 整节**
 
 删除第 698–706 行（`/* ═══ 8. 阶段一验收补丁 … ═══` 注释块 + `.hotzone-indicator { --text / --text-dim / --wsa }` 规则 + 其后空行），§9 紧跟 §7 之后。
 
-- [ ] **Step 3: `ReminderApp.vue` 入退场**
+- [x] **Step 3: `ReminderApp.vue` 入退场**
 
 第 3 行 import 改为 `import { computed, onMounted, ref, watch } from 'vue'` 之后加一行 `import { enter, exit } from '@/motion'`。
 
@@ -1737,7 +1737,7 @@ onMounted(() => {
 
 模板第 102 行 `<div id="reminderCard" class="glass">` 改为 `<div id="reminderCard" ref="card" class="glass">`。
 
-- [ ] **Step 4: 校验并提交**
+- [x] **Step 4: 校验并提交**
 
 ```bash
 pnpm sync:styles --check && pnpm typecheck && pnpm format:check && (grep -n "rgba(24, 26, 40" src/styles/extensions.css || echo "固定深色底已清除")
@@ -1757,7 +1757,7 @@ git commit -m "feat(ui): 感应区指示器改用令牌、提醒卡片入退场�
 - Consumes：`api.notes.get(id) / api.notes.save(NoteInput)`、`api.todos.list() / api.todos.save(TodoInput)`、`api.clipboard.update(id, content)`、`api.windows.pinSetEditing(label, expanded)`；`useToast().toast`；Task 4 §10 `.pinned-editor`。
 - Produces：`PinnedApp` 状态 `editing: Ref<boolean>`、`draft: Ref<string>`；`beginEdit()` / `save()` / `cancelEdit()`；模板加 `<ToastHost />`。`windows.rs` `PINNED_SIZE` 宽 230 → 220（spec #25，用户提法 `PIN_WIDTH` 即此常量）。
 
-- [ ] **Step 1: 重写 `PinnedApp.vue`**
+- [x] **Step 1: 重写 `PinnedApp.vue`**
 
 ```vue
 <script setup lang="ts">
@@ -1989,7 +1989,7 @@ onMounted(load)
 </template>
 ```
 
-- [ ] **Step 2: `windows.rs` 宽度 230 → 220**
+- [x] **Step 2: `windows.rs` 宽度 230 → 220**
 
 第 20 行 `const PINNED_SIZE: (f64, f64) = (230.0, 150.0);` 替换为：
 
@@ -1998,7 +1998,7 @@ onMounted(load)
 const PINNED_SIZE: (f64, f64) = (220.0, 150.0);
 ```
 
-- [ ] **Step 3: 校验并提交**
+- [x] **Step 3: 校验并提交**
 
 ```bash
 pnpm typecheck && pnpm format:check
@@ -2022,7 +2022,7 @@ git commit -m "feat(pinned): 置顶浮窗双击编辑回写"
 **Interfaces:**
 - Produces：`AnchorResult.placement: 'right' | 'left' | 'center' | 'below' | 'above'`；`fallback: 'below'` 下方放不下时返回 `'above'`（`caretY` 不再使用）；`CardConfirm` 对 `above` 加类 `.above`；`extensions.css` §3 `#cardConfirm.above .cc-caret` 箭头朝下贴底缘。`TodoEditorPanel` 只检查 `placement === 'left'`，联合类型扩大不影响它。
 
-- [ ] **Step 1: 先改测试**
+- [x] **Step 1: 先改测试**
 
 `src/utils/anchor.test.ts` 第 43 行用例名改为 `'anchorBeside：两侧都不够，fallback=below → 卡片下方 +8、左缘对齐；下方放不下则改到上方（placement=above）'`；第 60–65 行 `above` 断言改为：
 
@@ -2040,7 +2040,7 @@ git commit -m "feat(pinned): 置顶浮窗双击编辑回写"
 Run: `pnpm test:unit 2>&1 | grep -E "not ok|above|^# fail"`
 Expected: 该用例 `not ok`（实际 `'below'`）。
 
-- [ ] **Step 2: `anchor.ts` 加 `above`**
+- [x] **Step 2: `anchor.ts` 加 `above`**
 
 头注释第 5–6 行 `'below' 是 spec D27 的卡片下方（箭头朝上、左缘对齐，\n * 下方也放不下时改到卡片上方）` 改为 `'below' 是 spec D27 的卡片下方（箭头朝上、左缘对齐），\n * 下方也放不下时改到卡片上方并返回 'above'（4B D29：箭头朝下）`。
 
@@ -2076,7 +2076,7 @@ export interface AnchorResult {
 Run: `pnpm test:unit 2>&1 | grep -E "^# (pass|fail)"`
 Expected: `# fail 0`。
 
-- [ ] **Step 3: `CardConfirm.vue` `.above` 类与注释**
+- [x] **Step 3: `CardConfirm.vue` `.above` 类与注释**
 
 头注释第 11–12 行 `两侧都不够按 \`fallback\`：主窗口 'center'、\n *   面板 'below' = 卡片下方箭头朝上，spec D27）；` 改为 `两侧都不够按 \`fallback\`（默认 'below'：卡片下方箭头朝上，\n *   下方放不下翻到上方 \`.above\` 箭头朝下——主窗口与面板一致，spec D27 / 4B D29）；`。props 第 29 行注释改为 `/** 左右都放不下时的兜底：'center' 原型 / 'below' D27（主窗口与面板都用它，D29）。 */`。
 
@@ -2088,7 +2088,7 @@ Expected: `# fail 0`。
 
 `src/components/card/TodoTree.vue` 第 36 行注释改为 `/** 删除确认浮层左右都放不下时的兜底：默认 'below'（D27 / D29，主窗口与面板一致）。 */`。
 
-- [ ] **Step 4: `extensions.css` §3 追加朝下箭头**
+- [x] **Step 4: `extensions.css` §3 追加朝下箭头**
 
 `#cardConfirm.below .cc-caret {…}`（第 115–122 行）之后追加：
 
@@ -2106,14 +2106,14 @@ Expected: `# fail 0`。
 }
 ```
 
-- [ ] **Step 5: 四处主窗口视图删兜底传值**
+- [x] **Step 5: 四处主窗口视图删兜底传值**
 
 - `src/windows/Main/NotesView.vue` 第 197 行 `      fallback="center"` 删除；
 - `src/windows/Main/ClipsView.vue` 第 116 行 `      fallback="center"` 删除；
 - `src/windows/Main/DayView.vue` 第 349 行 `      fallback="center"` 删除；
 - `src/windows/Main/TodosView.vue` 第 213 行 `      confirm-fallback="center"` 删除（`TodoTree` 默认 `confirmFallback: 'below'`，`CardConfirm` 默认 `fallback: 'below'`，删后即卡片下方）。
 
-- [ ] **Step 6: 校验并提交**
+- [x] **Step 6: 校验并提交**
 
 ```bash
 pnpm test:unit 2>&1 | grep -E "^# (pass|fail)" && pnpm sync:styles --check && pnpm typecheck && pnpm format:check && (grep -rn 'fallback="center"' src || echo "无 center 兜底残留")
@@ -2130,7 +2130,7 @@ git commit -m "fix(ui): 主窗口删除确认改卡片下方兜底，anchorBesid
 - Create: `docs/superpowers/plans/2026-09-12-prototype-realign-phase4b-acceptance.md`
 - Modify: spec §9（`docs/superpowers/specs/2026-09-12-prototype-realign-phase4b-island-design.md:154-158`）；必要时 `src/styles/extensions.css`（§10 末尾追加「阶段四 B 验收补丁」小节并注明原因）
 
-- [ ] **Step 1: 静态检查全绿**
+- [x] **Step 1: 静态检查全绿**
 
 Run: `pnpm sync:styles --check && pnpm typecheck && pnpm test && pnpm format:check && (cd src-tauri && cargo fmt --check && cargo check && cargo test) && pnpm exec vite build`
 Expected: 全部通过；记录 `test:unit` 通过数（含新增 `pickIslandTodos` 4 例、`anchorBeside` above 1 例）、`cargo test` 通过数（含 `v7_migration_bumps_version_and_is_idempotent`、改断言的 `island_clamp_bounds`）与 `island-*.js` / `pinned-*.js` / `reminder-*.js` 体积。
@@ -2139,7 +2139,7 @@ Expected: `无残留`。
 Run: `grep -n "═══ 8\." src/styles/extensions.css || echo "§8 已删除"`
 Expected: `§8 已删除`。
 
-- [ ] **Step 2: 实机（`pnpm tauri:dev` 后台；打字机 + 深色各一轮；按记忆「用户在本机时禁用键鼠自动化」——先问再接管键鼠，被拒则只做只读检查与用户口述）按 spec §6 十项逐条验证并截图**
+- [x] **Step 2: 实机（`pnpm tauri:dev` 后台；打字机 + 深色各一轮；按记忆「用户在本机时禁用键鼠自动化」——先问再接管键鼠，被拒则只做只读检查与用户口述）按 spec §6 十项逐条验证并截图**
 
 1. 灵动岛 DOM 与轮播：DevTools 确认 `#dynamicIsland.glass > .di-ticker > .di-track > .di-item`，末尾有副本行；≥2 条待办时每条停留 3 秒、0.45s 上滚、滚到副本后复位无跳变；1 条静止；空态文案随「播放范围」切换（仅当天 → 「今日待办已全部完成 🎉」，全部 → 「没有未完成待办 🎉」）。
 2. 数据口径：造一个子任务 → 岛内显示「父 / 子」；切 scope=all 后非当天条目带 `.di-date` `MM-DD` 徽章；逾期条目排最前且 `.di-time.ovd` 红色、文案「逾期 HH:mm」；主窗口灵动岛页预览与岛内第一条一致。
@@ -2152,11 +2152,11 @@ Expected: `§8 已删除`。
 9. 置顶浮窗：置顶一条笔记 / 待办 / 粘贴板；双击 → 窗口放大、文本域聚焦光标在末尾；改内容 Ctrl+Enter → toast「已同步回数据库 ✔」、窗口还原、主窗口对应列表刷新；再双击改内容按 Esc → 内容不变；失焦保存同样回写；已完成待办改内容 → toast 后端错误「已完成待办仅允许修改备注」；笔记回写后标签 / 导图数据未丢；浮窗宽 220。
 10. 主窗口删除确认：笔记 / 粘贴板 / 待办 / 日期详情四页点 ✕ → 浮层在卡片下方、箭头朝上、左缘对齐，不盖正文；把列表滚到末张卡贴底再点 ✕ → 浮层翻到卡片上方、箭头朝下（`.above`）；面板末张卡同样箭头朝下。
 
-- [ ] **Step 3: 写验收记录并回填 spec §9**
+- [x] **Step 3: 写验收记录并回填 spec §9**
 
 验收记录按 `2026-09-12-prototype-realign-phase4a-acceptance.md` 的结构：环境 / 方法 → 自动化校验表 → 逐项比对表（打字机、深色各一列，十项）→ 发现的问题与补丁清单 → 未验证项。spec §9 三条「待填」改为：轮播回环与手柄拖拽观感结论（复位是否可见跳变、拖拽中窗口不随动只在松手后变化的观感是否可接受）、全屏探测命中情况（游戏 / PPT 放映 / 视频全屏三种各自是否触发 `QUNS_RUNNING_D3D_FULL_SCREEN` / `QUNS_BUSY`）、补丁清单（含 `color-mix` 透明度在 WebView2 下是否生效、`.glass` 圆角裁剪是否干净）。
 
-- [ ] **Step 4: 提交**
+- [x] **Step 4: 提交**
 
 ```bash
 git add docs/superpowers/plans/2026-09-12-prototype-realign-phase4b-acceptance.md docs/superpowers/specs/2026-09-12-prototype-realign-phase4b-island-design.md src/styles/extensions.css
