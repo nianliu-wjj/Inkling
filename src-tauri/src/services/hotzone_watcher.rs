@@ -131,8 +131,11 @@ fn run(app: AppHandle) {
                 }
             }
         }
+        // 前端正在拖手柄 / 点提醒卡（island_set_interacting）时不做点击探测：
+        // 这些 mousedown 落在胶囊矩形内，否则会被误判为「点击胶囊」呼出面板。
         let left_down = left_button_down();
-        if now_inside && left_down && !left_was_down {
+        let interacting = app.state::<AppState>().island_interacting();
+        if now_inside && left_down && !left_was_down && !interacting {
             eprintln!("[island] 左键点击，呼出面板并切到待办页");
             if let Err(error) = crate::app::windows::panel_show_page(&app, "todo") {
                 eprintln!("[island] 呼出面板失败: {error}");

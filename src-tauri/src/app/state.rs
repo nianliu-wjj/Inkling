@@ -1,6 +1,7 @@
 //! 全局共享状态：数据库连接池 + 剪贴板回声抑制标记 + 编辑窗口打开参数 + 灵动岛轮询旗标。
 
 use crate::data::Store;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Mutex;
 
 /// hotzone_watcher 每 80ms 读一次的灵动岛旗标（spec 4B §4.2）。
@@ -45,6 +46,11 @@ pub struct AppState {
     pub pending_panel_intent: Mutex<Option<String>>,
     /// 灵动岛轮询旗标（悬停穿透 / 全屏隐藏），见 `IslandFlags`。
     pub island_flags: Mutex<IslandFlags>,
+    /// 灵动岛前端正在与胶囊内元素交互（手柄拖拽 / 提醒卡点击）。
+    ///
+    /// 为真时 hotzone_watcher 跳过左键边沿探测，否则按住手柄或点提醒卡也会被当成「点击胶囊」呼出面板。
+    /// 由 `island_set_interacting` 命令翻转；用原子量而非 Mutex：每 80ms 读一次，无需加锁。
+    pub island_interacting: AtomicBool,
 }
 
 impl AppState {
@@ -70,6 +76,7 @@ impl AppState {
             island_rect: Mutex::new(None),
             pending_panel_intent: Mutex::new(None),
             island_flags: Mutex::new(flags),
+            island_interacting: AtomicBool::new(false),
         }
     }
 
@@ -89,6 +96,16 @@ impl AppState {
                 pass_hover: false,
                 auto_hide: true,
             })
+    }
+
+    /// 标记 / 取消「前端正在与灵动岛内元素交互」（见 `island_interacting`）。
+    pub fn set_island_interacting(&self, on: bool) {
+        self.island_interacting.store(on, Ordering::Relaxed);
+    }
+
+    /// 前端是否正在与灵动岛内元素交互；为真时 watcher 不做左键边沿探测。
+    pub fn island_interacting(&self) -> bool {
+        self.island_interacting.load(Ordering::Relaxed)
     }
 
     pub fn set_island_rect(&self, rect: Option<(f64, f64, f64, f64)>) {

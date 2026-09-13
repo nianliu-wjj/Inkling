@@ -723,7 +723,9 @@ body:not(:focus-within) .mac-dot {
 
 /* ═══ 10. 灵动岛与置顶扩展（阶段四 B，2026-09-12） ═══
  * 原型 #dynamicIsland / .di-* 全部由生成层提供；这里只放项目扩展：
- *   - 透明度只透底色（D32）：.glass 的 --glass-bg 按 --island-alpha 与透明混合，文字不透明；
+ *   - 透明度只透底色（D32）：--bg-deep（实心底色）按 --island-alpha 与透明混合，100% 为实心，文字不透明；
+ *   - 手柄在展开态也渲染（任何悬停都会展开，否则手柄不可达）：展开态胶囊 align-items 改为 flex-start，
+ *     手柄是 absolute 定位不受影响，仍钉在胶囊右下角，无需额外规则；
  *   - 胶囊高度走 --cap-h 过渡（窗口 set_size 的瞬时跳变被透明区遮住，见 IslandApp.setExpanded）；
  *   - 悬停展开态（原型无，阶段四 D24 保留）：放宽圆角、详情淡入；
  *   - 点击反馈 .clicked；
@@ -737,7 +739,8 @@ body:not(:focus-within) .mac-dot {
 #dynamicIsland.glass {
   --island-alpha: 0.85;
   --cap-h: 36px;
-  background: color-mix(in srgb, var(--glass-bg) calc(var(--island-alpha) * 100%), transparent);
+  /* 透明度只透底色，100% 为实心（D32）：对 --bg-deep 这一不透明底色混合，而不是对本身半透明的 --glass-bg。 */
+  background: color-mix(in srgb, var(--bg-deep) calc(var(--island-alpha) * 100%), transparent);
   color: var(--text);
   display: flex;
   align-items: center;

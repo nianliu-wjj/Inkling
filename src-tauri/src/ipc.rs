@@ -644,6 +644,16 @@ pub fn island_resize(app: AppHandle, width: i64, height: i64) -> Result<(), Stri
     windows::island_resize(&app, width, height)
 }
 
+/// 灵动岛前端开始 / 结束与胶囊内元素交互（手柄拖拽、提醒卡点击）。
+///
+/// 为真期间 hotzone_watcher 跳过左键边沿探测，避免按住手柄或点提醒卡被当成点击胶囊而呼出面板。
+/// 只写一个原子旗标，不建窗、不碰窗口 API，保持同步命令即可。
+#[tauri::command]
+pub fn island_set_interacting(state: State<'_, AppState>, on: bool) {
+    eprintln!("[island] 交互旗标 {}", if on { "set" } else { "unset" });
+    state.set_island_interacting(on);
+}
+
 /// 面板显示后取走本次呼出意图（JSON：`{"page":…,"noteId"?:…}`）；没有则返回 None。
 #[tauri::command]
 pub fn panel_take_intent(state: State<'_, AppState>) -> Option<String> {

@@ -79,6 +79,8 @@ export const api = {
     expand: (expanded: boolean) => invoke<void>('island_expand', { expanded }),
     /** 手柄拖拽结束：钳制后写库并重新落位（逻辑像素）。 */
     resize: (width: number, height: number) => invoke<void>('island_resize', { width, height }),
+    /** 标记正在与胶囊内元素交互（手柄拖拽 / 提醒卡点击）：为真期间后端暂停左键点击探测，不呼出面板。 */
+    setInteracting: (on: boolean) => invoke<void>('island_set_interacting', { on }),
   },
 
   /** 启动器搜索。 */

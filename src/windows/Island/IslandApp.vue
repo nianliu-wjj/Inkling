@@ -18,7 +18,9 @@ import { api } from '@/service/tauri'
  *   悬停穿透（D33）开关为真时忽略悬停事件（后端也不发，双保险）；
  * - 提醒岛内呈现：reminder-fired（payload = todo id）→ `.di-alert`「⏰ 提醒：内容」6s 或点击恢复；
  * - 面板展开淡出：panel-shown → `.di-fade`，panel-hidden / 下一次悬停事件 → 恢复；
- * - 右下角手柄：宽按 Δx×2 对称、高按 Δy，钳制 200–480 / 32–56，松手 `api.island.resize` 落库（穿透时不渲染手柄）。
+ * - 右下角手柄：宽按 Δx×2 对称、高按 Δy，钳制 200–480 / 32–56，松手 `api.island.resize` 落库（穿透时不渲染手柄；
+ *   展开态也渲染，否则任何悬停都会展开导致手柄不可达）；
+ * - 手柄拖拽 / 提醒卡点击期间调 `api.island.setInteracting(true)`，后端暂停左键点击探测，避免被当成点击胶囊呼出面板。
  */
 applyCachedTheme()
 applyCachedGlass()
@@ -132,6 +134,7 @@ const panelOpen = ref(false)
 const alert = ref<string | null>(null)
 const canCycle = computed(() => items.value.length > 1 && !expanded.value && alert.value === null && !panelOpen.value)
 
+/** 只停步进计时器；有意不动 resetTimer，让进行中的副本→第一条无过渡复位照常完成。 */
 function stopTicker(): void {
   if (stepTimer) clearTimeout(stepTimer)
   stepTimer = null
@@ -201,6 +204,31 @@ function hideAlert(): void {
   alert.value = null
 }
 
+/** 通知后端是否正在与胶囊内元素交互（失败只记日志，不影响交互本身）。 */
+async function setInteracting(on: boolean): Promise<void> {
+  try {
+    await api.island.setInteracting(on)
+  } catch (error) {
+    logger.error('island', `设置交互旗标 ${on} 失败`, error)
+  }
+}
+
+/** 提醒卡按下：先让后端暂停点击探测，否则这次 mousedown 会被当成点击胶囊呼出面板。 */
+function onAlertDown(): void {
+  void setInteracting(true)
+}
+
+/** 提醒卡松手：解除交互旗标（后端只认按下边沿，松手后即可恢复探测）。 */
+function onAlertUp(): void {
+  void setInteracting(false)
+}
+
+/** 提醒卡点击：关闭提醒并恢复轮播；再解除一次旗标兜底（mouseup 若落在卡外不会触发 onAlertUp）。 */
+function onAlertClick(): void {
+  hideAlert()
+  void setInteracting(false)
+}
+
 // ── 悬停展开（后端推送；D33 悬停穿透守卫）──
 
 const clicked = ref(false)
@@ -248,7 +276,10 @@ function startResize(event: MouseEvent): void {
     w: clamp(settings.value.island_width || 320, LIMITS.wMin, LIMITS.wMax),
     h: itemH.value,
   }
-  stopTicker()
+  // 回到第一条并清掉过渡：拖拽中行高在变，带着 translateY(-i*h) 的轨道会错位。
+  resetTicker()
+  // 先挂交互旗标再监听：后端下一轮（80ms）探测到左键按下时已知这不是点击胶囊。
+  void setInteracting(true)
   document.addEventListener('mousemove', onResizeMove)
   document.addEventListener('mouseup', onResizeEnd)
   logger.debug('island', `开始拖拽手柄 w=${drag.w} h=${drag.h}`)
@@ -277,6 +308,8 @@ async function onResizeEnd(): Promise<void> {
     dragWidth.value = null
     dragHeight.value = null
     resetTicker()
+    // 落库完成（或失败）后再解除旗标，避免松手瞬间被后端当成点击。
+    await setInteracting(false)
   }
 }
 
@@ -285,8 +318,10 @@ async function onResizeEnd(): Promise<void> {
 onMounted(() => {
   scheduleStep()
   void onAppEvent<boolean>(AppEvents.islandHover, (inside) => {
-    // 后端在面板可见时不发悬停：收到悬停即说明面板已收起，补一次淡出恢复（隐藏期间事件可能丢）。
-    panelOpen.value = false
+    // 后端在面板可见时一律视为「不在区内」，面板打开后的下一轮会先发一次 inside=false——
+    // 若在这里无条件恢复，会把 panelShown 刚设的 di-fade 立刻撤销。
+    // 只有 inside=true 才说明面板确实已收起（可见时不可能发 true），此时补一次淡出恢复（隐藏期间 panelHidden 可能丢）。
+    if (inside) panelOpen.value = false
     if (settings.value.island_pass_hover) {
       logger.debug('island', '悬停穿透开启，忽略悬停事件')
       return
@@ -352,13 +387,21 @@ onBeforeUnmount(() => {
     </div>
 
     <!-- 提醒岛内呈现：覆盖轨道，点击或 6s 后恢复 -->
-    <div v-if="alert !== null" class="di-alert" title="点击关闭提醒并恢复轮播" @click="hideAlert">
+    <div
+      v-if="alert !== null"
+      class="di-alert"
+      title="点击关闭提醒并恢复轮播"
+      @mousedown="onAlertDown"
+      @mouseup="onAlertUp"
+      @click="onAlertClick"
+    >
       <span class="di-alert-ico">⏰</span><span class="di-alert-text">提醒：{{ alert }}</span>
     </div>
 
-    <!-- 右下角手柄（穿透模式不渲染：窗口整体 set_ignore_cursor_events，手柄本就收不到鼠标） -->
+    <!-- 右下角手柄（穿透模式不渲染：窗口整体 set_ignore_cursor_events，手柄本就收不到鼠标；
+         展开态也渲染：任何悬停都会展开，否则手柄不可达） -->
     <div
-      v-if="!settings.island_click_through && !expanded"
+      v-if="!settings.island_click_through"
       class="di-resizer"
       title="拖动调整胶囊大小（宽 200-480 · 高 32-56）"
       @mousedown.prevent="startResize"
