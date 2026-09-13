@@ -23,7 +23,7 @@
 | D43 | 快捷键侧栏 | **保留**（我方扩展，原型无对应物；入口仍在底栏「更多」下拉） | 看快捷键方便，且不占 dock |
 | D44 | 文件名岛的范围 | **只做重命名**（显示 + 点 ✏️/双击进入编辑），**不做「保存格式」下拉** | 我们的导图存进笔记（`mindmap_data`），没有「保存格式」概念；原型那 4 个后缀实测只是字符串、落库无差异 |
 | D45 | 样式承载 | 组件**改用原型的类名与结构**，让**生成层** `components.css:652-1484`（原型导图 CSS，含 104 处 `--mm-*`）直接接管；自有层 `mindmap.css` 收敛为「真实窗口适配 + 项目扩展」 | 与阶段二/三/四同一条路；生成层已完整具备原型样式，自造一套等于重复维护 |
-| D46 | 主题接入 | 给其余 30 套主题补 `--mm-*` 覆盖（照 `themes.css:1143` 的 typewriter 块模式，该块在 `:1188-1200`）；同时修 `naiveTheme.ts` 的两处硬编码 | 原型自身只有 typewriter 接了 `--mm-*`（源码注释自陈是待办），这正是「接入全部主题」的所指 |
+| D46 | 主题接入 | 给其余 30 套主题补 `--mm-*` 覆盖（照 `themes.css:1143` 的 typewriter 块模式，该块在 `:1188-1200`）；同时修 `naiveTheme.ts` 的两处硬编码 | **原型源码自己写明了这是它的待办**：`docs/styles.css:95-100` 注释自陈该窗口原先散布 139 处硬编码色值、是「全站唯一不跟随主题换肤的窗口」，本轮只完成令牌化（默认值刻意等于原硬编码值以求零回归），并标注「⚠️ 下一步：在各 `[data-theme]` 主题块中覆盖以下 13 个令牌」（记在需求文档 6.4 待办）。阶段五即兑现这一步 |
 | D47 | 桩的对策 | **形态照原型、能力用我们的**（对照表见 §3「原型桩」列） | 照抄会掉能力（详见 §1 本阶段特殊性） |
 | D48 | 未保存修改 | **保留我们的**：`dirty` 时关窗 `confirm('思维导图尚未保存，确认关闭？')`（`MindMapApp.vue:207`） | 原型直接丢弃修改（✕ 与「取消」都没有提示），照抄是降级 |
 | D49 | 内部命名 | 状态 key 沿用我们的 `structure` / `setting`（UI 文案与原型一致：「结构」「设置」） | 原型用 `data-side="struct"/"settings"` 只是它自己的 DOM 属性；我们的 key 更可读，且已被 10 个侧栏与 `store.ts` 引用，改名收益为零 |
@@ -34,9 +34,9 @@
 |---|---|---|---|---|
 | **顶栏** | | | | |
 | 1 | 结构 | `.mm-topbar` > 左岛 `.mm-island-left`（16 按钮）+ 中间 `.mm-filename-island` + 右岛 `.mm-island-right`（5 按钮） | `Toolbar.vue`（顶部一整条，14 个节点项 + 导入/导出/回退/前进/格式刷）；保存/关闭在自有标题栏 | 按原型重排为三岛结构（`index.html:311-359`）；用生成层 `.mm-topbar`/`.mm-island`/`.mm-tool-btn` 等规则 |
-| 2 | 左岛按钮 | 16 个：回退/前进/格式刷/同级/子级/删除/图片/图标/超链接/备注/标签/概要/关联线/公式/外框/**AI** | `Toolbar.vue` 节点组 14 项（多「链接节点」「附件」，无 AI、无格式刷位置不同） | 采用原型的 15 项（**不放 AI**，D41/§1）；**保留**我们的「链接节点」「附件」两项（真能力，原型没有） |
+| 2 | 左岛按钮 | 16 个：回退/前进/格式刷/同级/子级/删除/图片/图标/超链接/备注/标签/概要/关联线/公式/外框/**AI**（删除项带 `.danger`，悬停变红） | `Toolbar.vue` 节点组 14 项（多「链接节点」「附件」，无 AI；删除项**未套 `danger` 类**，故生成层 `.mm-tool-btn.danger:hover`（`components.css:788`）一直空转） | 采用原型的 15 项（**不放 AI**，D41/§1）；**保留**我们的「链接节点」「附件」两项（真能力，原型没有）；**给删除项补 `danger` 类**，让那条既有规则生效 |
 | 3 | 文件名岛 | `#mmFilenameText` + `#mmFilenameInput` + `#mmExtBadge(.smm)` + `#mmExtSelect` + `#mmFilenameEditBtn` ✏️/💾 | **无**（标题栏一行静态 `🧠 {{ title }}`） | 新做，但**只做重命名**（D44）：不渲染 `#mmExtBadge`/`#mmExtSelect` |
-| 4 | 右岛 | 保存 / 新建 / 导入 / 导出 / 取消 | 保存、关闭在标题栏；导入、导出在 `Toolbar` | 归位到右岛；「取消」＝我们的关闭（带 `dirty` 提示，D48）；**导出保留**（D41） |
+| 4 | 右岛 | 保存 / 新建 / 导入 / 导出 / 取消 | 保存、关闭在标题栏；导入、导出在 `Toolbar`；**「新建」没有**；没有「取消」 | 归位到右岛；**新增「新建」**（confirm 后重置为空白导图，原型的 `mmNew` 语义）；「取消」不单独做——我们 1500 ms 自动保存（`MindMapApp.vue:170-173`），除自动保存窗口内没有可"放弃"的修改，「关闭」+ `dirty` 确认已覆盖（D48）；**导出保留**（D41） |
 | 5 | 标题栏 | `.window-titlebar`（🧠 标题 + ✕） | `header.mindmap-bar`（标题 + `TagList` + 关闭 + 保存） | 保留自有标题栏的 `TagList`（原型没有标签预览，属项目扩展），按钮按 #4 迁走 |
 | **画布与右侧** | | | | |
 | 6 | dock | `.mm-sidebar-dock` 6 项（nodeStyle/baseStyle/theme/struct/outline/settings） | `SidebarTrigger.vue` **6 项且顺序一致** | **已一致**；改用生成层 `.mm-dock-item` 样式（D45） |
@@ -49,7 +49,7 @@
 | 12 | 结构 | `.mm-bottombar`：左 `#mmStatLeft`（字数/节点数）+ 右 12 控件（语言下拉（死控件）/定位中心/搜索/只读/小地图/全屏 ｜ 缩小/百分比/放大/自适应/展开全部/收起全部） | `Count.vue`（左下）+ `NavigatorToolbar.vue`（右下，含回到根节点/搜索/鼠标行为/小地图/只读/全屏/缩放/演示/更多） | 按原型排布到 `.mm-bottombar`；**不放语言下拉**（死控件）；保留我们的「鼠标行为」「演示」（真能力） |
 | 13 | 定位中心 vs 自适应 | 两个入口同一个 `view.fit()` | 我们也是两个（回到根节点 / 自适应） | 保留（无害，且原型的「展开全部/收起全部」我们也有） |
 | **浮层** | | | | |
-| 14 | 右键菜单 | `#mindmapCtxMenu`（**body 级** fixed，10 项 + 2 分隔线，避免被窗口裁剪） | `ContextMenu.vue`（挂在 `.mm-stage` 内） | **改挂 body 级**（原型的理由成立：窗口 `overflow`/`transform` 会裁剪）；样式用生成层 `.mm-ctxmenu` |
+| 14 | 右键菜单 | `#mindmapCtxMenu`（**body 级** fixed，10 项 + 2 分隔线，避免被窗口裁剪）；样式用**通用令牌**（`--wsa`/`--text-strong`/`--text-dim`/`--red-soft`） | `ContextMenu.vue`（挂在 `.mm-stage` 内） | **改挂 body 级**（原型的理由成立：窗口 `overflow`/`transform` 会裁剪）；**令牌改用 `--mm-*`**——原型此处用通用令牌，会导致「右键菜单跟随 31 套主题、而窗口外壳跟随 `--mm-*`」两者不同步（原型自身的不一致）；本阶段窗口内部统一走 `--mm-*` |
 | 15 | 搜索 | `.mm-search-box` 药丸框；回车**只 toast 命中/未命中**（桩） | `SearchBox.vue` + **真定位/高亮** | 形态照原型，**交互保留我们的**（D47） |
 | 16 | 小地图 | `.mm-minimap`；**固定假图**，不随数据变（桩） | `Navigator.vue` 真缩略图（订阅 `toggleMiniMap`） | 形态照原型，**实现保留我们的**（D47） |
 | 17 | 通用模态遮罩 | `#mmModalOverlay` 一处复用（8 种表单） | 各自独立对话框（`NodeImageDialog`/`NodeHyperlinkDialog`/`NodeNoteDialog`/`NodeTagDialog`/`NodeLinkDialog`/…） | 图标/公式改模态时**复用同一个遮罩壳**（新抽一个 `MmModal.vue`），其余对话框保持独立（内容差异大） |
@@ -89,11 +89,13 @@
 
 ### 4.2 文件名岛（`MmFilenameIsland.vue`，新）
 
+**注意**：现状 `MindMapApp.vue:102` 的 `title` 是**静态文案**（`'新建思维导图'` / `'编辑思维导图'`），根本不显示笔记名——所以这一块不只是「可编辑」，而是**首次把导图名显示出来**。
+
 - 常态：`<span class="mm-filename-text">{{ name }}</span>` + `<button class="mm-filename-btn">✏️</button>`；点击文本或按钮进入编辑态。
 - 编辑态：`<input class="mm-filename-input" maxlength="32">` + `<button class="mm-filename-btn">💾</button>`；Enter / 失焦 / 点 💾 提交，Esc 取消。
-- 提交：写 `notes.save({ id, content: 新名, ...原字段 })`（与原 `title` 来源一致，见「标题从哪来」），并把窗口标题与笔记列表同步（主窗口经 `notes-changed` 事件刷新）。
+- 提交：写回笔记标题并同步主窗口列表；空名回退为「未命名导图」（原型的处理，`app.js:1697-1698`）。
 - 不渲染 `#mmExtBadge` / `#mmExtSelect`（D44）。
-- **标题从哪来**：现状 `title`（`MindMapApp.vue:102`）派生自笔记；改名即改笔记的标题字段——具体字段用 `content`（`mindmap_data` 是导图数据、`content` 是笔记标题）需在实现时按 `parseMindMapData` 现状确认，并在注释里写明。
+- **标题存哪个字段**：实现时按 `core/persistence.ts` 与 `notes.save` 的现状确认（导图数据在 `mindmap_data`，笔记标题在 `content`），并在组件注释里写明——本 spec 不预设。
 
 ### 4.3 单抽屉壳（`sidebars/SidebarShell.vue` 改造）
 
