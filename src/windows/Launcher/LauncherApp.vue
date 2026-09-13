@@ -54,10 +54,14 @@ const footerHint = computed(() =>
 
 /**
  * 页脚右侧（D40，原型无此段）：当前动作 + 键位提示。
+ * 无结果时整段不显示——原型无结果页脚只有左侧一段（`docs/app.js` renderLauncherResults 的空分支），
+ * 且此时组合式的 `actions` 仍是 `[打开]`（长度 1 而非空数组），照下面分支会紧挨着空列表
+ * 提示一个没有任何条目可跳的「Alt+1..9 直达」。
  * 命令 / UWP 等只有「打开」的条目省略 Tab 与 Ctrl+Enter 段——它们没有管理员 / 定位动作，
  * 提示了也执行不了（后端会直接报错）。
  */
 const actionsHint = computed(() => {
+  if (!results.value.length) return ''
   if (actions.value.length < 2) return 'Alt+1..9 直达'
   const current = actions.value[actionIndex.value]?.label ?? '打开'
   return `当前动作：${current} · Tab 切换动作 · Alt+1..9 直达 · Ctrl+Enter 管理员`
@@ -133,7 +137,8 @@ onBeforeUnmount(() => {
 
     <div class="launcher-footer">
       <span>{{ footerHint }}</span>
-      <span class="launcher-keys">{{ actionsHint }}</span>
+      <!-- 空串（无结果）时整段不渲染：留一个空 span 也会占掉 footer 的 12px gap。 -->
+      <span v-if="actionsHint" class="launcher-keys">{{ actionsHint }}</span>
     </div>
   </div>
 </template>
