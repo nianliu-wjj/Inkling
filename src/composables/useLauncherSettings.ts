@@ -14,9 +14,10 @@ export interface LauncherRootRow {
 
 /**
  * 启动器设置逻辑（主窗口启动台页使用）：索引状态与重建、全盘索引开关、额外排除目录、扫描根目录增删改。
- * 从偏好设置页抽出，`patch` 为调用方的统一保存入口（局部覆盖后整体写回）。
+ * 从偏好设置页抽出，`patch` 为调用方的统一保存入口（局部覆盖后整体写回）；
+ * 其返回值可由本模块用来判断是否保存成功（失败时通常已由 `patch` 自行提示），不关心则忽略。
  */
-export function useLauncherSettings(patch: (partial: Partial<Settings>) => Promise<void>): {
+export function useLauncherSettings(patch: (partial: Partial<Settings>) => Promise<unknown>): {
   launcherStatus: Ref<LauncherStatus | null>
   rebuilding: ComputedRef<boolean>
   refreshLauncherStatus: () => Promise<void>

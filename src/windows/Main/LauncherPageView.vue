@@ -21,13 +21,19 @@ import type { Settings } from '@/typings/domain'
 const { settings, save } = useSettings()
 const { toast } = useToast()
 
-/** 统一的保存入口：局部覆盖后整体写回。 */
-async function patch(partial: Partial<Settings>): Promise<void> {
+/**
+ * 统一的保存入口：局部覆盖后整体写回。
+ * 返回是否保存成功：失败路径自己弹「保存设置失败」，调用方据此跳过后续的成功流程
+ * （刷新计数、弹成功提示、回写钳制值），避免失败后仍报成功。
+ */
+async function patch(partial: Partial<Settings>): Promise<boolean> {
   const next: Settings = { ...settings.value, ...partial }
   try {
     await save(next)
+    return true
   } catch {
     toast('保存设置失败')
+    return false
   }
 }
 
@@ -73,7 +79,11 @@ const {
 const { recording, start: startRecording } = useShortcutRecorder({
   label: '启动器',
   apply: (combo) => api.launcher.rebindShortcut(combo),
-  persist: (applied) => patch({ launcher_shortcut: applied }),
+  // 快捷键回写不看保存结果（失败时 patch 已弹「保存设置失败」），包一层把返回值收敛成 void，
+  // 匹配 `useShortcutRecorder` 的 `persist: (applied) => Promise<void>`。
+  persist: async (applied) => {
+    await patch({ launcher_shortcut: applied })
+  },
 })
 
 /** 页面说明：放在脚本里拼接，避免模板换行在中文之间引入空格。 */
@@ -127,16 +137,23 @@ async function refreshHistoryCount(): Promise<void> {
 /**
  * 历史保留天数：钳制到 1–365 后写库（后端会顺手清理过期记录），再刷新条数。
  * 钳制规则与原型一致（`docs/app.js` 的 lpHistoryRetention change 分支）：非法输入回落到默认 100。
+ * 保存失败时不刷新计数、不弹成功提示，并把输入框回退成当前生效值。
  */
 async function setHistoryRetention(event: Event): Promise<void> {
   const input = event.target as HTMLInputElement
   const raw = input.value
   const days = Math.min(365, Math.max(1, Number(raw) || 100))
+  logger.info('launcher-page', `历史保留天数改为 ${days} 天（输入 ${raw}）`)
+  if (!(await patch({ launcher_history_retention_days: days }))) {
+    // 保存失败：输入框里已是用户刚敲的值，而库里仍是旧值（`save` 只在成功时写 `settings`），
+    // 且 `:value` 绑定只在设置值**变化**时才更新 DOM、不会自动纠正 → 手动回退，避免
+    // 「输入框显示 365、实际生效 100」这种看不见的不一致。
+    input.value = String(settings.value.launcher_history_retention_days)
+    return
+  }
   // 回写钳制结果（原型同款 `e.target.value = days`）：`:value` 绑定只在设置值**变化**时才更新 DOM，
   // 所以「已是 365 又输入 999」时不回写的话，输入框会一直显示 999 而库里是 365。
   input.value = String(days)
-  logger.info('launcher-page', `历史保留天数改为 ${days} 天（输入 ${raw}）`)
-  await patch({ launcher_history_retention_days: days })
   await refreshHistoryCount()
   toast(`浏览器历史保留天数已设为 ${days} 天`)
 }
