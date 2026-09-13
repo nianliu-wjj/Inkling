@@ -113,7 +113,6 @@ async function remove(): Promise<void> {
       text="确认删除该条目？"
       :target-id="confirm.pendingId.value"
       :container="listEl"
-      fallback="center"
       @confirm="remove"
       @cancel="confirm.cancel()"
     />

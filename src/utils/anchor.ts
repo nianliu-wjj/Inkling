@@ -2,8 +2,8 @@
  * 浮层锚定纯函数：把浮层摆到锚点卡片旁边（原型 app.js `positionTodoEditor` / `refreshCardConfirm` 的定位段）。
  *
  * 优先卡片右侧（+14）→ 右侧不够翻到左侧（−14 − W，placement = 'left'，箭头转到右缘）→ 两侧都不够时按
- * `fallback` 兜底：'center' 是原型的水平居中盖住卡片；'below' 是 spec D27 的卡片下方（箭头朝上、左缘对齐，
- * 下方也放不下时改到卡片上方）。纵向 `align` 'center' 对齐卡片中心（删除确认）、'top' 对齐卡片顶部（待办编辑），
+ * `fallback` 兜底：'center' 是原型的水平居中盖住卡片；'below' 是 spec D27 的卡片下方（箭头朝上、左缘对齐），
+ * 下方也放不下时改到卡片上方并返回 'above'（4B D29：箭头朝下）。纵向 `align` 'center' 对齐卡片中心（删除确认）、'top' 对齐卡片顶部（待办编辑），
  * 再钳制在视口留白内；`caretY` 是箭头相对浮层顶部的纵向位置，钳制在 [14, H − 14]。
  *
  * 不碰 DOM，输入输出都是数字，便于单测；调用方负责 getBoundingClientRect / offsetWidth 的测量。
@@ -30,8 +30,8 @@ export interface AnchorOptions {
 export interface AnchorResult {
   left: number
   top: number
-  placement: 'right' | 'left' | 'center' | 'below'
-  /** 箭头相对浮层顶部的纵向位置（px）；placement = 'below' 时箭头改为朝上，此值不再使用。 */
+  placement: 'right' | 'left' | 'center' | 'below' | 'above'
+  /** 箭头相对浮层顶部的纵向位置（px）；placement = 'below' / 'above' 时箭头改为朝上 / 朝下贴边，此值不再使用。 */
   caretY: number
 }
 
@@ -80,12 +80,16 @@ export function anchorBeside(anchor: Rect | null, opts: AnchorOptions): AnchorRe
     left = Math.max(VIEWPORT_MARGIN, (vw - W) / 2)
     placement = 'center'
   } else {
-    // D27：卡片下方、左缘对齐；下方放不下则改到卡片上方。
+    // D27：卡片下方、左缘对齐；下方放不下则改到卡片上方（D29：placement = 'above'，箭头朝下）。
     left = clamp(anchor.left, VIEWPORT_MARGIN, maxLeft)
     let top = bottom + BELOW_GAP
-    if (top > maxTop) top = anchor.top - H - BELOW_GAP
+    let vertical: AnchorResult['placement'] = 'below'
+    if (top > maxTop) {
+      top = anchor.top - H - BELOW_GAP
+      vertical = 'above'
+    }
     top = clamp(top, VIEWPORT_MARGIN, maxTop)
-    return { left, top, placement: 'below', caretY: clamp(centerY - top, CARET_MIN, H - CARET_MIN) }
+    return { left, top, placement: vertical, caretY: clamp(centerY - top, CARET_MIN, H - CARET_MIN) }
   }
 
   const rawTop = opts.align === 'top' ? anchor.top : centerY - H / 2

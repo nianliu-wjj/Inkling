@@ -194,7 +194,6 @@ async function saveTags(tags: string[]): Promise<void> {
       text="确认删除该笔记？"
       :target-id="confirm.pendingId.value"
       :container="listEl"
-      fallback="center"
       @confirm="remove"
       @cancel="confirm.cancel()"
     />

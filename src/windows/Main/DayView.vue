@@ -346,7 +346,6 @@ async function applyRepeat(rule: string | null): Promise<void> {
       :text="confirmText"
       :target-id="confirm.pendingId.value"
       :container="listEl"
-      fallback="center"
       @confirm="remove"
       @cancel="confirm.cancel()"
     />

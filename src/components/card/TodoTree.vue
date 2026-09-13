@@ -33,7 +33,7 @@ const props = withDefaults(
     hitIds?: ReadonlySet<string>
     /** 归档页形态：不限高。 */
     archive?: boolean
-    /** 删除确认浮层左右都放不下时的兜底：面板 'below'（D27）、主窗口 'center'。 */
+    /** 删除确认浮层左右都放不下时的兜底：默认 'below'（D27 / D29，主窗口与面板一致）。 */
     confirmFallback?: 'center' | 'below'
   }>(),
   {

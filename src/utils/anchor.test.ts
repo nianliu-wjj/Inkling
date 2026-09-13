@@ -40,7 +40,7 @@ test('anchorBeside：两侧都不够，fallback=center → 水平居中盖住卡
   assert.equal(result.top, 110) // 100 + 40 − 30
 })
 
-test('anchorBeside：两侧都不够，fallback=below → 卡片下方 +8、左缘对齐；下方放不下则改到上方', () => {
+test('anchorBeside：两侧都不够，fallback=below → 卡片下方 +8、左缘对齐；下方放不下则改到上方（placement=above）', () => {
   const below = anchorBeside(
     { left: 20, top: 100, width: 440, height: 80 },
     opts({ viewport: { width: 480, height: 600 }, fallback: 'below' }),
@@ -56,12 +56,13 @@ test('anchorBeside：两侧都不够，fallback=below → 卡片下方 +8、左�
   // 右侧 160 + 214 > 220；左侧 60 − 214 < 10；下方 left = clamp(60, 10, 20)
   assert.equal(clamped.placement, 'below')
   assert.equal(clamped.left, 20)
-  // 卡片贴底：下方 + 8 放不下 → 放到卡片上方 −8
+  // 卡片贴底：下方 + 8 放不下 → 放到卡片上方 −8，placement 改为 'above'（D29：箭头朝下）
   const above = anchorBeside(
     { left: 20, top: 520, width: 440, height: 70 },
     opts({ viewport: { width: 480, height: 600 }, fallback: 'below' }),
   )
-  assert.equal(above.placement, 'below')
+  assert.equal(above.placement, 'above')
+  assert.equal(above.left, 20)
   assert.equal(above.top, 452) // 520 − 60 − 8
 })
 

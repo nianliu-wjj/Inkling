@@ -8,8 +8,8 @@ import { anchorBeside, type AnchorResult } from '@/utils/anchor'
  * 删除二次确认浮层（原型 body 级唯一 `#cardConfirm`，spec §4.2）。
  *
  * - `targetId` 非空时 Teleport 到 body 渲染，按 `container.querySelector('[data-id="…"]')` 反查卡片，
- *   用 anchorBeside() 摆到卡片右侧（右侧不够翻左侧 `.flip`；两侧都不够按 `fallback`：主窗口 'center'、
- *   面板 'below' = 卡片下方箭头朝上，spec D27）；
+ *   用 anchorBeside() 摆到卡片右侧（右侧不够翻左侧 `.flip`；两侧都不够按 `fallback`（默认 'below'：卡片下方箭头朝上，
+ *   下方放不下翻到上方 `.above` 箭头朝下——主窗口与面板一致，spec D27 / 4B D29）；
  * - 首次显示横向 10px 滑入（--dur-fast）；浮层自身尺寸变化（ResizeObserver）与列表重渲染
  *   （容器 MutationObserver，childList + subtree）合帧重定位；卡片消失 → emit cancel；
  * - 任意滚动（capture）与窗口 resize → emit cancel（原型 app.js:209–210）；
@@ -26,7 +26,7 @@ const props = withDefaults(
     targetId: string | null
     /** 列表容器：反查卡片与观察重渲染。 */
     container: HTMLElement | null
-    /** 左右都放不下时的兜底：'center' 原型 / 'below' D27。 */
+    /** 左右都放不下时的兜底：'center' 原型 / 'below' D27（主窗口与面板都用它，D29）。 */
     fallback?: 'center' | 'below'
   }>(),
   { fallback: 'below' },
@@ -161,7 +161,11 @@ onBeforeUnmount(detach)
       ref="popRef"
       role="alertdialog"
       aria-live="polite"
-      :class="{ flip: position.placement === 'left', below: position.placement === 'below' }"
+      :class="{
+        flip: position.placement === 'left',
+        below: position.placement === 'below',
+        above: position.placement === 'above',
+      }"
       :style="style"
     >
       <div class="cc-caret" />

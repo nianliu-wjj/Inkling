@@ -210,7 +210,6 @@ async function applyRepeat(rule: string | null): Promise<void> {
       :force-expand="search.forceExpand"
       :hit-ids="search.hitIds"
       archive
-      confirm-fallback="center"
       @toggle-done="toggleDone"
       @edit="openEditor('edit', $event, null, cardOf($event))"
       @edit-due="openEditor('due', $event, null, cardOf($event))"

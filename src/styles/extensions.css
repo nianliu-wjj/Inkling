@@ -121,6 +121,17 @@ textarea,
   border-bottom: none;
   transform: rotate(45deg);
 }
+/* D29：下方也放不下翻到卡片上方——箭头贴底缘朝下，可见边改成下 + 右两条。 */
+#cardConfirm.above .cc-caret {
+  top: auto;
+  bottom: calc(-1 * var(--sp-sm));
+  left: var(--sp-xl);
+  right: auto;
+  border: 1px solid rgba(255, 95, 87, 0.5);
+  border-left: none;
+  border-top: none;
+  transform: rotate(45deg);
+}
 
 /* ═══ 4. 错落入场动画态（新增，2026-09-10） ═══
  * src/motion 的预设在动画期间给元素加 .is-animating：打字机主题的卡片自带 transform 过渡，

@@ -87,7 +87,12 @@ watch(opacity, (value) => {
   document.documentElement.style.opacity = String(value / 100)
 })
 
+/** 关闭浮窗：编辑态先等回写完成再关，✕ 不丢正在编辑的文字（Task 7 评审 E2）。 */
 async function close(): Promise<void> {
+  if (editing.value) {
+    logger.info('pinned', '关闭前先保存编辑中的内容')
+    await save()
+  }
   try {
     await api.windows.pinClose(label)
   } catch (error) {
@@ -183,7 +188,8 @@ async function save(): Promise<void> {
     await endEdit()
   } catch (error) {
     logger.error('pinned', '回写失败', error)
-    toast(String(error))
+    // 本地抛出的 Error 只取 message，避免 toast 显示「Error: …」前缀（Task 7 评审 E1）。
+    toast(error instanceof Error ? error.message : String(error))
     // 保存失败保留编辑态让用户改，但失焦触发的保存不应反复弹 toast：重新聚焦。
     editor.value?.focus()
   } finally {
