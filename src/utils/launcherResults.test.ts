@@ -145,6 +145,9 @@ test('mergeLauncherResults：范围开关逐项关闭后对应分类消失', () 
     }),
     [],
   )
+  // 历史标题非空时直接用作名称（回退 URL 的分支在顺序用例里覆盖）。
+  const titled = mergeLauncherResults({ ...input, scopes: ALL })
+  assert.equal(titled.find((r) => r.cat === '历史')?.name, 'code')
 })
 
 test('mergeLauncherResults：笔记按正文 / 标签 / 导图节点文本命中，导图用 🧠 且取前 8 条', () => {
