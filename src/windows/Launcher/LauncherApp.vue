@@ -16,7 +16,7 @@ import { api } from '@/service/tauri'
  *   各受检索范围开关控制）；页脚两态按原型（`docs/app.js` renderLauncherResults）：有结果
  *   「↑↓ 导航 · ↵ 执行 · Esc 关闭 · 共 N 项」、无结果「↵ 回车搜索 · Esc 退出」，
  *   有结果时右侧再并入动作芯片 / 快捷键提示（D40，原型无此段）；
- * - 键盘：↑↓ 循环（选中项 `scrollIntoView`，原型 app.js:3325）、Enter 执行（无结果 → 默认浏览器搜索）、
+ * - 键盘：↑↓ 循环（选中项 `scrollIntoView`，原型 app.js:3326）、Enter 执行（无结果 → 默认浏览器搜索）、
  *   Tab 切动作、Alt+1..9 直达、Ctrl+Enter 管理员、Esc 隐藏——监听器挂 window 而非输入框：
  *   点击条目后焦点会离开输入框，挂 window 才能继续响应键盘（现有实现即如此）；
  * - 每次显示（window focus）：清空查询、选中归零、聚焦输入框、播入场（y −18 + 淡入 + scale .98）；
@@ -40,7 +40,7 @@ watch(
   { immediate: true },
 )
 
-const { query, results, active, actions, actionIndex, reset, runActive, onKeydown } = useLauncherResults({
+const { query, results, active, actions, actionIndex, reset, runActive, refresh, onKeydown } = useLauncherResults({
   scope: 'launcher',
   floating: true,
 })
@@ -49,9 +49,18 @@ const root = ref<HTMLElement | null>(null)
 const input = ref<HTMLInputElement | null>(null)
 const list = ref<HTMLElement | null>(null)
 
-/** 页脚左侧（原型 renderLauncherResults 的两态文案，`docs/app.js:3279` / `:3300`）。 */
+/** 页脚左侧（原型 renderLauncherResults 的两态文案，`docs/app.js:3289` / `:3300`）。 */
 const footerHint = computed(() =>
   results.value.length ? `↑↓ 导航 · ↵ 执行 · Esc 关闭 · 共 ${results.value.length} 项` : '↵ 回车搜索 · Esc 退出',
+)
+
+/**
+ * 空态文案：有查询词用原型的「未找到匹配项，按 Enter 用默认浏览器搜索「X」」（`docs/app.js:3289`）；
+ * 空查询且无结果（索引未建好、或关掉了「应用与命令」范围）原型到不了这一态，
+ * 用自造的「索引尚未就绪」——比显示一对空引号「」诚实。与启动台页 `LauncherPageView` 同一口径。
+ */
+const emptyHint = computed(() =>
+  query.value.trim() ? `未找到匹配项，按 Enter 用默认浏览器搜索「${query.value.trim()}」` : '索引尚未就绪',
 )
 
 /**
@@ -66,7 +75,7 @@ const currentAction = computed(() =>
 
 /**
  * 页脚右侧的键位提示（D40，原型无此段）。
- * 无结果时整段不显示——原型无结果页脚只有左侧一段（`docs/app.js:3279`），
+ * 无结果时整段不显示——原型无结果页脚只有左侧一段（`docs/app.js:3289`），
  * 且此时组合式的 `actions` 仍是 `[打开]`（长度 1 而非空数组），照下面分支会紧挨着空列表
  * 提示一个没有任何条目可跳的「Alt+1..9 直达」。
  * 单动作条目省略 Tab 与 Ctrl+Enter 段——它们没有管理员 / 定位动作，提示了也执行不了（后端会直接报错）。
@@ -83,7 +92,7 @@ function run(index: number): void {
 }
 
 /**
- * 选中项滚动进视野（原型 ↑↓ 分支的 `scrollIntoView({ block: 'nearest' })`，`docs/app.js:3325`）。
+ * 选中项滚动进视野（原型 ↑↓ 分支的 `scrollIntoView({ block: 'nearest' })`，`docs/app.js:3326`）。
  * 订阅 `active` 而不是写在键盘处理里：键盘在组合式内（`useLauncherResults.onKeydown`），这里只能订阅结果。
  * 鼠标悬停同样会改 `active`，但悬停项本就在视野内，`nearest` 不会产生位移。
  * 只滚 `.launcher-list` 这一个最近的可滚动祖先——窗口与 body 都是 overflow: hidden，不会带动整页。
@@ -95,9 +104,12 @@ watch(active, () => {
   })
 })
 
-/** 窗口每次显示：清空、聚焦、播入场（原型 openLauncher）。 */
+/** 窗口每次显示：清空、聚焦、重拉缓存、播入场（原型 openLauncher）。 */
 function onFocus(): void {
   reset()
+  // 隐藏期间 notes/todos/settings 的变更事件会丢（WebView2 挂起），呼出时重拉三份缓存。
+  // reset() 触发的空查询检索与 refresh() 里的重复一次无所谓：本地索引 IPC，毫秒级。
+  void refresh()
   void nextTick(() => input.value?.focus())
   if (root.value) void enter(root.value, { axis: 'y', distance: -18, scale: 0.98, duration: 'base' })
   logger.debug('launcher', '浮窗显示：已清空输入并聚焦')
@@ -153,9 +165,7 @@ onBeforeUnmount(() => {
         >
         <span class="li-cat">{{ result.cat }}</span>
       </div>
-      <div v-if="!results.length" class="launcher-empty">
-        未找到匹配项，按 Enter 用默认浏览器搜索「{{ query.trim() }}」
-      </div>
+      <div v-if="!results.length" class="launcher-empty">{{ emptyHint }}</div>
     </div>
 
     <div class="launcher-footer">

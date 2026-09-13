@@ -892,3 +892,13 @@ body:not(:focus-within) .mac-dot {
   background: rgba(var(--accent-rgb), 0.25);
   color: var(--accent);
 }
+/* 空态垂直居中：窗口固定 420 高、列表 flex: 1，文案默认贴在列表顶部、下方空出约 250px
+   （原型窗口随内容收缩，到不了这一态，所以生成层没有这条）。空态时把列表切成纵向 flex，
+   用 auto margin 把文案居中；`:has()` 只在空态匹配，有结果时列表仍是块级流，滚动行为不变。 */
+:root[data-window='launcher'] .launcher-list:has(.launcher-empty) {
+  display: flex;
+  flex-direction: column;
+}
+:root[data-window='launcher'] .launcher-empty {
+  margin: auto;
+}

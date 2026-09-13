@@ -1156,11 +1156,6 @@ const LAUNCHER_HEIGHT: f64 = 420.0;
 ///
 /// 与面板不同，启动器需要键盘输入，因此**要抢焦点**（focused / set_focus）。
 pub fn launcher_show(app: &AppHandle) -> Result<(), String> {
-    // D39：呼出前先收起面板（原型 openLauncher 的 hidePanel）；主窗口保持原样，
-    // 用户在主窗口的操作上下文不丢（原型的 closeAllWindows 不采用）。
-    if let Err(error) = panel_hide(app) {
-        eprintln!("[launcher] 呼出前收起面板失败: {error}");
-    }
     let monitor = cursor_monitor(app).ok_or("未找到可用显示器")?;
     let work = WorkArea::of(&monitor);
     let x = work.left + (work.width - LAUNCHER_WIDTH * work.scale) / 2.0;
@@ -1189,6 +1184,15 @@ pub fn launcher_show(app: &AppHandle) -> Result<(), String> {
         (LAUNCHER_HEIGHT * work.scale).round() as u32,
     ));
     let _ = window.set_position(PhysicalPosition::new(x.round() as i32, y.round() as i32));
+    // D39：呼出前先收起面板（原型 openLauncher 的 hidePanel）；主窗口保持原样，
+    // 用户在主窗口的操作上下文不丢（原型的 closeAllWindows 不采用）。
+    //
+    // 位置刻意压到 show 之前而不是函数开头：上面 cursor_monitor / build 都可能返回 Err，
+    // 那时若已收起面板，用户就落得「面板没了、浮窗也没出来」。到这里窗口已建好并落位，
+    // 只剩 show 一步必成，收起面板才不会再白收。
+    if let Err(error) = panel_hide(app) {
+        eprintln!("[launcher] 呼出前收起面板失败: {error}");
+    }
     let _ = window.show();
     let _ = window.set_focus();
     eprintln!("[launcher] 呼出搜索窗口 pos=({}, {})", x.round(), y.round());

@@ -55,6 +55,8 @@ export interface UseLauncherResults {
   move: (delta: number) => void
   cycleAction: () => void
   runActive: (index?: number, mode?: LauncherActionKey) => Promise<void>
+  /** 强制重拉模块级缓存并重跑一次检索（浮窗每次呼出调用）。 */
+  refresh: () => Promise<void>
   onKeydown: (event: KeyboardEvent) => void
 }
 
@@ -62,9 +64,10 @@ export function useLauncherResults(options: { scope?: string; floating?: boolean
   const scope = options.scope ?? 'launcher'
   // 浮窗专属键位 + 无结果回车后收起浮窗；启动台页两者都不做（原型页面行为）。
   const floating = options.floating ?? false
-  const { settings } = useSettings()
-  const { notes } = useNotes()
-  const { todos } = useTodos()
+  // 三份缓存都是模块级单例，这里额外取出各自的 reload 供浮窗呼出时强制刷新（见下面的 refresh）。
+  const { settings, reload: reloadSettings } = useSettings()
+  const { notes, reload: reloadNotes } = useNotes()
+  const { todos, reload: reloadTodos } = useTodos()
 
   const query = ref('')
   const active = ref(0)
@@ -100,6 +103,20 @@ export function useLauncherResults(options: { scope?: string; floating?: boolean
       apps.value = []
       history.value = []
     }
+  }
+
+  /**
+   * 强制刷新：重拉笔记 / 待办 / 设置三份模块级缓存，再重跑一次当前查询。
+   *
+   * 浮窗被 `hide()` 后 WebView2 会挂起，`notesChanged` / `todosChanged` / `settingsChanged`
+   * 事件在隐藏期间全部丢失（见 `useData.ts` 的模块级缓存 + `initialized` 守卫，
+   * 以及 `PanelApp.vue` 对同类问题的处理），而浮窗是本项目唯一「长期隐藏复用 + 缓存型数据源」
+   * 的窗口——不刷新就会一直停在首次呼出的快照上：隐藏期间新建的笔记搜不到，
+   * 设置页刚关掉的检索范围也照样出结果。
+   */
+  async function refresh(): Promise<void> {
+    await Promise.all([reloadNotes(), reloadTodos(), reloadSettings()])
+    await search()
   }
 
   watch(
@@ -233,6 +250,9 @@ export function useLauncherResults(options: { scope?: string; floating?: boolean
    * 浮窗额外支持 Tab 循环动作、Alt+1..9 直达、Ctrl+Enter 管理员、Esc 隐藏。
    */
   function onKeydown(event: KeyboardEvent): void {
+    // 中文输入法：Enter 用于确认候选词（组合期间 isComposing 为真，部分环境只有 keyCode 229），
+    // 此时不应触发执行或导航。
+    if (event.isComposing || event.keyCode === 229) return
     switch (event.key) {
       case 'ArrowDown':
         event.preventDefault()
@@ -258,6 +278,9 @@ export function useLauncherResults(options: { scope?: string; floating?: boolean
           }
           return
         }
+        // Ctrl+Enter 只在多动作条目（应用 / 文件 / 文件夹）上强制管理员：命令 / UWP 等
+        // 单动作条目没有管理员模式，硬传下去后端必然报错，故与「打开」等价
+        // ——页脚也正因此对它们省略该提示。
         const mode: LauncherActionKey =
           event.ctrlKey && actions.value.length > 1 ? 'admin' : (actions.value[actionIndex.value]?.key ?? 'open')
         void runActive(active.value, mode)
@@ -269,7 +292,8 @@ export function useLauncherResults(options: { scope?: string; floating?: boolean
         void api.launcher.hide()
         return
       default:
-        // Alt+1..9 直达（D40）：执行第 N 条的「打开」。
+        // Alt+1..9 直达（D40）：只执行第 N 条的「打开」，不把选中项挪过去——执行后浮窗
+        // 随即收起，移动选中没有可观察效果（旧实现会先 active = index）。
         if (floating && event.altKey && /^[1-9]$/.test(event.key)) {
           const index = Number(event.key) - 1
           if (index < results.value.length) {
@@ -285,5 +309,5 @@ export function useLauncherResults(options: { scope?: string; floating?: boolean
     if (debounce) clearTimeout(debounce)
   })
 
-  return { query, results, active, actions, actionIndex, reset, move, cycleAction, runActive, onKeydown }
+  return { query, results, active, actions, actionIndex, reset, move, cycleAction, runActive, refresh, onKeydown }
 }
