@@ -17,7 +17,8 @@ pub const PANEL_MIN_HEIGHT: f64 = 90.0;
 pub const PANEL_MAX_HEIGHT: f64 = 600.0;
 const HOTZONE_WIDTH: f64 = 240.0;
 const HOTZONE_HEIGHT: f64 = 80.0;
-const PINNED_SIZE: (f64, f64) = (230.0, 150.0);
+/// 置顶浮窗初始尺寸（逻辑像素）：宽对齐原型 #pinnedWindow 的 220px（spec 4B #25）。
+const PINNED_SIZE: (f64, f64) = (220.0, 150.0);
 const REMINDER_SIZE: (f64, f64) = (320.0, 208.0);
 /// 思维导图窗口的初始尺寸。导图需要大画布，且窗口可自由缩放。
 const MINDMAP_SIZE: (f64, f64) = (960.0, 700.0);
