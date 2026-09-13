@@ -133,6 +133,11 @@ fn default_launcher_shortcut() -> String {
     "Alt+Space".into()
 }
 
+/// 浏览器历史默认保留天数；原型 prefs.lpHistoryRetention = 100（spec 4C §4.3）。
+fn default_launcher_history_retention_days() -> i64 {
+    100
+}
+
 pub fn default_panel_position() -> String {
     // 需求 2.1「鼠标触顶」：感应区与面板默认都在屏幕顶部中央。
     // 曾按平台区分（Windows 默认底部），但感应区当时固定在顶部，
@@ -228,6 +233,24 @@ crate::dto! {
         /// 全盘索引额外排除目录（逗号分隔目录名）。
         #[serde(default)]
         launcher_extra_excludes: String,
+        /// 启动台检索范围：应用与命令（原型 prefs.lpApps，默认开）。
+        #[serde(default = "default_true")]
+        launcher_scope_apps: bool,
+        /// 启动台检索范围：笔记（原型 prefs.lpNotes，默认开）。
+        #[serde(default = "default_true")]
+        launcher_scope_notes: bool,
+        /// 启动台检索范围：待办（原型 prefs.lpTodos，默认开）。
+        #[serde(default = "default_true")]
+        launcher_scope_todos: bool,
+        /// 启动台计算器：`=` 开头或匹配「计算器 / calc」时提示打开系统计算器（原型 prefs.lpCalc，默认开）。
+        #[serde(default = "default_true")]
+        launcher_scope_calc: bool,
+        /// 启动台检索范围：浏览器历史（原型 prefs.lpHistory，默认开）。
+        #[serde(default = "default_true")]
+        launcher_scope_history: bool,
+        /// 浏览器历史保留天数（1–365；原型 1–365、默认 100）。
+        #[serde(default = "default_launcher_history_retention_days")]
+        launcher_history_retention_days: i64,
     }
 }
 
@@ -266,6 +289,12 @@ impl Default for Settings {
             launcher_roots: String::new(),
             launcher_full_disk_index: true,
             launcher_extra_excludes: String::new(),
+            launcher_scope_apps: true,
+            launcher_scope_notes: true,
+            launcher_scope_todos: true,
+            launcher_scope_calc: true,
+            launcher_scope_history: true,
+            launcher_history_retention_days: default_launcher_history_retention_days(),
         }
     }
 }

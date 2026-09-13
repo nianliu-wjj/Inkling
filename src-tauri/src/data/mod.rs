@@ -82,7 +82,7 @@ impl Store {
         Ok(store)
     }
 
-    /// 版本化迁移：v0（初版）→ v1（archived_at / 附件路径 / 统计事件 / 提醒实例 / 提醒抑制标记）→ v6（clipboard_entries.source_app）→ v7（灵动岛四个新设置键，仅推进版本号）。
+    /// 版本化迁移：v0（初版）→ v1（archived_at / 附件路径 / 统计事件 / 提醒实例 / 提醒抑制标记）→ v6（clipboard_entries.source_app）→ v7（灵动岛四个新设置键，仅推进版本号）→ v8（browser_history 表与 visited_at 索引；六个启动台设置键仅推进版本号）。
     fn migrate(&mut self) -> Result<(), String> {
         let version: i64 = self
             .db
@@ -197,6 +197,13 @@ impl Store {
                 .map_err(|e| format!("数据库迁移到 v7 失败: {e}"))?;
             self.db
                 .pragma_update(None, "user_version", 7)
+                .map_err(db_err)?;
+        }
+        if version < 8 {
+            self.with_v8()
+                .map_err(|e| format!("数据库迁移到 v8 失败: {e}"))?;
+            self.db
+                .pragma_update(None, "user_version", 8)
                 .map_err(db_err)?;
         }
         Ok(())
@@ -330,6 +337,26 @@ impl Store {
     /// 与 v5 同一取舍：迁移不凭空插入设置行。保留函数只为让链完整、版本号可追溯。
     fn with_v7(&self) -> Result<(), String> {
         eprintln!("[data] v7 迁移：灵动岛新设置键靠默认值兜底，无需改表");
+        Ok(())
+    }
+
+    /// v8 增量：浏览器历史表（spec 4C D35 / §4.3）。
+    ///
+    /// 与 v5 / v7 不同，这里**有真实 DDL**：`browser_history` 由
+    /// `services/browser_history.rs` 从 Chrome / Edge 的 Chromium `History` 库导入后查询。
+    /// 六个新设置键（五个检索范围开关 + 历史保留天数）仍靠 `Settings::default()` 兜底，不写行。
+    fn with_v8(&self) -> Result<(), String> {
+        self.db
+            .execute_batch(
+                "CREATE TABLE IF NOT EXISTS browser_history (
+                   url        TEXT PRIMARY KEY,
+                   title      TEXT NOT NULL DEFAULT '',
+                   visited_at INTEGER NOT NULL
+                 );
+                 CREATE INDEX IF NOT EXISTS idx_browser_history_visited ON browser_history(visited_at DESC);",
+            )
+            .map_err(db_err)?;
+        eprintln!("[data] v8 迁移：新建 browser_history 表与 idx_browser_history_visited 索引");
         Ok(())
     }
 
@@ -805,7 +832,10 @@ mod tests {
             1
         );
     }
-    /// v7 只推进版本号（四个灵动岛新键靠 Settings::default 兜底）：版本 6 → 7，再跑一次仍是 7，且不凭空插入设置行。
+    /// v7 只推进版本号、不写设置行：v6 库跑整条迁移链，终点是**当前 head 版本**（v8 起为 8）。
+    ///
+    /// `migrate()` 会把链上所有分支依次跑完，因此版本断言跟随 head（v8 前它写死 7）；
+    /// v7 那一步自身的性质——不凭空插入设置行、可重复跑——仍由下面两条断言守着。
     #[test]
     fn v7_migration_bumps_version_and_is_idempotent() {
         let db = settings_db(None);
@@ -819,13 +849,74 @@ mod tests {
             .db
             .query_row("PRAGMA user_version", [], |r| r.get(0))
             .unwrap();
-        assert_eq!(version, 7);
+        assert_eq!(version, 8);
         store.migrate().unwrap();
         let again: i64 = store
             .db
             .query_row("PRAGMA user_version", [], |r| r.get(0))
             .unwrap();
-        assert_eq!(again, 7);
+        assert_eq!(again, 8);
+        let rows: i64 = store
+            .db
+            .query_row("SELECT COUNT(*) FROM settings", [], |r| r.get(0))
+            .unwrap();
+        assert_eq!(rows, 0);
+    }
+
+    /// v8 推进版本号并建 browser_history 表（spec 4C §4.3，本次有真实 DDL）：6 项断言。
+    #[test]
+    fn v8_migration_creates_browser_history_and_is_idempotent() {
+        let db = settings_db(None);
+        db.pragma_update(None, "user_version", 7).unwrap();
+        let mut store = Store {
+            db,
+            data_dir: std::path::PathBuf::from("."),
+        };
+        store.migrate().unwrap();
+        let version: i64 = store
+            .db
+            .query_row("PRAGMA user_version", [], |r| r.get(0))
+            .unwrap();
+        assert_eq!(version, 8);
+
+        // 表与索引都建出来了（索引名由 sqlite_master 查，避免依赖 PRAGMA 顺序）。
+        let tables: i64 = store
+            .db
+            .query_row(
+                "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='browser_history'",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert_eq!(tables, 1);
+        let indexes: i64 = store
+            .db
+            .query_row(
+                "SELECT COUNT(*) FROM sqlite_master WHERE type='index' AND name='idx_browser_history_visited'",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert_eq!(indexes, 1);
+
+        // 幂等：再跑一次不报错，版本仍是 8，表没有被重建（主键仍是 url）。
+        store.migrate().unwrap();
+        let again: i64 = store
+            .db
+            .query_row("PRAGMA user_version", [], |r| r.get(0))
+            .unwrap();
+        assert_eq!(again, 8);
+        let url_pk: i64 = store
+            .db
+            .query_row(
+                "SELECT COUNT(*) FROM pragma_table_info('browser_history') WHERE name='url' AND pk=1",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert_eq!(url_pk, 1);
+
+        // 设置键仍靠默认值兜底：迁移不凭空插入设置行。
         let rows: i64 = store
             .db
             .query_row("SELECT COUNT(*) FROM settings", [], |r| r.get(0))

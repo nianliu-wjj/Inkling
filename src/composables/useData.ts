@@ -49,6 +49,12 @@ const DEFAULT_SETTINGS: Settings = {
   launcher_roots: '',
   launcher_full_disk_index: true,
   launcher_extra_excludes: '',
+  launcher_scope_apps: true,
+  launcher_scope_notes: true,
+  launcher_scope_todos: true,
+  launcher_scope_calc: true,
+  launcher_scope_history: true,
+  launcher_history_retention_days: 100,
 }
 
 const notes = ref<Note[]>([])

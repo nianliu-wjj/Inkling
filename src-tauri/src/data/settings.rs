@@ -144,6 +144,37 @@ impl Store {
                     .cloned()
                     .unwrap_or_default(),
             )
+            .launcher_scope_apps(flag(
+                &values,
+                "launcher_scope_apps",
+                *defaults.launcher_scope_apps(),
+            ))
+            .launcher_scope_notes(flag(
+                &values,
+                "launcher_scope_notes",
+                *defaults.launcher_scope_notes(),
+            ))
+            .launcher_scope_todos(flag(
+                &values,
+                "launcher_scope_todos",
+                *defaults.launcher_scope_todos(),
+            ))
+            .launcher_scope_calc(flag(
+                &values,
+                "launcher_scope_calc",
+                *defaults.launcher_scope_calc(),
+            ))
+            .launcher_scope_history(flag(
+                &values,
+                "launcher_scope_history",
+                *defaults.launcher_scope_history(),
+            ))
+            .launcher_history_retention_days(
+                values
+                    .get("launcher_history_retention_days")
+                    .and_then(|x| x.parse().ok())
+                    .unwrap_or(*defaults.launcher_history_retention_days()),
+            )
             .build()
     }
 
@@ -209,6 +240,30 @@ impl Store {
             (
                 "launcher_extra_excludes",
                 settings.launcher_extra_excludes().clone(),
+            ),
+            (
+                "launcher_scope_apps",
+                settings.launcher_scope_apps().to_string(),
+            ),
+            (
+                "launcher_scope_notes",
+                settings.launcher_scope_notes().to_string(),
+            ),
+            (
+                "launcher_scope_todos",
+                settings.launcher_scope_todos().to_string(),
+            ),
+            (
+                "launcher_scope_calc",
+                settings.launcher_scope_calc().to_string(),
+            ),
+            (
+                "launcher_scope_history",
+                settings.launcher_scope_history().to_string(),
+            ),
+            (
+                "launcher_history_retention_days",
+                settings.launcher_history_retention_days().to_string(),
             ),
         ] {
             self.db
@@ -277,5 +332,30 @@ mod tests {
     fn empty_password_is_not_masked() {
         let store = store();
         assert_eq!(store.get_settings().unwrap().smtp_password(), "");
+    }
+
+    /// 六个启动台新键：默认值 + 读写往返（复用上面的临时目录 store 样板）。
+    #[test]
+    fn launcher_scope_defaults_and_history_retention_round_trip() {
+        let store = store();
+        let defaults = store.get_settings().unwrap();
+        assert!(defaults.launcher_scope_apps());
+        assert!(defaults.launcher_scope_notes());
+        assert!(defaults.launcher_scope_todos());
+        assert!(defaults.launcher_scope_calc());
+        assert!(defaults.launcher_scope_history());
+        assert_eq!(*defaults.launcher_history_retention_days(), 100);
+
+        let mut settings = defaults;
+        settings.set_launcher_scope_notes(false);
+        settings.set_launcher_scope_history(false);
+        settings.set_launcher_history_retention_days(7);
+        store.save_settings(&settings).unwrap();
+
+        let read = store.get_settings().unwrap();
+        assert!(!read.launcher_scope_notes());
+        assert!(!read.launcher_scope_history());
+        assert!(read.launcher_scope_apps(), "未改的开关应保持开启");
+        assert_eq!(*read.launcher_history_retention_days(), 7);
     }
 }

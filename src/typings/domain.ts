@@ -151,6 +151,18 @@ export interface Settings {
   launcher_full_disk_index: boolean
   /** 全盘索引额外排除目录（逗号分隔）。 */
   launcher_extra_excludes: string
+  /** 启动台检索范围：应用与命令。 */
+  launcher_scope_apps: boolean
+  /** 启动台检索范围：笔记。 */
+  launcher_scope_notes: boolean
+  /** 启动台检索范围：待办。 */
+  launcher_scope_todos: boolean
+  /** 启动台计算器（`=` 开头或「计算器 / calc」→ 打开系统计算器）。 */
+  launcher_scope_calc: boolean
+  /** 启动台检索范围：浏览器历史。 */
+  launcher_scope_history: boolean
+  /** 浏览器历史保留天数（1–365，默认 100）。 */
+  launcher_history_retention_days: number
 }
 
 export interface ActivityDay {
