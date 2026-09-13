@@ -35,7 +35,7 @@
 | 8 | 内置命令 | 6 条 Inkling 功能 | 3 条（设置 / 重建 / 退出） | D36：扩到 9 条（§4.5） |
 | 9 | 页脚 | 有结果「↑↓ 导航 · ↵ 执行 · Esc 关闭 · 共 N 项」；无结果「↵ 回车搜索 · Esc 退出」 | 无页脚；动作栏常驻 | 原型两态文案；动作 / 快捷键提示放右侧（D40） |
 | 10 | 无结果回车 | 用默认浏览器搜索该词 | 无 | 就地：`api.openUrl('https://www.google.com/search?q=' + encodeURIComponent(q))` |
-| 11 | 入场 | y −18、opacity 0、scale .98 → 0.2s power2.out | 无 | `enter()` y −18、`--dur-base`（`presets` 无 scale 参数，只做位移 + 淡入，记差异） |
+| 11 | 入场 | y −18、opacity 0、scale .98 → 0.2s power2.out | 无 | `enter()` y −18 + 淡入 + scale .98、`--dur-base`（`SlideOptions.scale` 已于 `presets.ts` 支持，全参数对齐） |
 | 12 | 呼出副作用 | `hidePanel(); closeAllWindows()` | 不隐藏任何窗口 | D39：`launcher_show` 内先 `panel_hide`，主窗口保留 |
 | 13 | 窗口尺寸 | 宽 560、高随内容 | 640×464 固定 | D37：560×420（`windows.rs` 常量） |
 | 14 | 失焦关闭 | 点击窗外 mousedown 关闭 | 窗口 `blur` 即隐藏 | 保留（能力等价） |
@@ -70,7 +70,7 @@ export function mergeLauncherResults(input: MergeInputs): LauncherResult[]
 ```
 
 - 顺序：计算器 → 应用 / 命令 / 文件 → 笔记 → 待办 → 历史（原型拼接顺序）；空查询只保留第一段（后端常用项）。
-- 笔记：`content / tags / mindmapAllText(mindmap_data)` 含查询词（不区分大小写），取前 8 条；`editor_mode === 'mindmap'` → 🧠 否则 📝；`cat: '笔记'`。
+- 笔记：`content / tags / mindmapAllText(mindmap_data)` 含查询词（不区分大小写）；同一笔记只入列一次，按命中原因分档（正文 → 标签 → 导图），**每档限流 8 条、整段合计 ≤24**（原型是全量拼接，限流只为避免正文命中一次刷出几十条把小分类挤出视野；标签 / 导图是更精确的命中，不占正文那 8 个名额）；`sub` 有标签显示 `[标签]`、否则 `formatStamp(updated_at)`（原型 `n.time` 口径）；`editor_mode === 'mindmap'` → 🧠 否则 📝；`cat: '笔记'`。
 - 待办：`content` 含查询词，取前 8 条；`cat: '待办'`；`sub` 为 `dateKeyOf(due_at) · 优先级`。
 - 计算器：查询以 `=` 开头，或 `/计算器|calc/i` 命中 → 首条「🧮 计算器」`sub: '打开系统计算器'`。
 - 历史：`cat: '历史'`，`name` 为标题（空则 URL），`sub` 为 URL。

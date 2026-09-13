@@ -1093,7 +1093,7 @@ git commit -m "feat(launcher): 内置命令扩到九条并按 id 分发（含系
 - Create: `src/composables/useLauncherResults.ts`
 
 **Interfaces:**
-- Consumes：`api.launcher.search` / `api.launcher.launch` / `api.launcher.hide`（既有）、Task 2 `api.browserHistory.search`、`api.windows.mindmapOpen` / `api.windows.panelOpenNote` / `api.windows.showMain`、`api.system.openUrl`、`useNotes` / `useTodos` / `useSettings`、`mindmapAllText` / `mindmapRootText`（`@/utils/search`）、`dateKeyOf`（`@/utils/datetime`）。
+- Consumes：`api.launcher.search` / `api.launcher.launch` / `api.launcher.hide`（既有）、Task 2 `api.browserHistory.search`、`api.windows.mindmapOpen` / `api.windows.panelOpenNote` / `api.windows.showMain`、`api.system.openUrl`、`useNotes` / `useTodos` / `useSettings`、`mindmapAllText` / `mindmapRootText`（`@/utils/search`）、`dateKeyOf` / `formatStamp`（`@/utils/datetime`）。
 - Produces：
   - `src/utils/launcherResults.ts`：`LauncherAction`、`LauncherResult`、`LauncherScopes`、`MergeInputs`、`mergeLauncherResults(input: MergeInputs): LauncherResult[]`。
   - `src/composables/useLauncherResults.ts`：`LauncherActionKey`、`LauncherActionItem`、`useLauncherResults(options?: { scope?: string; floating?: boolean })` → `{ query, results, active, actions, actionIndex, reset, move, cycleAction, runActive, onKeydown }`。
@@ -1296,7 +1296,7 @@ Expected: `tsc -p tsconfig.test.json` 报 `Cannot find module './launcherResults
 ```ts
 import type { BrowserHistoryRow, LauncherHit } from '@/service/tauri'
 import type { Note, Priority, Todo } from '@/typings/domain'
-import { dateKeyOf } from './datetime'
+import { dateKeyOf, formatStamp } from './datetime'
 import { mindmapAllText, mindmapRootText } from './search'
 
 /**
@@ -1355,10 +1355,22 @@ export interface MergeInputs {
   scopes: LauncherScopes
 }
 
-/** 笔记 / 待办各段的条数上限：原型全量拼接，这里限流避免长列表把小分类挤出视野。 */
+/** 每档命中的条数上限：原型全量拼接，这里限流避免长列表把小分类挤出视野。 */
 const SECTION_LIMIT = 8
 /** 名称截断长度（原型 `n.text.slice(0, 36)`）。 */
 const NAME_LIMIT = 36
+
+/** 笔记的命中原因，同时决定展示顺序（控制者订正 2026-09-13，见笔记段注释）。 */
+type NoteHitReason = 'content' | 'tag' | 'mindmap'
+/** 笔记分段顺序（与 `NoteHitReason` 声明顺序一致）。 */
+const NOTE_HIT_ORDER: NoteHitReason[] = ['content', 'tag', 'mindmap']
+
+/** 笔记命中判定：正文 → 标签 → 导图节点文本，取首个命中的原因；都不中返回 null。 */
+function noteHitReason(note: Note, needle: string): NoteHitReason | null {
+  if (note.content.toLowerCase().includes(needle)) return 'content'
+  if (note.tags.some((tag) => tag.toLowerCase().includes(needle))) return 'tag'
+  return mindmapAllText(note.mindmap_data).toLowerCase().includes(needle) ? 'mindmap' : null
+}
 
 /** 命中类型 → 展示分类（`.li-cat`）。 */
 const KIND_CAT: Record<LauncherHit['kind'], string> = {
@@ -1445,27 +1457,29 @@ export function mergeLauncherResults(input: MergeInputs): LauncherResult[] {
   if (!query) return out
 
   if (input.scopes.notes) {
-    const matched = input.notes.filter(
-      (note) =>
-        note.content.toLowerCase().includes(needle) ||
-        note.tags.some((tag) => tag.toLowerCase().includes(needle)) ||
-        mindmapAllText(note.mindmap_data).toLowerCase().includes(needle),
-    )
-    out.push(
-      ...matched.slice(0, SECTION_LIMIT).map((note): LauncherResult => {
+    // 按命中原因分档后各自限流（控制者订正 2026-09-13：原示例把三种命中合成一个集合再
+    // slice(0, 8)，与同一任务用例 5 的断言冲突——标签 / 导图命中会被正文命中整段挤掉；
+    // 实际实现见 513fd53，口径已回填 spec §4.1：正文 → 标签 → 导图，每档 ≤8）。
+    const buckets: Record<NoteHitReason, Note[]> = { content: [], tag: [], mindmap: [] }
+    for (const note of input.notes) {
+      const reason = noteHitReason(note, needle)
+      if (reason) buckets[reason].push(note)
+    }
+    for (const reason of NOTE_HIT_ORDER) {
+      out.push(...buckets[reason].slice(0, SECTION_LIMIT).map((note): LauncherResult => {
         const mindmap = note.editor_mode === 'mindmap'
         const label = mindmap ? mindmapRootText(note.mindmap_data) : clip(note.content)
         return {
           id: `note:${note.id}`,
           ico: mindmap ? '🧠' : '📝',
           name: `${mindmap ? '思维导图' : '笔记'}: ${label}`,
-          // 原型：有标签显示标签，否则显示时间；这里退化为空（不渲染 small）。
-          sub: note.tags.length ? `[${note.tags.join(', ')}]` : '',
+          // 原型：有标签显示标签，否则显示时间（formatStamp 口径）。
+          sub: note.tags.length ? `[${note.tags.join(', ')}]` : formatStamp(note.updated_at),
           cat: '笔记',
           action: { type: 'note', id: note.id, mindmap },
         }
-      }),
-    )
+      }))
+    }
   }
 
   if (input.scopes.todos) {
@@ -2304,6 +2318,7 @@ git commit -m "docs(design): 阶段四C 实机验收记录"
   11. **`.launcher-footer` 在生成层是单行块、无 flex**（`components.css:1570`），页脚右侧的动作提示落不到右边——Task 5 在 `extensions.css` 追加 §11（两条声明，仅作用于 `:root[data-window='launcher']`，不影响启动台页的同一类名）。
   12. **`launcher.css` 删除后，`data-window='launcher'` 的透明底与 `#launcherWindow` 的浮层定位（`fixed + top:16vh + translateX(-50%) + min(92vw,560px)`，`components.css:1486`）没人接管**——Task 5 在 `window-fit.css` 补启动台窗口块（透明根 + 铺满 + `clip-path` 圆角裁剪 + 列表 `flex: 1` 撑满）。
   13. **`.glass` 用 `--glass-bg`，而四 B 的灵动岛曾因底色可读性改用 `--menu-bg`**（`extensions.css:727-746`）——核实：`themes.css` 里 30 套主题**都**覆盖了 `--glass-bg`（`grep -c` = 30），可读性有保障，故浮窗照原型用 `.glass`，不额外覆盖底色（验收第 1 项复核）。
+  14. **（控制者订正 2026-09-13，Task 4 实施后）本计划 Task 4 的笔记段示例代码与同一任务的用例 5 自相矛盾**：示例把「正文 / 标签 / 导图」三种命中合成一个集合再 `slice(0, 8)`，而用例 5 断言标签命中（`note:tag`）与导图命中（`note:map`）必须出现——9 条正文命中会把它们整段挤掉（实测 1 例失败）。已按用例改为**按命中原因分档限流**（正文 → 标签 → 导图，各 ≤8，合计 ≤24），实现见 `513fd53`，口径已回填 spec §4.1。同时订正两处过时措辞：① spec §4.1 笔记段的「取前 8 条」；② spec §3 #11 的「`presets` 无 scale 参数」（本节第 3 条已确认存在，此处同步正文）。另外把笔记副文案的「否则显示时间」落实为 `formatStamp(updated_at)`（原型 `n.time` 同格式），不再是空串。
   14. **rusqlite 只读打开外部库的 `OpenFlags` 在仓库里此前没有先例**（`grep OpenFlags src-tauri/src` 无命中）——Task 2 首次引入 `Connection::open_with_flags(…, OpenFlags::SQLITE_OPEN_READ_ONLY)`，并在验收记录里确认能打开浏览器副本。
   15. **`Keyword::generate` 对含 emoji 的名称是否仍产出拼音关键字，spec 未讨论**——Task 3 的单测显式断言 9 条命令的 `keywords` 非空（含「📚 历史归档」这类混合串），避免 emoji 名称让命令在拼音 / 首字母检索里漏掉。
   16. **`useLauncherSearch.ts` 的删除时机**：Task 4 引入 `useLauncherResults` 时它仍被 `LauncherPageView` 使用，若同期删除会留下一个编译不过的中间态——放在 Task 6（最后一个调用方改完）删除，保证每个提交都是绿的。
