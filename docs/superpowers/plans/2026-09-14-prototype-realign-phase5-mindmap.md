@@ -397,7 +397,7 @@ git commit -m "feat(mindmap): 顶栏按原型改为双工具岛 + 新建文件�
 > 1. `git mv SidebarShell.vue → MmDrawer.vue` 并改造为分发壳；
 > 2. **9 个侧栏组件去掉自带的 `<SidebarShell>` 外壳与 import**，只留 body 内容（**本节的额外改动范围**）；
 > 3. `MindMapApp.vue` 换一行 `<MmDrawer v-if="!ui.isZenMode" />`；
-> 4. 三处必要补充：图标/公式/快捷键三项的标题映射（`sidebarTriggerList` 只有 dock 六项）、自有层给 `.mm-drawer-body` 补 `display:flex; flex-direction:column; gap:10px`（原侧栏表单件靠父级 gap 撑开）、过渡名改 `mm-drawer-slide`；
+> 4. **四处**必要补充（原写「三处」，Task 3 审查期间补上第 4 条）：图标/公式/快捷键三项的标题映射（`sidebarTriggerList` 只有 dock 六项）、自有层给 `.mm-drawer-body` 补 `display:flex; flex-direction:column; gap:10px`（原侧栏表单件靠父级 gap 撑开）、过渡名改 `mm-drawer-slide`、**自有层给 `.mm-drawer` 补 `z-index: 35`**（生成层是 10，而 Task 2 把顶栏抬到了 30 ⇒ 抽屉 header 落到顶栏纵向带内，右岛不透明且 `pointer-events:auto` 会把 `✕` 盖死；35 落在 30 与 40 之间的唯一空档）；
 > 5. 动态渲染包 **`<KeepAlive>`**：现状是 10 个侧栏常驻挂载、切换不丢状态；不包会退化成「切侧栏卸载重挂」（大纲树展开态重置等），那是**对现状的回归**。KeepAlive 缓存的是组件实例、DOM 里仍只有一个抽屉，收益与状态兼得。
 
 **Files:**
@@ -789,8 +789,17 @@ git commit -m "feat(mindmap): 其余 30 套主题接入 --mm-* 令牌，naive �
 
 ## Task 7: 自有层样式收敛 + 4C 遗留清理
 
+> **⚠️ 本任务必须处理的两项（Task 3 审查留痕，2026-09-14）**：
+> 1. **窗口内的层级序要统一裁决并写死在自有层注释里**。现状是「生成层给一套、自有层又抬了几个」，且 Task 3 只做了最小修复（`.mm-drawer { z-index: 35 }`）。已知的相对关系与归属：
+>    - 顶栏 `.mm-topbar` 30 / 工具栏 `.mm-toolbar` 30（自有层，Task 2 为脱离画布抬的）
+>    - 触发条 28 / 字数 25 / 导航栏 20 / 小地图 20（自有层）
+>    - 抽屉 `.mm-drawer` **35**（自有层，Task 3 修 `✕` 被盖死时加）
+>    - 大纲全屏编辑 40 → 拖拽遮罩 50 → 右键菜单 60 → 各弹窗 2000/3000 → toast 10001
+>    - **待裁决**：两个搜索浮层（生成层 `.mm-search-box` **12**、画布内替换浮层 `.mm-search` **30**）在抽屉抬到 35 之后，由「压抽屉」翻成「**被抽屉压**」——原型是「搜索压抽屉」（12 > 10）。要么把两者抬到 35 之上（注意别撞大纲编辑 40）、要么明确接受翻转并写进差异表，二选一，**不要留默认状态**。
+> 2. 本任务的「删被生成层取代的规则」清单里，**旧抽屉壳 `.mm-sidebar*`（`mindmap.css:241-286` 一带）已确认是死规则**（Task 3 把 `.mm-sidebar` 的用法整体换成了 `.mm-drawer`），要一并删；但注意 Task 3 只改了过渡名（`mm-drawer-slide`），整段壳样式仍在。
+
 **Files:**
-- Modify: `src/styles/mindmap.css`（删被生成层取代的规则）
+- Modify: `src/styles/mindmap.css`（删被生成层取代的规则、**统一层级序**）
 - Modify: `src/windows/Main/LauncherPageView.vue:84`、`src/composables/useLauncherSettings.ts:83`（4C 验收记录 §5.1 的两处「失败仍报成功」）
 
 **Interfaces:**
