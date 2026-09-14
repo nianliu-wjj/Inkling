@@ -13,6 +13,7 @@ import { applyCachedTheme, useTheme } from '@/composables/useTheme'
 import { useToast } from '@/composables/useToast'
 import { logger } from '@/service/logger'
 import { api } from '@/service/tauri'
+import { MAP_NAME_FALLBACK } from '@/utils/mindmapName'
 import { createBus } from './core/bus'
 import { toggleRichText, toggleScrollbar } from './core/createMindMap'
 import { loadLocalConfig, loadMapConfig, saveLocalConfig, saveMapConfig } from './core/localConfig'
@@ -62,8 +63,8 @@ import MindMapStage from './MindMapStage.vue'
  * 思维导图窗口壳。
  *
  * 独立顶层窗口，一个笔记一个（label 形如 `mindmap-<id>`，新建用 `mindmap-new`）。
- * 顶部是 Inkling 操作条（标题 / 未保存标记 / 标签 / 关闭 / 保存），下方是铺满的画布区，
- * 编辑 UI（工具栏 / 侧栏 / 浮层 / 对话框）由后续阶段挂进 `.mm-stage`。
+ * 顶部是 Inkling 操作条（导图名 / 未保存标记 / 标签；保存与关闭已随阶段五迁进顶栏右岛），
+ * 下方是铺满的画布区，编辑 UI（顶栏三岛 / 侧栏 / 浮层 / 对话框）挂在 `.mm-stage` 内。
  *
  * 本组件在根部用 provide 注入 { mindMap, bus, ui, localConfig, mapConfig }，
  * 并负责：库事件 → bus、持久化（全量格式）、自动保存、本机配置落盘与同步到库。
@@ -99,8 +100,17 @@ const dirty = ref(false)
 const themeOverrides = ref(buildThemeOverrides())
 
 const isNew = computed(() => !noteId.value)
-const title = computed(() => (isNew.value ? '新建思维导图' : '编辑思维导图'))
 const note = computed(() => notes.value.find((item) => item.id === noteId.value) ?? null)
+/** 未保存的新导图上改的名字（此时还没有笔记可写，先记在本地，手动保存时一并写进 `content`）。 */
+const pendingName = ref('')
+/**
+ * 顶栏文件名岛与窗口标题显示的名字。
+ *
+ * 导图笔记的 `content` 就是导图名，所以已有笔记直接取它；尚未保存的新导图取暂存名，
+ * 两者都没有时回退原型同款文案。注意不能为了改名就给新导图静默建一条笔记——
+ * 那会破坏 `markDirtyAndAutosave` 里「新建导图首次必须手动保存」的约定。
+ */
+const mapName = computed(() => note.value?.content || pendingName.value || MAP_NAME_FALLBACK)
 /**
  * 何时可以创建画布：参数已就绪，且——新建导图立即可建，编辑既有导图必须等目标笔记从
  * 列表异步加载出来。否则会先用空的「中心主题」建实例，等真实数据到达时画布已经建好、
@@ -185,7 +195,8 @@ async function save(silent = false): Promise<void> {
   try {
     const saved = await api.notes.save({
       id: noteId.value || undefined,
-      content: note.value?.content ?? '',
+      // 用 mapName 而不是 note.content：新建导图的暂存名（在文件名岛上改的）要随首次保存写进笔记。
+      content: mapName.value,
       tags: [...tags.value],
       editorMode: 'mindmap',
       mindmapData: mindmapData.value,
@@ -193,6 +204,9 @@ async function save(silent = false): Promise<void> {
     })
     noteId.value = saved.id
     dirty.value = false
+    // 暂存名已经写进笔记，不再需要。但笔记列表要靠 notes-changed 异步重拉，此刻 note 可能还是
+    // null，直接清会让文件名岛闪一下「未命名导图」，故等笔记真的出现在列表里再清。
+    if (notes.value.some((item) => item.id === saved.id)) pendingName.value = ''
     if (silent) logger.info('mindmap', `自动保存 id=${saved.id}`)
     else {
       toast('已保存')
@@ -202,6 +216,54 @@ async function save(silent = false): Promise<void> {
     logger.error('mindmap', '保存思维导图失败', error)
     if (!silent) toast('保存失败')
   }
+}
+
+/**
+ * 文件名岛改名。
+ *
+ * 已有笔记：立即写回 `content`（`save()` 写的就是这个字段），主窗口经 notes-changed 刷新列表。
+ * 尚未保存的新导图：只记在本地（`pendingName`），等用户手动保存时随 `content` 一起落库——
+ * 改名不是保存，不能顺手建一条笔记出来。
+ */
+async function renameTo(name: string): Promise<void> {
+  if (!noteId.value) {
+    pendingName.value = name
+    logger.info('mindmap', `新导图暂存名「${name}」，首次保存时写入`)
+    return
+  }
+  try {
+    await api.notes.save({
+      id: noteId.value,
+      content: name,
+      tags: [...tags.value],
+      editorMode: 'mindmap',
+      // 画布上可能还有未落库的改动：连当前数据一起写回，避免改名把导图数据回退成上一次保存的内容。
+      mindmapData: mindmapData.value ?? serializeMindMapData(initialData.value),
+      draft: false,
+    })
+    toast('已重命名')
+    logger.info('mindmap', `导图改名为「${name}」`)
+  } catch (error) {
+    logger.error('mindmap', '导图改名失败', error)
+    toast('重命名失败')
+  }
+}
+
+/** 新建：原型 `#mmNew`（`docs/app.js:1748-1756`）——确认后把当前内容清空为空白导图。 */
+function startNewMap(): void {
+  if (!window.confirm('新建导图将清空当前未保存的内容，确认新建？')) return
+  const instance = mindMap.value
+  if (!instance) return
+  // 切断与原笔记的关联：此后保存会新建一条笔记，原笔记不受影响。
+  noteId.value = ''
+  pendingName.value = ''
+  mindmapData.value = null
+  // 入参形状与 `parseMindMapData` 的空数据兜底一致（`{ data: { text }, children: [] }`），
+  // 库里 setData 要的是 root 节点，不是全量对象。setData 会重置历史记录，正合「新建」语义。
+  instance.setData(parseMindMapData(null).root)
+  instance.view.fit()
+  dirty.value = false
+  logger.info('mindmap', '已清空为新建导图')
 }
 
 async function close(): Promise<void> {
@@ -328,13 +390,11 @@ onUnmounted(() => {
     <NDialogProvider>
       <div class="mindmap-window" :class="{ zen: ui.isZenMode }">
         <header class="mindmap-bar">
-          <span class="mindmap-title">🧠 {{ title }}<em v-if="dirty" class="mindmap-dirty">未保存</em></span>
+          <span class="mindmap-title">🧠 {{ mapName }}<em v-if="dirty" class="mindmap-dirty">未保存</em></span>
           <div class="mindmap-actions">
             <div class="tag-preview" title="点击管理标签">
               <TagList :tags="tags" :max="3" @open="showTagManager = true" />
             </div>
-            <button type="button" class="btn" @click="close">关闭</button>
-            <button type="button" class="btn primary" @click="save()">保存 ⌃S</button>
           </div>
         </header>
 
@@ -350,7 +410,14 @@ onUnmounted(() => {
           <div v-if="dragImportActive" class="mm-drag-mask">松开鼠标导入该文件</div>
           <!-- 编辑 UI：仅在实例就绪后渲染，避免组件里 requireMindMap 抛错 -->
           <template v-if="mindMap">
-            <Toolbar v-if="!ui.isZenMode" />
+            <Toolbar
+              v-if="!ui.isZenMode"
+              :map-name="mapName"
+              @rename="renameTo"
+              @save="save()"
+              @close="close"
+              @new-map="startNewMap"
+            />
             <NavigatorToolbar v-if="!ui.isZenMode" />
             <Navigator />
             <ScrollbarBars />

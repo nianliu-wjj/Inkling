@@ -150,6 +150,30 @@
   cursor: not-allowed;
 }
 
+/* ═══ 顶栏三岛（左岛 / 文件名岛 / 右岛，阶段五 Task 2）═══
+   三段式形态来自生成层的 .mm-topbar / .mm-island（components.css:666-686），
+   这里只补两处自有层适配——生成层是照 docs/ 原型生成的，改不得：
+
+   1) .mm-topbar 必须脱离文档流并抬到画布之上：画布 .mm-canvas 是 `absolute; inset:0`
+      的定位元素，会盖住静态流里的兄弟节点，连点击都会被它截走；
+   2) 生成层的 .mm-filename-island（components.css:688-692）仍是原型里「单岛居中」时代的
+      `absolute; left:50%; top:10px` —— 原型的中岛本来就浮在左岛上面（窄窗口下会压住左岛
+      尾部按钮）。三段式排布下让它回到静态流，用 `margin:0 auto` 在左右两岛之间居中。
+
+   待 Task 7 收敛自有层时一并复核。 */
+.mm-topbar {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 30;
+}
+.mm-filename-island {
+  position: static;
+  transform: none;
+  margin: 0 auto;
+}
+
 /* ═══ 右侧侧栏触发条 ═══ */
 .mm-trigger {
   position: absolute;
