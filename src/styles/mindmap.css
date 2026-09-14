@@ -131,12 +131,15 @@
   font-size: 16px;
   line-height: 1;
 }
-/* 禁用态：生成层的 :hover 没有 :not(:disabled) 守卫，故连悬停底色一起复位。 */
+/* 禁用态：生成层的 :hover 没有 :not(:disabled) 守卫，故连悬停底色与字色一起复位——
+   只复位 background 不够，`.mm-tool-btn.danger:hover`（components.css:788-791）仍会把
+   悬停中的「删除节点」染红。 */
 .mm-tool-btn:disabled,
 .mm-tool-btn:disabled:hover {
   opacity: 0.32;
   cursor: not-allowed;
   background: transparent;
+  color: var(--mm-text);
 }
 /* 格式刷取材中：生成层没有 active 态，用导图主题的强调色标出（含文字，光靠底色不够显眼）。 */
 .mm-tool-btn.active {

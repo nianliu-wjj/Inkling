@@ -277,10 +277,21 @@ async function renameTo(name: string): Promise<void> {
 function startNewMap(): void {
   if (!window.confirm('新建导图将清空当前未保存的内容，确认新建？')) return
   if (label === NEW_MAP_LABEL) {
-    // label 已与内容一致，没有错配，就地重建为空导图（换窗前的老行为）。
+    // label 与内容一致（都是「未命名的新导图」），就地重建即可，不必换窗。
+    //
+    // 但必须先解除与笔记的绑定：本窗若保存过一次，noteId 已指向那条笔记而 label 仍是
+    // mindmap-new；此时 setData/view.fit 会触发 data_change → markDirtyAndAutosave，
+    // 它的 `if (!noteId.value) return` 守卫不成立 → 1.5s 后把空白图写进那条笔记（静默丢内容）。
+    // 同时清掉此前已排队的定时器：只清 noteId 的话，那个定时器会以 id: undefined 落库，
+    // 静默生成一条空白笔记，违反「新建导图首次必须手动保存」的约定。
+    noteId.value = ''
+    pendingName.value = ''
+    if (autosaveTimer) {
+      clearTimeout(autosaveTimer)
+      autosaveTimer = null
+    }
     const instance = mindMap.value
     if (!instance) return
-    pendingName.value = ''
     mindmapData.value = null
     // 入参形状与 `parseMindMapData` 的空数据兜底一致（`{ data: { text }, children: [] }`），
     // 库里 setData 要的是 root 节点，不是全量对象。setData 会重置历史记录，正合「新建」语义。
@@ -292,10 +303,16 @@ function startNewMap(): void {
   }
   const closing = label
   logger.info('mindmap', `新建导图：切换窗口 ${closing} → ${NEW_MAP_LABEL}`)
+  // `mindmap-new` 是单例 label：若已存在另一个未命名导图窗口，`mindmapOpen()` 会复用它并聚焦
+  // （windows.rs:253-258），而不是再开一个——此时用户被切到那个更早的未命名导图上，
+  // 本窗照常关闭（那边内容本就是「新建」态，不构成丢失）。
   void api.windows
     .mindmapOpen()
     .then(() => api.windows.mindmapClose(closing))
-    .catch((error: unknown) => logger.error('mindmap', '新建导图失败', error))
+    .catch((error: unknown) => {
+      logger.error('mindmap', '新建导图失败', error)
+      toast('新建导图失败')
+    })
 }
 
 async function close(): Promise<void> {
