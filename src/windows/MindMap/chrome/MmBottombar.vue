@@ -65,13 +65,13 @@ function onMoreSelect(key: string): void {
 // —— 原型底栏后三枚（自适应 / 展开全部 / 收起全部）——
 // 命令走 core/canvasCommands，与右键菜单的同名项完全同源；底栏没有「当前节点」，故 uid 一律为空 = 全图。
 function onFitCanvas(): void {
-  fitCanvas(ctx)
+  fitCanvas(requireMindMap(ctx))
 }
 function onExpandAll(): void {
-  expandAll(ctx)
+  expandAll(bus)
 }
 function onUnexpandAll(): void {
-  unexpandAll(ctx)
+  unexpandAll(bus)
 }
 </script>
 

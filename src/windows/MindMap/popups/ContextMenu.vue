@@ -149,7 +149,7 @@ function exec(key: string, disabled = false, ...args: unknown[]): void {
       localConfig.isZenMode = !localConfig.isZenMode
       break
     case 'FIT_CANVAS':
-      fitCanvas(ctx)
+      fitCanvas(mindMap)
       break
     case 'REMOVE_HYPERLINK':
       node.value?.setHyperlink('', '')
@@ -164,10 +164,10 @@ function exec(key: string, disabled = false, ...args: unknown[]): void {
       break
     // 展开 / 收起与底栏共用 core/canvasCommands 的同名命令（见那里的库签名说明）。
     case 'UNEXPAND_ALL':
-      unexpandAll(ctx, node.value ? node.value.uid : '')
+      unexpandAll(bus, node.value ? node.value.uid : '')
       break
     case 'EXPAND_ALL':
-      expandAll(ctx, node.value ? node.value.uid : '')
+      expandAll(bus, node.value ? node.value.uid : '')
       break
     default:
       bus.emit('execCommand', key, ...args)
@@ -223,13 +223,8 @@ onBeforeUnmount(() => offs.forEach((off) => off()))
 <template>
   <!-- 挂 body：菜单 DOM 不再落在 .mm-stage 内（层序见 mindmap.css 的 .mm-ctx 注释）。 -->
   <Teleport to="body">
-    <div
-      v-show="isShow"
-      ref="menuRef"
-      class="mm-ctx"
-      :class="{ 'sub-left': subLeft }"
-      :style="{ left: `${left}px`, top: `${top}px` }"
-    >
+    <!-- subLeft 只作用于二级菜单（.mm-ctx-sub.left），根元素上没有对应规则，故不挂 class。 -->
+    <div v-show="isShow" ref="menuRef" class="mm-ctx" :style="{ left: `${left}px`, top: `${top}px` }">
       <!-- 节点菜单 -->
       <template v-if="type === 'node'">
         <div class="mm-ctx-item" :class="{ disabled: insertDisabled }" @click="exec('INSERT_NODE', insertDisabled)">

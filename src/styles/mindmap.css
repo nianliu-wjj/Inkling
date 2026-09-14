@@ -975,8 +975,26 @@
 /* ═══ 底部控制栏（阶段五 Task 5：NavigatorToolbar + Count 合并为单条 .mm-bottombar）═══
    形态来自生成层 .mm-bottombar / .mm-stat-left / .mm-ctrl-right / .mm-ctrl-btn / .mm-ctrl-sep /
    .mm-zoom-val（components.css:1367-1432），挂载点见 MindMapApp.vue。自有层只补生成层照原型
-   emoji 画时没有的三件事：字形统一、active 态、以及「百分比可手输」这一处项目扩展。 */
+   emoji 画时没有的几件事：字形统一、active 态、统计段间距、窄窗口滚动，以及「百分比可手输」
+   这一处项目扩展。 */
 
+/* 生成层 .mm-stat-left 是照原型的「一行文本 + &nbsp;」排的，我们拆成了两个 span；而 Vue 的
+   whitespace: 'condense' 会吃掉两个元素之间「含换行的纯空白」文本节点 ⇒ 两段会直接贴成
+   「字数 0节点 1」。用 flex 间距表达「并排两段」比在模板里塞 &nbsp; 稳：&nbsp; 把渲染细节写进
+   字符串、容易被格式化改掉，而 gap 不会像不可断行空格那样在大数字下顶宽。
+   顺带补 tabular-nums——旧的 .mm-count 有、随组件一起删掉了，缺了它字数变化时整段宽度会跳。 */
+.mm-stat-left {
+  display: flex;
+  gap: 8px;
+  font-variant-numeric: tabular-nums;
+}
+/* 窄窗口：本栏收尾后有 14 枚按钮 + 百分比 + 分隔线，容器默认允许收缩，压到极限就是横向溢出，
+   而 #app 是 overflow: hidden ⇒ 溢出的最右那枚「更多」会被直接裁掉、点不到。
+   overflow-x: auto 让窗口再窄也能横向滚到它（不用 flex: none：那会让本段整体不收缩、直接顶出窗外，
+   容器自己的滚动条反而失效——溢出的是外层 .mm-bottombar 而不是本元素）。 */
+.mm-ctrl-right {
+  overflow-x: auto;
+}
 /* 原型那排按钮装的是 emoji（.mm-ctrl-btn 未定字号，继承 .mm-ctrl-right 的 12px）；我们用的是
    iconfont 字形与 −/＋/⋯ 文本，12px 偏小 ⇒ 统一抬到 16px（与旧导航栏一致）。 */
 .mm-ctrl-btn {
