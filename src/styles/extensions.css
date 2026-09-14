@@ -902,3 +902,527 @@ body:not(:focus-within) .mac-dot {
 :root[data-window='launcher'] .launcher-empty {
   margin: auto;
 }
+
+/* ═══ 12. 思维导图窗口令牌（阶段五 Task 6，2026-09-15） ═══
+ * 原型导图窗口的 chrome（顶栏三岛 / 工具岛 / 抽屉 / 模态 / 表单 / 底栏 / 小地图 / 右键菜单）
+ * 全部走 --mm-*，而原型只在基础 :root 与 [data-theme="typewriter"] 里定义过它们
+ * （原型源码自己把这条留成了待办：docs/styles.css:95-100 「⚠️ 下一步：在各 [data-theme]
+ * 主题块中覆盖以下 13 个令牌」；那两处已由生成层带进 tokens.css 与 themes.css）。
+ * 本节即兑现那条待办：其余 30 套主题（外加本项目自建的 sepia）各覆盖一份，
+ * 导图窗口从此跟全站一起换肤——在此之前它是全站唯一不跟随主题的窗口。
+ *
+ * 写在自有层而非 docs/：docs/ 是设计师的原型参照，只读不写；themes.css 由它生成、不得手改。
+ * 加载链里 extensions 在 themes 之后（styles/index.ts），故这里的同名令牌压得过生成层。
+ *
+ * **dark 必须显式覆盖**：它没有自己的 [data-theme] 块，落到 tokens.css 的基础 :root，
+ * 而那份 :root 的 --mm-* 是从原型逐字抄来的**浅色**值——不覆盖，深色主题下导图窗口就会变成
+ * 全站唯一的浅色窗口（阶段五 Task 2 实机发现；themeTokens.test.ts 会拦住这种漏覆盖）。
+ *
+ * 取值一律由该主题**既有**令牌推导，不手挑颜色（themeTokens.test.ts 断言之）：
+ *   --mm-surface / -2 / -3 ← --menu-bg（近实心的菜单底） / --glass-bg（次级） / --wsa 8%（三级）
+ *   --mm-border             ← --wsa 16%（墨色通道而非绝对黑，深色主题下才看得见）
+ *   --mm-text / -2 / -dim   ← --text / --text-strong / --text-dim
+ *   --mm-primary(+soft)     ← --accent / --accent-rgb 14%
+ *   --mm-accent-2(+rgb)     ← --accent / --accent-rgb
+ *   --mm-danger(+soft)      ← --red / color-mix(--red 16%)
+ *
+ * typewriter 不在此列：它的 13 个令牌是原型**逐字设计**过的纸面 + 朱红（生成层已带过来），
+ * 套用上面的通用推导反而会把它拉平掉，故保持生成层的值不动。
+ * 生成层里另有若干不受令牌管辖的字面色值（白底 / 绝对黑描边），另见 mindmap.css 的
+ * 「生成层硬编码色值重述」一节。 */
+/* 深色 */
+:root[data-theme='dark'] {
+  --mm-surface: var(--menu-bg);
+  --mm-surface-2: var(--glass-bg);
+  --mm-surface-3: rgba(var(--wsa), 0.08);
+  --mm-border: rgba(var(--wsa), 0.16);
+  --mm-text: var(--text);
+  --mm-text-2: var(--text-strong);
+  --mm-text-dim: var(--text-dim);
+  --mm-primary: var(--accent);
+  --mm-primary-soft: rgba(var(--accent-rgb), 0.14);
+  --mm-danger: var(--red);
+  --mm-danger-soft: color-mix(in srgb, var(--red) 16%, transparent);
+  --mm-accent-2: var(--accent);
+  --mm-accent-2-rgb: var(--accent-rgb);
+}
+/* 浅色 */
+:root[data-theme='light'] {
+  --mm-surface: var(--menu-bg);
+  --mm-surface-2: var(--glass-bg);
+  --mm-surface-3: rgba(var(--wsa), 0.08);
+  --mm-border: rgba(var(--wsa), 0.16);
+  --mm-text: var(--text);
+  --mm-text-2: var(--text-strong);
+  --mm-text-dim: var(--text-dim);
+  --mm-primary: var(--accent);
+  --mm-primary-soft: rgba(var(--accent-rgb), 0.14);
+  --mm-danger: var(--red);
+  --mm-danger-soft: color-mix(in srgb, var(--red) 16%, transparent);
+  --mm-accent-2: var(--accent);
+  --mm-accent-2-rgb: var(--accent-rgb);
+}
+/* 纸杯蛋糕 */
+:root[data-theme='cupcake'] {
+  --mm-surface: var(--menu-bg);
+  --mm-surface-2: var(--glass-bg);
+  --mm-surface-3: rgba(var(--wsa), 0.08);
+  --mm-border: rgba(var(--wsa), 0.16);
+  --mm-text: var(--text);
+  --mm-text-2: var(--text-strong);
+  --mm-text-dim: var(--text-dim);
+  --mm-primary: var(--accent);
+  --mm-primary-soft: rgba(var(--accent-rgb), 0.14);
+  --mm-danger: var(--red);
+  --mm-danger-soft: color-mix(in srgb, var(--red) 16%, transparent);
+  --mm-accent-2: var(--accent);
+  --mm-accent-2-rgb: var(--accent-rgb);
+}
+/* 大黄蜂 */
+:root[data-theme='bumblebee'] {
+  --mm-surface: var(--menu-bg);
+  --mm-surface-2: var(--glass-bg);
+  --mm-surface-3: rgba(var(--wsa), 0.08);
+  --mm-border: rgba(var(--wsa), 0.16);
+  --mm-text: var(--text);
+  --mm-text-2: var(--text-strong);
+  --mm-text-dim: var(--text-dim);
+  --mm-primary: var(--accent);
+  --mm-primary-soft: rgba(var(--accent-rgb), 0.14);
+  --mm-danger: var(--red);
+  --mm-danger-soft: color-mix(in srgb, var(--red) 16%, transparent);
+  --mm-accent-2: var(--accent);
+  --mm-accent-2-rgb: var(--accent-rgb);
+}
+/* 翡翠绿 */
+:root[data-theme='emerald'] {
+  --mm-surface: var(--menu-bg);
+  --mm-surface-2: var(--glass-bg);
+  --mm-surface-3: rgba(var(--wsa), 0.08);
+  --mm-border: rgba(var(--wsa), 0.16);
+  --mm-text: var(--text);
+  --mm-text-2: var(--text-strong);
+  --mm-text-dim: var(--text-dim);
+  --mm-primary: var(--accent);
+  --mm-primary-soft: rgba(var(--accent-rgb), 0.14);
+  --mm-danger: var(--red);
+  --mm-danger-soft: color-mix(in srgb, var(--red) 16%, transparent);
+  --mm-accent-2: var(--accent);
+  --mm-accent-2-rgb: var(--accent-rgb);
+}
+/* 商务蓝 */
+:root[data-theme='business'] {
+  --mm-surface: var(--menu-bg);
+  --mm-surface-2: var(--glass-bg);
+  --mm-surface-3: rgba(var(--wsa), 0.08);
+  --mm-border: rgba(var(--wsa), 0.16);
+  --mm-text: var(--text);
+  --mm-text-2: var(--text-strong);
+  --mm-text-dim: var(--text-dim);
+  --mm-primary: var(--accent);
+  --mm-primary-soft: rgba(var(--accent-rgb), 0.14);
+  --mm-danger: var(--red);
+  --mm-danger-soft: color-mix(in srgb, var(--red) 16%, transparent);
+  --mm-accent-2: var(--accent);
+  --mm-accent-2-rgb: var(--accent-rgb);
+}
+/* 霓虹未来 */
+:root[data-theme='neon'] {
+  --mm-surface: var(--menu-bg);
+  --mm-surface-2: var(--glass-bg);
+  --mm-surface-3: rgba(var(--wsa), 0.08);
+  --mm-border: rgba(var(--wsa), 0.16);
+  --mm-text: var(--text);
+  --mm-text-2: var(--text-strong);
+  --mm-text-dim: var(--text-dim);
+  --mm-primary: var(--accent);
+  --mm-primary-soft: rgba(var(--accent-rgb), 0.14);
+  --mm-danger: var(--red);
+  --mm-danger-soft: color-mix(in srgb, var(--red) 16%, transparent);
+  --mm-accent-2: var(--accent);
+  --mm-accent-2-rgb: var(--accent-rgb);
+}
+/* 复古 */
+:root[data-theme='retro'] {
+  --mm-surface: var(--menu-bg);
+  --mm-surface-2: var(--glass-bg);
+  --mm-surface-3: rgba(var(--wsa), 0.08);
+  --mm-border: rgba(var(--wsa), 0.16);
+  --mm-text: var(--text);
+  --mm-text-2: var(--text-strong);
+  --mm-text-dim: var(--text-dim);
+  --mm-primary: var(--accent);
+  --mm-primary-soft: rgba(var(--accent-rgb), 0.14);
+  --mm-danger: var(--red);
+  --mm-danger-soft: color-mix(in srgb, var(--red) 16%, transparent);
+  --mm-accent-2: var(--accent);
+  --mm-accent-2-rgb: var(--accent-rgb);
+}
+/* 浪漫 */
+:root[data-theme='romance'] {
+  --mm-surface: var(--menu-bg);
+  --mm-surface-2: var(--glass-bg);
+  --mm-surface-3: rgba(var(--wsa), 0.08);
+  --mm-border: rgba(var(--wsa), 0.16);
+  --mm-text: var(--text);
+  --mm-text-2: var(--text-strong);
+  --mm-text-dim: var(--text-dim);
+  --mm-primary: var(--accent);
+  --mm-primary-soft: rgba(var(--accent-rgb), 0.14);
+  --mm-danger: var(--red);
+  --mm-danger-soft: color-mix(in srgb, var(--red) 16%, transparent);
+  --mm-accent-2: var(--accent);
+  --mm-accent-2-rgb: var(--accent-rgb);
+}
+/* 万圣节 */
+:root[data-theme='halloween'] {
+  --mm-surface: var(--menu-bg);
+  --mm-surface-2: var(--glass-bg);
+  --mm-surface-3: rgba(var(--wsa), 0.08);
+  --mm-border: rgba(var(--wsa), 0.16);
+  --mm-text: var(--text);
+  --mm-text-2: var(--text-strong);
+  --mm-text-dim: var(--text-dim);
+  --mm-primary: var(--accent);
+  --mm-primary-soft: rgba(var(--accent-rgb), 0.14);
+  --mm-danger: var(--red);
+  --mm-danger-soft: color-mix(in srgb, var(--red) 16%, transparent);
+  --mm-accent-2: var(--accent);
+  --mm-accent-2-rgb: var(--accent-rgb);
+}
+/* 奇幻 */
+:root[data-theme='fantasy'] {
+  --mm-surface: var(--menu-bg);
+  --mm-surface-2: var(--glass-bg);
+  --mm-surface-3: rgba(var(--wsa), 0.08);
+  --mm-border: rgba(var(--wsa), 0.16);
+  --mm-text: var(--text);
+  --mm-text-2: var(--text-strong);
+  --mm-text-dim: var(--text-dim);
+  --mm-primary: var(--accent);
+  --mm-primary-soft: rgba(var(--accent-rgb), 0.14);
+  --mm-danger: var(--red);
+  --mm-danger-soft: color-mix(in srgb, var(--red) 16%, transparent);
+  --mm-accent-2: var(--accent);
+  --mm-accent-2-rgb: var(--accent-rgb);
+}
+/* 极黑 */
+:root[data-theme='oled'] {
+  --mm-surface: var(--menu-bg);
+  --mm-surface-2: var(--glass-bg);
+  --mm-surface-3: rgba(var(--wsa), 0.08);
+  --mm-border: rgba(var(--wsa), 0.16);
+  --mm-text: var(--text);
+  --mm-text-2: var(--text-strong);
+  --mm-text-dim: var(--text-dim);
+  --mm-primary: var(--accent);
+  --mm-primary-soft: rgba(var(--accent-rgb), 0.14);
+  --mm-danger: var(--red);
+  --mm-danger-soft: color-mix(in srgb, var(--red) 16%, transparent);
+  --mm-accent-2: var(--accent);
+  --mm-accent-2-rgb: var(--accent-rgb);
+}
+/* 奢华 */
+:root[data-theme='luxury'] {
+  --mm-surface: var(--menu-bg);
+  --mm-surface-2: var(--glass-bg);
+  --mm-surface-3: rgba(var(--wsa), 0.08);
+  --mm-border: rgba(var(--wsa), 0.16);
+  --mm-text: var(--text);
+  --mm-text-2: var(--text-strong);
+  --mm-text-dim: var(--text-dim);
+  --mm-primary: var(--accent);
+  --mm-primary-soft: rgba(var(--accent-rgb), 0.14);
+  --mm-danger: var(--red);
+  --mm-danger-soft: color-mix(in srgb, var(--red) 16%, transparent);
+  --mm-accent-2: var(--accent);
+  --mm-accent-2-rgb: var(--accent-rgb);
+}
+/* 德古拉 */
+:root[data-theme='dracula'] {
+  --mm-surface: var(--menu-bg);
+  --mm-surface-2: var(--glass-bg);
+  --mm-surface-3: rgba(var(--wsa), 0.08);
+  --mm-border: rgba(var(--wsa), 0.16);
+  --mm-text: var(--text);
+  --mm-text-2: var(--text-strong);
+  --mm-text-dim: var(--text-dim);
+  --mm-primary: var(--accent);
+  --mm-primary-soft: rgba(var(--accent-rgb), 0.14);
+  --mm-danger: var(--red);
+  --mm-danger-soft: color-mix(in srgb, var(--red) 16%, transparent);
+  --mm-accent-2: var(--accent);
+  --mm-accent-2-rgb: var(--accent-rgb);
+}
+/* 印刷色 */
+:root[data-theme='print'] {
+  --mm-surface: var(--menu-bg);
+  --mm-surface-2: var(--glass-bg);
+  --mm-surface-3: rgba(var(--wsa), 0.08);
+  --mm-border: rgba(var(--wsa), 0.16);
+  --mm-text: var(--text);
+  --mm-text-2: var(--text-strong);
+  --mm-text-dim: var(--text-dim);
+  --mm-primary: var(--accent);
+  --mm-primary-soft: rgba(var(--accent-rgb), 0.14);
+  --mm-danger: var(--red);
+  --mm-danger-soft: color-mix(in srgb, var(--red) 16%, transparent);
+  --mm-accent-2: var(--accent);
+  --mm-accent-2-rgb: var(--accent-rgb);
+}
+/* 秋日 */
+:root[data-theme='autumn'] {
+  --mm-surface: var(--menu-bg);
+  --mm-surface-2: var(--glass-bg);
+  --mm-surface-3: rgba(var(--wsa), 0.08);
+  --mm-border: rgba(var(--wsa), 0.16);
+  --mm-text: var(--text);
+  --mm-text-2: var(--text-strong);
+  --mm-text-dim: var(--text-dim);
+  --mm-primary: var(--accent);
+  --mm-primary-soft: rgba(var(--accent-rgb), 0.14);
+  --mm-danger: var(--red);
+  --mm-danger-soft: color-mix(in srgb, var(--red) 16%, transparent);
+  --mm-accent-2: var(--accent);
+  --mm-accent-2-rgb: var(--accent-rgb);
+}
+/* 商务灰 */
+:root[data-theme='businessgray'] {
+  --mm-surface: var(--menu-bg);
+  --mm-surface-2: var(--glass-bg);
+  --mm-surface-3: rgba(var(--wsa), 0.08);
+  --mm-border: rgba(var(--wsa), 0.16);
+  --mm-text: var(--text);
+  --mm-text-2: var(--text-strong);
+  --mm-text-dim: var(--text-dim);
+  --mm-primary: var(--accent);
+  --mm-primary-soft: rgba(var(--accent-rgb), 0.14);
+  --mm-danger: var(--red);
+  --mm-danger-soft: color-mix(in srgb, var(--red) 16%, transparent);
+  --mm-accent-2: var(--accent);
+  --mm-accent-2-rgb: var(--accent-rgb);
+}
+/* 迷幻 */
+:root[data-theme='psychedelic'] {
+  --mm-surface: var(--menu-bg);
+  --mm-surface-2: var(--glass-bg);
+  --mm-surface-3: rgba(var(--wsa), 0.08);
+  --mm-border: rgba(var(--wsa), 0.16);
+  --mm-text: var(--text);
+  --mm-text-2: var(--text-strong);
+  --mm-text-dim: var(--text-dim);
+  --mm-primary: var(--accent);
+  --mm-primary-soft: rgba(var(--accent-rgb), 0.14);
+  --mm-danger: var(--red);
+  --mm-danger-soft: color-mix(in srgb, var(--red) 16%, transparent);
+  --mm-accent-2: var(--accent);
+  --mm-accent-2-rgb: var(--accent-rgb);
+}
+/* 柠檬 */
+:root[data-theme='lemon'] {
+  --mm-surface: var(--menu-bg);
+  --mm-surface-2: var(--glass-bg);
+  --mm-surface-3: rgba(var(--wsa), 0.08);
+  --mm-border: rgba(var(--wsa), 0.16);
+  --mm-text: var(--text);
+  --mm-text-2: var(--text-strong);
+  --mm-text-dim: var(--text-dim);
+  --mm-primary: var(--accent);
+  --mm-primary-soft: rgba(var(--accent-rgb), 0.14);
+  --mm-danger: var(--red);
+  --mm-danger-soft: color-mix(in srgb, var(--red) 16%, transparent);
+  --mm-accent-2: var(--accent);
+  --mm-accent-2-rgb: var(--accent-rgb);
+}
+/* 夜色 */
+:root[data-theme='night'] {
+  --mm-surface: var(--menu-bg);
+  --mm-surface-2: var(--glass-bg);
+  --mm-surface-3: rgba(var(--wsa), 0.08);
+  --mm-border: rgba(var(--wsa), 0.16);
+  --mm-text: var(--text);
+  --mm-text-2: var(--text-strong);
+  --mm-text-dim: var(--text-dim);
+  --mm-primary: var(--accent);
+  --mm-primary-soft: rgba(var(--accent-rgb), 0.14);
+  --mm-danger: var(--red);
+  --mm-danger-soft: color-mix(in srgb, var(--red) 16%, transparent);
+  --mm-accent-2: var(--accent);
+  --mm-accent-2-rgb: var(--accent-rgb);
+}
+/* 咖啡 */
+:root[data-theme='coffee'] {
+  --mm-surface: var(--menu-bg);
+  --mm-surface-2: var(--glass-bg);
+  --mm-surface-3: rgba(var(--wsa), 0.08);
+  --mm-border: rgba(var(--wsa), 0.16);
+  --mm-text: var(--text);
+  --mm-text-2: var(--text-strong);
+  --mm-text-dim: var(--text-dim);
+  --mm-primary: var(--accent);
+  --mm-primary-soft: rgba(var(--accent-rgb), 0.14);
+  --mm-danger: var(--red);
+  --mm-danger-soft: color-mix(in srgb, var(--red) 16%, transparent);
+  --mm-accent-2: var(--accent);
+  --mm-accent-2-rgb: var(--accent-rgb);
+}
+/* 冬日 */
+:root[data-theme='winter'] {
+  --mm-surface: var(--menu-bg);
+  --mm-surface-2: var(--glass-bg);
+  --mm-surface-3: rgba(var(--wsa), 0.08);
+  --mm-border: rgba(var(--wsa), 0.16);
+  --mm-text: var(--text);
+  --mm-text-2: var(--text-strong);
+  --mm-text-dim: var(--text-dim);
+  --mm-primary: var(--accent);
+  --mm-primary-soft: rgba(var(--accent-rgb), 0.14);
+  --mm-danger: var(--red);
+  --mm-danger-soft: color-mix(in srgb, var(--red) 16%, transparent);
+  --mm-accent-2: var(--accent);
+  --mm-accent-2-rgb: var(--accent-rgb);
+}
+/* 深渊 */
+:root[data-theme='abyss'] {
+  --mm-surface: var(--menu-bg);
+  --mm-surface-2: var(--glass-bg);
+  --mm-surface-3: rgba(var(--wsa), 0.08);
+  --mm-border: rgba(var(--wsa), 0.16);
+  --mm-text: var(--text);
+  --mm-text-2: var(--text-strong);
+  --mm-text-dim: var(--text-dim);
+  --mm-primary: var(--accent);
+  --mm-primary-soft: rgba(var(--accent-rgb), 0.14);
+  --mm-danger: var(--red);
+  --mm-danger-soft: color-mix(in srgb, var(--red) 16%, transparent);
+  --mm-accent-2: var(--accent);
+  --mm-accent-2-rgb: var(--accent-rgb);
+}
+/* 水色 */
+:root[data-theme='aqua'] {
+  --mm-surface: var(--menu-bg);
+  --mm-surface-2: var(--glass-bg);
+  --mm-surface-3: rgba(var(--wsa), 0.08);
+  --mm-border: rgba(var(--wsa), 0.16);
+  --mm-text: var(--text);
+  --mm-text-2: var(--text-strong);
+  --mm-text-dim: var(--text-dim);
+  --mm-primary: var(--accent);
+  --mm-primary-soft: rgba(var(--accent-rgb), 0.14);
+  --mm-danger: var(--red);
+  --mm-danger-soft: color-mix(in srgb, var(--red) 16%, transparent);
+  --mm-accent-2: var(--accent);
+  --mm-accent-2-rgb: var(--accent-rgb);
+}
+/* 焦糖拿铁 */
+:root[data-theme='latte'] {
+  --mm-surface: var(--menu-bg);
+  --mm-surface-2: var(--glass-bg);
+  --mm-surface-3: rgba(var(--wsa), 0.08);
+  --mm-border: rgba(var(--wsa), 0.16);
+  --mm-text: var(--text);
+  --mm-text-2: var(--text-strong);
+  --mm-text-dim: var(--text-dim);
+  --mm-primary: var(--accent);
+  --mm-primary-soft: rgba(var(--accent-rgb), 0.14);
+  --mm-danger: var(--red);
+  --mm-danger-soft: color-mix(in srgb, var(--red) 16%, transparent);
+  --mm-accent-2: var(--accent);
+  --mm-accent-2-rgb: var(--accent-rgb);
+}
+/* 暗色 */
+:root[data-theme='dim'] {
+  --mm-surface: var(--menu-bg);
+  --mm-surface-2: var(--glass-bg);
+  --mm-surface-3: rgba(var(--wsa), 0.08);
+  --mm-border: rgba(var(--wsa), 0.16);
+  --mm-text: var(--text);
+  --mm-text-2: var(--text-strong);
+  --mm-text-dim: var(--text-dim);
+  --mm-primary: var(--accent);
+  --mm-primary-soft: rgba(var(--accent-rgb), 0.14);
+  --mm-danger: var(--red);
+  --mm-danger-soft: color-mix(in srgb, var(--red) 16%, transparent);
+  --mm-accent-2: var(--accent);
+  --mm-accent-2-rgb: var(--accent-rgb);
+}
+/* 北极光 */
+:root[data-theme='aurora'] {
+  --mm-surface: var(--menu-bg);
+  --mm-surface-2: var(--glass-bg);
+  --mm-surface-3: rgba(var(--wsa), 0.08);
+  --mm-border: rgba(var(--wsa), 0.16);
+  --mm-text: var(--text);
+  --mm-text-2: var(--text-strong);
+  --mm-text-dim: var(--text-dim);
+  --mm-primary: var(--accent);
+  --mm-primary-soft: rgba(var(--accent-rgb), 0.14);
+  --mm-danger: var(--red);
+  --mm-danger-soft: color-mix(in srgb, var(--red) 16%, transparent);
+  --mm-accent-2: var(--accent);
+  --mm-accent-2-rgb: var(--accent-rgb);
+}
+/* 粉彩 */
+:root[data-theme='pastel'] {
+  --mm-surface: var(--menu-bg);
+  --mm-surface-2: var(--glass-bg);
+  --mm-surface-3: rgba(var(--wsa), 0.08);
+  --mm-border: rgba(var(--wsa), 0.16);
+  --mm-text: var(--text);
+  --mm-text-2: var(--text-strong);
+  --mm-text-dim: var(--text-dim);
+  --mm-primary: var(--accent);
+  --mm-primary-soft: rgba(var(--accent-rgb), 0.14);
+  --mm-danger: var(--red);
+  --mm-danger-soft: color-mix(in srgb, var(--red) 16%, transparent);
+  --mm-accent-2: var(--accent);
+  --mm-accent-2-rgb: var(--accent-rgb);
+}
+/* 日落 */
+:root[data-theme='sunset'] {
+  --mm-surface: var(--menu-bg);
+  --mm-surface-2: var(--glass-bg);
+  --mm-surface-3: rgba(var(--wsa), 0.08);
+  --mm-border: rgba(var(--wsa), 0.16);
+  --mm-text: var(--text);
+  --mm-text-2: var(--text-strong);
+  --mm-text-dim: var(--text-dim);
+  --mm-primary: var(--accent);
+  --mm-primary-soft: rgba(var(--accent-rgb), 0.14);
+  --mm-danger: var(--red);
+  --mm-danger-soft: color-mix(in srgb, var(--red) 16%, transparent);
+  --mm-accent-2: var(--accent);
+  --mm-accent-2-rgb: var(--accent-rgb);
+}
+/* 线框 */
+:root[data-theme='wireframe'] {
+  --mm-surface: var(--menu-bg);
+  --mm-surface-2: var(--glass-bg);
+  --mm-surface-3: rgba(var(--wsa), 0.08);
+  --mm-border: rgba(var(--wsa), 0.16);
+  --mm-text: var(--text);
+  --mm-text-2: var(--text-strong);
+  --mm-text-dim: var(--text-dim);
+  --mm-primary: var(--accent);
+  --mm-primary-soft: rgba(var(--accent-rgb), 0.14);
+  --mm-danger: var(--red);
+  --mm-danger-soft: color-mix(in srgb, var(--red) 16%, transparent);
+  --mm-accent-2: var(--accent);
+  --mm-accent-2-rgb: var(--accent-rgb);
+}
+/* 棕褐 */
+:root[data-theme='sepia'] {
+  --mm-surface: var(--menu-bg);
+  --mm-surface-2: var(--glass-bg);
+  --mm-surface-3: rgba(var(--wsa), 0.08);
+  --mm-border: rgba(var(--wsa), 0.16);
+  --mm-text: var(--text);
+  --mm-text-2: var(--text-strong);
+  --mm-text-dim: var(--text-dim);
+  --mm-primary: var(--accent);
+  --mm-primary-soft: rgba(var(--accent-rgb), 0.14);
+  --mm-danger: var(--red);
+  --mm-danger-soft: color-mix(in srgb, var(--red) 16%, transparent);
+  --mm-accent-2: var(--accent);
+  --mm-accent-2-rgb: var(--accent-rgb);
+}

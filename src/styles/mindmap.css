@@ -77,7 +77,9 @@
   background: var(--menu-bg);
   border: 1px solid rgba(var(--wsa), 0.14);
   border-radius: 10px;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+  /* 阴影走尺度令牌：`--shadow-pop` 与本处的字面值逐字相等（0 10px 30px rgba(0,0,0,.5)），
+     换成令牌后 typewriter 那套「扁平化投影」覆盖（themes.css）才会一并生效。 */
+  box-shadow: var(--shadow-pop);
   backdrop-filter: blur(20px);
 }
 
@@ -435,7 +437,9 @@
   background: var(--mm-surface);
   border: 1px solid var(--mm-border);
   border-radius: 10px;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+  /* 同 .mm-panel：与 --shadow-pop 逐字相等，改引用令牌（生成层 .mm-ctx 那块深色底已在
+     本文件上方被 --mm-surface 改宗，这里只收口它自己的投影）。 */
+  box-shadow: var(--shadow-pop);
   backdrop-filter: blur(20px);
 }
 .mm-ctx-sub.left {
@@ -636,7 +640,8 @@
   height: 56px;
   object-fit: cover;
   border-radius: 5px;
-  background: #fff;
+  /* 缩略图的占位底：原为绝对白，深色主题下比周围面板亮一大截（图未加载/透明时尤其明显）。 */
+  background: var(--mm-surface-2);
 }
 .mm-struct-item.active,
 .mm-theme-item.active {
@@ -1741,4 +1746,59 @@
   border: 2px dashed var(--accent);
   border-radius: 12px;
   pointer-events: none;
+}
+
+/* ═══ 生成层硬编码色值按主题令牌重述（阶段五 Task 6，2026-09-15） ═══
+ * 导图窗口的 --mm-* 已由 extensions.css §12 补齐到 32 套主题，但生成层（components.css 的导图段
+ * 652–1484）里另有若干**不受令牌管辖**的字面色值，光补令牌修不动它们：
+ *   - 白底系 rgba(255,255,255,.9/.96)：13 套深色主题下白底浅字（本任务的主诉之一）；
+ *   - 绝对黑描边 rgba(0,0,0,.06~.1)：深色主题下与暗底同色，岛屿 / 抽屉的边直接隐形；
+ *   - 绝对黑悬停底 rgba(0,0,0,.08)：小地图关闭键在深色主题下整个消失。
+ * 生成层不得手改（sync:styles --check 会拦），故在此按主题令牌重述——本文件在 @/styles 之后加载
+ * （mindmap.ts），同特异性（0,1,0）下后加载者胜。
+ *
+ * 描边一律改写成**墨色通道** rgba(var(--wsa), α)，α 与生成层逐条相同：浅色主题的 --wsa 本就是
+ * 深墨（如 typewriter 是 26,26,26），与绝对黑视觉无差；深色主题的 --wsa 翻成浅墨，同一条描边才看得见。
+ *
+ * **刻意保留、并非漏改**的字面色值（已逐条核对全量 grep 结果）：
+ *   - 阴影系 rgba(0,0,0,…)：阴影表达遮挡关系而非墨色，各主题下都该是黑的，尺度令牌 --shadow-*
+ *     本身也是黑色。仅当几何与透明度逐字相等时才改引用令牌（.mm-panel / .mm-ctx-sub → --shadow-pop）。
+ *   - .mm-modal-overlay 的 rgba(0,0,0,.4) 与 .mm-imgpv 的 rgba(0,0,0,.72)：全屏遮罩，
+ *     作用就是压暗背后的任意内容，与主题无关。
+ *   - 演示模式控制条 / 图片预览关闭键的 rgba(0,0,0,.5) 底 + #fff 字：压在遮罩或全屏画布上的
+ *     反向 chrome，深浅主题下都必须与遮罩拉开反差。
+ *   - 取色板「透明」棋盘格的 #ccc/#fff：它是「透明」的通用图示而非主题表面，
+ *     换成 --mm-surface 系会让 16px 色块与旁边的纯白色块分不出来。
+ *   - var(--red, #ee4545) 一类带回退的字面值：回退只在 --red 缺失时生效，32 套主题都定义了它。 */
+
+/* 底栏左侧「字数 / 节点数」：生成层是硬编码白底 rgba(255,255,255,.9)，深色主题下白底浅字。 */
+.mm-stat-left {
+  background: var(--mm-surface);
+}
+/* 小地图面板：同上一处（生成层 .96）——深色主题下它是一块刺眼的白板；描边一并换墨色通道。 */
+.mm-minimap {
+  background: var(--mm-surface);
+  border-color: rgba(var(--wsa), 0.1);
+}
+/* 小地图关闭键：生成层常住底是 rgba(0,0,0,.08)，压在深色画布上等于隐形。 */
+.mm-minimap-close {
+  background: rgba(var(--wsa), 0.1);
+}
+/* 悬停：生成层的 rgba(255,77,79,.8) 是固定红，改吃主题危险色（文字色 --mm-surface 保持生成层的，
+   它与 --mm-danger 在深浅两类主题下都够反差）。 */
+.mm-minimap-close:hover {
+  background: var(--mm-danger);
+}
+/* 三座岛 + 侧栏 dock + 底栏控件组的描边：生成层是 rgba(0,0,0,.06)。 */
+.mm-island,
+.mm-filename-island,
+.mm-sidebar-dock,
+.mm-ctrl-right {
+  border-color: rgba(var(--wsa), 0.06);
+}
+/* 抽屉 / 模态 / 取色板的描边：生成层是 rgba(0,0,0,.08)。 */
+.mm-drawer,
+.mm-modal,
+.mm-color-swatch {
+  border-color: rgba(var(--wsa), 0.08);
 }

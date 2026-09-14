@@ -17,7 +17,7 @@ import { MAP_NAME_FALLBACK } from '@/utils/mindmapName'
 import { createBus } from './core/bus'
 import { toggleRichText, toggleScrollbar } from './core/createMindMap'
 import { loadLocalConfig, loadMapConfig, saveLocalConfig, saveMapConfig } from './core/localConfig'
-import { buildThemeOverrides, naiveDark } from './core/naiveTheme'
+import { buildThemeOverrides } from './core/naiveTheme'
 import { type MindMapFullData, parseMindMapData, serializeMindMapData } from './core/persistence'
 import { createUiState } from './core/store'
 import { provideMindMapContext } from './core/useMindMap'
@@ -92,7 +92,8 @@ const mindmapData = ref<string | null>(null)
 const tags = ref<string[]>([])
 const showTagManager = ref(false)
 const dirty = ref(false)
-const themeOverrides = ref(buildThemeOverrides())
+/** naive-ui 的基底与覆盖项：由 core/naiveTheme 按当前主题一次性算出（含明暗判断）。 */
+const naiveTheme = ref(buildThemeOverrides())
 
 const isNew = computed(() => !noteId.value)
 const note = computed(() => notes.value.find((item) => item.id === noteId.value) ?? null)
@@ -126,7 +127,7 @@ watch(
   () => settings.value.theme,
   (theme) => {
     applyTheme(theme)
-    void nextTick(() => (themeOverrides.value = buildThemeOverrides()))
+    void nextTick(() => (naiveTheme.value = buildThemeOverrides()))
   },
   { immediate: true },
 )
@@ -428,7 +429,12 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <NConfigProvider :theme="naiveDark" :theme-overrides="themeOverrides" :locale="zhCN" :date-locale="dateZhCN">
+  <NConfigProvider
+    :theme="naiveTheme.theme"
+    :theme-overrides="naiveTheme.overrides"
+    :locale="zhCN"
+    :date-locale="dateZhCN"
+  >
     <NDialogProvider>
       <div class="mindmap-window" :class="{ zen: ui.isZenMode }">
         <header class="mindmap-bar">
