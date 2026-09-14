@@ -274,6 +274,9 @@ git commit -m "feat(mindmap): 导图名规范化纯函数与文件名岛组件"
 >
 > 形态说明：原型这些按钮用的是 emoji + `.mm-ico`（`<span class="mm-ico">💾</span>`）。我们**沿用现有 iconfont 矢量图标**——形态（三岛结构）照原型，字形技术沿用现状：换成 emoji 会让整个窗口的图标语言与现状不一致，且属于纯外观变动，不在本阶段范围（可后续单独提）。
 
+> **⚠️ 布局必读**：生成层里 `.mm-filename-island` 仍是原型「单岛居中」时代的定位——`src/styles/components.css:688-692` 的 `position:absolute; left:50%; top:10px; transform:translateX(-50%)`。改成「左岛 + 中岛 + 右岛」的横向排布时，**必须在自有层 `src/styles/mindmap.css` 覆盖它**（例如给 `.mm-topbar` 加 `display:flex; align-items:center; gap:10px`，并让 `.mm-filename-island` 回到静态流 + `margin:0 auto`）。
+> **不要改 `docs/styles.css` 再 `sync:styles`，也不要手改 `components.css`**——`docs/` 是设计师的原型参照（只读），生成层由脚本生成（手改会被 `sync:styles --check` 判死）。项目适配一律进自有层，这是前四个阶段的惯例（`window-fit.css` 就是干这个的）。
+
 `<script setup>` 顶部补齐：
 
 ```ts
@@ -632,10 +635,11 @@ git commit -m "feat(mindmap): 底栏按原型重排为单条控制栏，右键�
 ## Task 6: 30 套主题接入 `--mm-*` + 修 naive 浅色基底
 
 **Files:**
-- Modify: `docs/styles.css`（30 个主题块各补 13 行 `--mm-*`；**然后跑 `pnpm sync:styles` 重新生成**）
+- Modify: `src/styles/extensions.css`（**自有层**：新增一节，给 30 套主题各补 13 个 `--mm-*`；`sepia` 也在同一节里）
 - Modify: `src/windows/MindMap/core/naiveTheme.ts`
-- Modify: `src/styles/extensions.css`（若 `sepia` 主题在 extensions 里，同样补 `--mm-*`）
 - Create: `src/utils/themeTokens.test.ts`（断言每套主题都定义了 13 个 `--mm-*`）
+
+> **为什么不改 `docs/styles.css`**：`docs/` 是设计师给的原型参照，前四个阶段的惯例是**只读它、不写它**（项目适配一律进自有层；`extensions.css:710-712` 就留着一条「已建议在 docs/styles.css 改为 …」而未自行改动）。`themes.css` 由 `docs/styles.css` 生成、不得手改，因此这 30 套覆盖要写在 `extensions.css`——它在加载链里位于 `themes.css` **之后**（`index.ts` 顺序：tokens → base → components → themes → **extensions** → window-fit → motion → glass），能压过生成层，且已有 §7 棕褐主题、§9–§11 各阶段补丁的同款先例。
 
 **Interfaces:**
 - Consumes：主题块既有令牌 `--wsa` / `--menu-bg` / `--glass-bg` / `--accent` / `--accent-rgb` / `--text` / `--text-strong` / `--text-dim` / `--red` / `--scheme`
@@ -657,30 +661,27 @@ const MM_TOKENS = [
   '--mm-accent-2', '--mm-accent-2-rgb',
 ] as const
 
-test('每套主题块都覆盖了全部 13 个 --mm-* 令牌', () => {
-  // 两处来源：docs/styles.css（30 套原型主题）与 src/styles/extensions.css（项目新增的 sepia 棕褐）
-  const sources = [
-    { file: 'docs/styles.css', label: '原型主题' },
-    { file: 'src/styles/extensions.css', label: '项目扩展主题' },
-  ]
-  for (const { file, label } of sources) {
-    const css = readFileSync(file, 'utf8')
-    const blocks = [...css.matchAll(/:root\[data-theme='([^']+)'\]\s*\{([\s\S]*?)\n\}/g)]
-    for (const [, name, body] of blocks) {
-      const missing = MM_TOKENS.filter((token) => !body.includes(`${token}:`))
-      assert.deepEqual(missing, [], `${label} ${file} 的主题 ${name} 缺少：${missing.join(', ')}`)
-    }
+test('每套主题都有全部 13 个 --mm-* 令牌', () => {
+  // 覆盖来自三处：docs/styles.css 的 typewriter 块（经生成层进 themes.css）、
+  // src/styles/extensions.css 的其余 30 套 + sepia、以及 tokens.css 的 :root（dark 主题落在这里）。
+  const css =
+    readFileSync('docs/styles.css', 'utf8') +
+    readFileSync('src/styles/extensions.css', 'utf8') +
+    readFileSync('src/styles/tokens.css', 'utf8')
+  const blocks = new Map<string, string>()
+  for (const [, name, body] of css.matchAll(/:root(?:\[data-theme='([^']+)'\])?\s*\{([\s\S]*?)\n\}/g)) {
+    const key = name ?? 'dark' // 无 data-theme 的 :root 即 dark 主题的落点
+    blocks.set(key, (blocks.get(key) ?? '') + body)
   }
-  // 总量兜底：原型 30 套 + sepia 1 套（typewriter 已在原型里）
-  const docCss = readFileSync('docs/styles.css', 'utf8')
-  assert.ok(
-    [...docCss.matchAll(/:root\[data-theme='([^']+)'\]/g)].length >= 30,
-    '原型主题块数量异常',
-  )
-  assert.ok(
-    readFileSync('src/styles/extensions.css', 'utf8').includes(":root[data-theme='sepia']"),
-    'extensions.css 里找不到 sepia 主题块',
-  )
+  // 主题清单以 constants/themes.ts 为准（唯一真源），逐套核对
+  const themeKeys = [...readFileSync('src/constants/themes.ts', 'utf8').matchAll(/key: '([^']+)'/g)].map((m) => m[1])
+  assert.ok(themeKeys.length >= 32, `主题清单异常：${themeKeys.length}`)
+  for (const key of themeKeys) {
+    const body = blocks.get(key)
+    assert.ok(body, `找不到主题 ${key} 的定义块`)
+    const missing = MM_TOKENS.filter((token) => !body.includes(`${token}:`))
+    assert.deepEqual(missing, [], `主题 ${key} 缺少：${missing.join(', ')}`)
+  }
 })
 ```
 
@@ -692,10 +693,16 @@ Expected: FAIL —— 30 个主题块里除 `typewriter` 外全部报缺少 13 �
 
 - [ ] **Step 3: 给 30 套主题补令牌**
 
-对 `docs/styles.css` 里**除 typewriter 外**的每个 `:root[data-theme='...']` 块，在块内末尾追加（取值全部由该块**既有**令牌推导，不手挑颜色）：
+在 `src/styles/extensions.css` 末尾**新增一节**（照 §7/§9/§10/§11 的分节风格），对 `docs/styles.css` 里**除 typewriter 外**的每套主题各写一个块（`sepia` 也在本节内）。取值全部由该主题**既有**令牌推导，不手挑颜色：
 
 ```css
-  /* 思维导图窗口令牌（阶段五 D46；取值由本主题既有令牌推导） */
+/* ═══ 12. 思维导图窗口令牌（阶段五 D46） ═══
+ * 原型导图窗口的 chrome（外壳 / 工具岛 / 抽屉 / 模态 / 表单 / 底栏）全部走 --mm-*，
+ * 而原型自身只在 :root 与 [data-theme="typewriter"] 定义了它们（docs/styles.css:101-113 / 2564-2576，
+ * 那两处已由生成层带入 tokens.css 与 themes.css）——其余 30 套主题没有覆盖，
+ * 导图窗口因此是全站唯一不跟随主题换肤的窗口（原型 styles.css:95-100 注释自陈）。
+ * 本节即兑现它的「⚠️ 下一步」。写在自有层而非 docs/：docs/ 是设计师的原型参照，只读不写。 */
+:root[data-theme='<每套主题的 key>'] {
   --mm-surface: var(--menu-bg);
   --mm-surface-2: var(--glass-bg);
   --mm-surface-3: rgba(var(--wsa), 0.08);
@@ -709,19 +716,20 @@ Expected: FAIL —— 30 个主题块里除 `typewriter` 外全部报缺少 13 �
   --mm-danger-soft: color-mix(in srgb, var(--red) 16%, transparent);
   --mm-accent-2: var(--accent);
   --mm-accent-2-rgb: var(--accent-rgb);
+}
 ```
 
 > `color-mix` 项目已在用（`extensions.css:746`），WebView2 无兼容顾虑。
-> `sepia`（棕褐）主题不在 `docs/styles.css` 而在 `src/styles/extensions.css`——同样补这一块。
+> 主题 key 清单取自 `src/constants/themes.ts`（32 套里除 `dark`——它落到 `tokens.css` 的 `:root`，无需覆盖——与已覆盖的 `typewriter`）。
 
-- [ ] **Step 4: 跑测试确认通过 + 重新生成样式**
+- [ ] **Step 4: 跑测试确认通过**
 
 ```bash
 pnpm test:unit 2>&1 | grep -E "ℹ (tests|pass|fail)"
-pnpm sync:styles && pnpm sync:styles --check
+pnpm sync:styles --check
 ```
 
-Expected: 测试全绿；生成同步通过（`themes.css` 由脚本重写，**不要手改**）
+Expected: 测试全绿；`sync:styles --check` 通过（本步**没有**改 `docs/`，生成层原样不动）
 
 - [ ] **Step 5: 修 naive 的两处硬编码**
 
@@ -753,7 +761,7 @@ return { theme: currentScheme() === 'light' ? null : naiveDark, overrides }
 
 ```bash
 pnpm typecheck && pnpm format:check && pnpm test
-git add docs/styles.css src/styles/themes.css src/styles/extensions.css src/windows/MindMap/core/naiveTheme.ts src/windows/MindMap/MindMapApp.vue src/utils/themeTokens.test.ts
+git add src/styles/extensions.css src/windows/MindMap/core/naiveTheme.ts src/windows/MindMap/MindMapApp.vue src/utils/themeTokens.test.ts
 git commit -m "feat(mindmap): 其余 30 套主题接入 --mm-* 令牌，naive 基底按主题明暗选择"
 ```
 
