@@ -293,6 +293,16 @@
 .mm-drawer {
   z-index: 35;
 }
+/* 节点弹窗层序：必须同时压过顶栏（30）与抽屉（35）。
+   生成层 `.mm-modal-overlay` 是 20 —— 原型里它的顶栏 10 / 抽屉 10 都在其下，20 够用；
+   我们自有层把两者分别抬到了 30 / 35，照用 20 会露两个破绽：
+   ① 遮罩盖不住顶栏，弹窗开着时工具栏仍可点（能叠出第二个弹窗）；
+   ② 抽屉压住弹窗右半。
+   取 36 与抽屉取 35 是同一段空档（上界仍是大纲全屏编辑 40），不牵动任何既有层级。
+   ⚠️ Task 7 要统一裁决窗口层级序，本条是我方层级序的一处新增，届时应并入那份裁决。 */
+.mm-modal-overlay {
+  z-index: 36;
+}
 /* 抽屉内容排布：生成层 `.mm-drawer-body` 只给了内边距与滚动，侧栏表单件
    （`.mm-field` / `.mm-shortcut-group` 等）原本靠旧壳 `.mm-sidebar-body` 的纵向 flex + gap
    撑开间距，这里在自有层补回来，避免各行贴在一起。 */
@@ -654,7 +664,7 @@
   font-size: 11px;
 }
 
-/* ═══ 设置 / 图标 / 公式 / 备注侧栏 ═══ */
+/* ═══ 设置 / 图标 / 公式 / 备注 ═══ */
 .mm-setting-group {
   font-size: 12px;
   font-weight: 600;
@@ -670,69 +680,55 @@
   accent-color: var(--accent);
 }
 
-/* 图标 / 贴纸网格 */
+/* ═══ 图标 / 贴纸弹窗（popups/NodeIconModal.vue）+ 公式弹窗（popups/NodeFormulaModal.vue）═══
+   两个弹窗的壳与网格 / 公式表都直接用生成层的 `.mm-modal*` / `.mm-icon-grid` / `.mm-icon-tile` /
+   `.mm-formula-table`（spec D45）。这里只补生成层没有、而我们的真实现必需的部分：
+   图标是 SVG / 图片（原型写死 emoji，靠 `font-size` 撑开，不需要尺寸约束）、
+   有选中态与禁用态（原型是桩，没有）、公式列要等宽字体。 */
+
+/* 图标分组：组内「组名 + 方格」纵向排布。 */
 .mm-icon-group {
   display: flex;
   flex-direction: column;
   gap: 6px;
 }
-.mm-icon-grid {
-  display: grid;
-  grid-template-columns: repeat(6, 1fr);
-  gap: 6px;
+/* 组与组之间的间距。生成层 `.mm-modal-body` 只给了内边距、没有 flex/gap——
+   抽屉里的同类分组靠 Task 3 给 `.mm-drawer-body` 补的 `gap: 10px` 撑开，弹窗里没有这层，
+   不补的话相邻两组会贴在一起。 */
+.mm-icon-group + .mm-icon-group {
+  margin-top: 14px;
 }
-.mm-icon-item {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  aspect-ratio: 1;
-  border: 1px solid transparent;
-  border-radius: 6px;
-  background: transparent;
-  cursor: pointer;
-  padding: 2px;
-  overflow: hidden;
-}
-.mm-icon-item img,
-.mm-icon-item svg {
+/* 我们的图标值是内联 SVG 或图片地址，必须显式约束尺寸，否则贴纸位图会撑破方格。 */
+.mm-icon-tile img,
+.mm-icon-tile svg {
   max-width: 100%;
   max-height: 100%;
 }
-.mm-icon-item:hover {
-  background: rgba(var(--wsa), 0.12);
+/* 选中态：沿用生成层 hover 用的同两个令牌，弹窗内部保持 `--mm-*` 一套色。 */
+.mm-icon-tile.active {
+  border-color: var(--mm-primary);
+  background: var(--mm-primary-soft);
+  outline: 1px solid var(--mm-primary);
 }
-.mm-icon-item.active {
-  border-color: var(--accent);
-  outline: 1px solid var(--accent);
+/* 无激活节点时整片方格禁用（旧侧栏的 `:disabled`，生成层没有这条）。 */
+.mm-icon-tile:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
 }
 
-/* 公式侧栏 */
+/* 公式输入的 LaTeX 框：生成层 `.mm-textarea` 是按多行备注设计的 180px 高，
+   公式只有一两行，压回 80px（与旧公式侧栏同高）。 */
 .mm-formula-input {
   min-height: 80px;
   margin-bottom: 8px;
 }
-.mm-formula-list {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 6px;
+/* 公式源码列用等宽字体（原型该列是内联 monospace，生成层未定义）。 */
+.mm-formula-tex {
+  font-family: monospace;
+  overflow-wrap: anywhere;
 }
-.mm-formula-item {
-  font-size: 11px;
-  padding: 4px 6px;
-  border: 1px solid rgba(var(--wsa), 0.14);
-  border-radius: 6px;
-  background: transparent;
-  color: var(--text-dim);
-  cursor: pointer;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.mm-formula-item:hover:not(:disabled) {
-  color: var(--text);
-  border-color: var(--accent);
-}
-.mm-formula-item:disabled {
+/* 非富文本模式下公式表整体不可点（生成层 `.mm-formula-table` 没有禁用态）。 */
+.mm-formula-table.disabled tr {
   opacity: 0.5;
   cursor: not-allowed;
 }

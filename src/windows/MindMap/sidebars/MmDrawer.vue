@@ -6,8 +6,6 @@ import { sidebarTriggerList } from '../constants/lists'
 import type { SidebarName } from '../core/store'
 import { useMindMap } from '../core/useMindMap'
 import BaseStyleSidebar from './BaseStyleSidebar.vue'
-import FormulaSidebar from './FormulaSidebar.vue'
-import IconSidebar from './IconSidebar.vue'
 import NodeStyleSidebar from './NodeStyleSidebar.vue'
 import OutlineSidebar from './OutlineSidebar.vue'
 import SettingSidebar from './SettingSidebar.vue'
@@ -32,12 +30,10 @@ const { ui } = useMindMap()
 
 /**
  * 标题：dock 六项以 `sidebarTriggerList`（触发条同一份数据）为唯一来源，
- * 图标 / 公式 / 快捷键不在 dock 列表里，用它们各自的标题常量兜底——
- * 少了这层回退，这三个入口的抽屉标题会是空串（旧壳是从各侧栏的 props 拿标题的）。
+ * 快捷键不在 dock 列表里，用它的标题常量兜底——少了这层回退，这个入口的抽屉标题会是空串
+ * （旧壳是从各侧栏的 props 拿标题的）。
  */
 const EXTRA_TITLES: Partial<Record<OpenSidebarName, string>> = {
-  nodeIconSidebar: '图标 / 贴纸',
-  formulaSidebar: '公式',
   shortcutKey: '快捷键',
 }
 
@@ -46,8 +42,8 @@ type OpenSidebarName = Exclude<SidebarName, ''>
 
 /**
  * 内容表。用 `Record<OpenSidebarName, …>` 而不是宽松的字典，是为了让 `SidebarName`
- * 增删取值时 typecheck 直接报错——Task 4/5 迁走图标 / 公式 / 快捷键时，删掉对应项
- * 也就同时删掉了这里的一条。
+ * 增删取值时 typecheck 直接报错——Task 4 把图标 / 公式迁到模态时，删掉 `SidebarName` 的两个取值
+ * 就同时逼着这里删条目（`CONTENT` 缺键即报错），「入口可达」由此变成编译期约束。
  */
 const CONTENT: Record<OpenSidebarName, Component> = {
   nodeStyle: NodeStyleSidebar,
@@ -56,12 +52,8 @@ const CONTENT: Record<OpenSidebarName, Component> = {
   structure: StructureSidebar,
   outline: OutlineSidebar,
   setting: SettingSidebar,
-  // 以下三项是**过渡**：图标 / 公式在 Task 4 迁到模态、快捷键的入口在底栏「更多」，
-  // 本步先把它们一并纳进来，保证收敛壳之后每个入口都仍然打得开——否则 Task 3 到
-  // Task 4/5 之间，点「图标」「公式」「更多 → 快捷键」会毫无反应。迁走后连同上面的
-  // EXTRA_TITLES 一起删除。
-  nodeIconSidebar: IconSidebar,
-  formulaSidebar: FormulaSidebar,
+  // 快捷键是**过渡**项：它是我们的扩展（原型无对应物，spec D43），入口在底栏「更多」下拉，
+  // 本步先纳进来保证收敛壳之后「更多 → 快捷键」仍打得开。Task 5 决定它的最终归属。
   shortcutKey: ShortcutSidebar,
 }
 

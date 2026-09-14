@@ -37,6 +37,8 @@ import NodeImgPreview from './popups/NodeImgPreview.vue'
 import OuterFramePanel from './popups/OuterFramePanel.vue'
 import TagStylePanel from './popups/TagStylePanel.vue'
 import AssociativeLineStylePanel from './popups/AssociativeLineStylePanel.vue'
+import NodeIconModal from './popups/NodeIconModal.vue'
+import NodeFormulaModal from './popups/NodeFormulaModal.vue'
 import MmDrawer from './sidebars/MmDrawer.vue'
 import ImportDialog from './dialogs/ImportDialog.vue'
 import ExportDialog from './dialogs/ExportDialog.vue'
@@ -473,6 +475,9 @@ onUnmounted(() => {
             <OuterFramePanel />
             <TagStylePanel />
             <AssociativeLineStylePanel />
+            <!-- 图标 / 公式：工具栏按钮弹出的节点模态（spec D42），与其它弹层一样常驻挂载、靠 bus 唤出 -->
+            <NodeIconModal />
+            <NodeFormulaModal />
             <!-- 右侧抽屉：单壳，按 ui.activeSidebar 渲染对应侧栏内容 -->
             <MmDrawer v-if="!ui.isZenMode" />
             <ImportDialog />

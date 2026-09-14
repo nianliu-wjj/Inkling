@@ -60,11 +60,6 @@ function exec(cmd: string, ...args: unknown[]): void {
   bus.emit('execCommand', cmd, ...args)
 }
 
-/** 打开某个侧栏（图标 / 公式借用侧栏承载）。 */
-function openSidebar(name: typeof ui.activeSidebar): void {
-  ui.activeSidebar = ui.activeSidebar === name ? '' : name
-}
-
 interface Btn {
   key: string
   icon: string
@@ -128,7 +123,8 @@ const nodeButtons: Btn[] = [
     icon: 'iconxiaolian',
     label: '图标',
     disabled: () => !hasActive(),
-    run: () => openSidebar('nodeIconSidebar'),
+    // 图标 / 公式已按 D42 从右侧抽屉改为模态，与其它节点类操作一样走 bus 事件（取渲染宿主在 popups/）
+    run: () => bus.emit('showNodeIcon'),
   },
   {
     key: 'link',
@@ -178,7 +174,7 @@ const nodeButtons: Btn[] = [
     icon: 'icongongshi',
     label: '公式',
     disabled: () => !hasActive(),
-    run: () => openSidebar('formulaSidebar'),
+    run: () => bus.emit('showNodeFormula'),
   },
   {
     key: 'outerFrame',

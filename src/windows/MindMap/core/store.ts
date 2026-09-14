@@ -1,18 +1,13 @@
 import { reactive } from 'vue'
 import type { MindMapNode } from 'simple-mind-map'
 
-/** 侧栏标识，与参考端 `activeSidebar` 取值一致。 */
-export type SidebarName =
-  | 'nodeStyle'
-  | 'baseStyle'
-  | 'theme'
-  | 'structure'
-  | 'outline'
-  | 'setting'
-  | 'shortcutKey'
-  | 'nodeIconSidebar'
-  | 'formulaSidebar'
-  | ''
+/**
+ * 侧栏标识，与参考端 `activeSidebar` 取值一致。
+ *
+ * 不含图标 / 公式：它们在阶段五 Task 4 已按 spec D42 改为工具栏按钮弹出的模态
+ * （`popups/NodeIconModal.vue` / `NodeFormulaModal.vue`），不再占用抽屉。
+ */
+export type SidebarName = 'nodeStyle' | 'baseStyle' | 'theme' | 'structure' | 'outline' | 'setting' | 'shortcutKey' | ''
 
 /**
  * 导图窗口内跨组件共享的 UI 状态（替代参考端 vuex 的非持久化部分）。

@@ -1,5 +1,5 @@
 /**
- * 常量入口。贴纸组（参考端 config/icon.js，560KB base64）只在打开图标侧栏时异步加载，
+ * 常量入口。贴纸组（参考端 config/icon.js，560KB base64）只在首次打开图标弹窗时异步加载，
  * 不进入窗口首屏 chunk。
  */
 export * from './formulas'

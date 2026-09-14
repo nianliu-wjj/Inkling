@@ -1,4 +1,4 @@
-/** 常用 LaTeX 公式（公式侧栏点选插入）。 */
+/** 常用 LaTeX 公式（`popups/NodeFormulaModal.vue` 的公式表点选填入）。 */
 export const formulaList: readonly string[] = [
   'a^2',
   'a_2',
