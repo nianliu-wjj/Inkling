@@ -29,13 +29,19 @@ const { toast } = useToast()
 const themeMenuOpen = ref(false)
 const currentTheme = computed(() => themes.find((t) => t.key === settings.value.theme) ?? themes[0])
 
-/** 统一的保存入口：局部覆盖后整体写回。 */
-async function patch(partial: Partial<Settings>): Promise<void> {
+/**
+ * 统一的保存入口：局部覆盖后整体写回。
+ * 返回是否保存成功（失败时自己弹「保存设置失败」），调用方据此跳过后续的成功流程——
+ * 面板快捷键录制就是靠它决定要不要弹「已设为 X」。
+ */
+async function patch(partial: Partial<Settings>): Promise<boolean> {
   const next: Settings = { ...settings.value, ...partial }
   try {
     await save(next)
+    return true
   } catch {
     toast('保存设置失败')
+    return false
   }
 }
 

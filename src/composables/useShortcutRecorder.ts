@@ -7,14 +7,18 @@ import { logger } from '@/service/logger'
  *
  * 进入录制态后捕获下一次「修饰键 + 主键」组合，规范化为 Tauri 接受的 `Ctrl+Shift+Space` 形式，
  * 先交给后端改绑（后端返回实际生效的组合），成功后再持久化；录制结束即移除键盘监听。
+ *
+ * `persist` 返回**是否已落库**：改绑成功但设置没保存时，后端已经生效、设置里却还是旧值，
+ * 这时不能再报「已设为 X」（4C 验收记录 §5.1）。保存失败的具体提示由 `persist` 自己给
+ * （两处调用方的 `patch` 都会弹「保存设置失败」），本组合式只负责**不报假成功**。
  */
 export function useShortcutRecorder(options: {
   /** 用于日志与提示的名称，如「面板」「启动器」。 */
   label: string
   /** 把组合交给后端改绑，返回实际生效的组合。 */
   apply: (combo: string) => Promise<string>
-  /** 改绑成功后持久化到设置。 */
-  persist: (applied: string) => Promise<void>
+  /** 改绑成功后持久化到设置，返回是否保存成功。 */
+  persist: (applied: string) => Promise<boolean>
 }): { recording: Ref<boolean>; start: () => void } {
   const { toast } = useToast()
   const recording = ref(false)
@@ -28,7 +32,9 @@ export function useShortcutRecorder(options: {
     logger.info('shortcut-recorder', `重新绑定${options.label}快捷键 ${combo}`)
     try {
       const applied = await options.apply(combo)
-      await options.persist(applied)
+      // 保存失败时不报成功：`persist` 内部已弹过「保存设置失败」，这里直接中止，
+      // 否则会出现「保存设置失败」+「快捷键已设为 X」两条互相矛盾的提示（后一条是假的）。
+      if (!(await options.persist(applied))) return
       toast(`${options.label}快捷键已设为 ${applied}`)
     } catch (error) {
       logger.error('shortcut-recorder', `${options.label}快捷键绑定失败`, error)

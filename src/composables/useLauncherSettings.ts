@@ -57,9 +57,14 @@ export function useLauncherSettings(patch: (partial: Partial<Settings>) => Promi
     }
   }
 
-  /** 切换全盘文件索引：持久化后立即重建（索引来源变化）。 */
+  /**
+   * 切换全盘文件索引：持久化后立即重建（索引来源变化）。
+   *
+   * 保存失败即中止：`patch` 自己已弹「保存设置失败」，再往下走会拿**没生效**的旧配置去重建，
+   * 还附送一条「已开始重建索引」——与 4C 验收记录 §5.1 那两处是同一类"失败仍报成功"。
+   */
   async function toggleFullDiskIndex(value: boolean): Promise<void> {
-    await patch({ launcher_full_disk_index: value })
+    if (!(await patch({ launcher_full_disk_index: value }))) return
     void rebuildLauncher()
   }
 
@@ -80,23 +85,36 @@ export function useLauncherSettings(patch: (partial: Partial<Settings>) => Promi
     }
   })
 
-  function saveLauncherRoots(rows: LauncherRootRow[]): void {
-    void patch({ launcher_roots: JSON.stringify(rows) }).then(() => void rebuildLauncher())
+  /**
+   * 保存根目录列表，返回是否已落库。
+   *
+   * 保存失败即中止并返回 false：`patch` 失败时自己已弹「保存设置失败」，原先仍继续
+   * `rebuildLauncher()`，等于拿**没生效**的根目录配置重建一遍索引（4C 验收记录 §5.1）。
+   * 返回值交给调用方判断该不该走后续的成功流程（当前是「新增根目录」用它决定是否清空输入框）。
+   */
+  async function saveLauncherRoots(rows: LauncherRootRow[]): Promise<boolean> {
+    if (!(await patch({ launcher_roots: JSON.stringify(rows) }))) return false
+    void rebuildLauncher()
+    return true
   }
 
   const newRootPath = ref('')
   function addLauncherRoot(): void {
     const path = newRootPath.value.trim()
     if (!path) return
-    saveLauncherRoots([...launcherRoots.value, { path, depth: 4, excludes: ['node_modules', '.git'] }])
-    newRootPath.value = ''
+    void saveLauncherRoots([...launcherRoots.value, { path, depth: 4, excludes: ['node_modules', '.git'] }]).then(
+      (saved) => {
+        // 只在落库成功后清空输入框：失败时留着用户刚敲的路径，免得「行没加上、输入框却空了」。
+        if (saved) newRootPath.value = ''
+      },
+    )
   }
   function removeLauncherRoot(index: number): void {
-    saveLauncherRoots(launcherRoots.value.filter((_, i) => i !== index))
+    void saveLauncherRoots(launcherRoots.value.filter((_, i) => i !== index))
   }
   function setRootDepth(index: number, depth: number): void {
     const clamped = Math.min(8, Math.max(1, Math.round(depth) || 4))
-    saveLauncherRoots(launcherRoots.value.map((row, i) => (i === index ? { ...row, depth: clamped } : row)))
+    void saveLauncherRoots(launcherRoots.value.map((row, i) => (i === index ? { ...row, depth: clamped } : row)))
   }
 
   return {

@@ -93,11 +93,9 @@ const {
 const { recording, start: startRecording } = useShortcutRecorder({
   label: '启动器',
   apply: (combo) => api.launcher.rebindShortcut(combo),
-  // 快捷键回写不看保存结果（失败时 patch 已弹「保存设置失败」），包一层把返回值收敛成 void，
-  // 匹配 `useShortcutRecorder` 的 `persist: (applied) => Promise<void>`。
-  persist: async (applied) => {
-    await patch({ launcher_shortcut: applied })
-  },
+  // 把 `patch` 的成败原样交给录制器：失败时它会跳过「已设为 X」那条成功提示
+  // （`patch` 自己已弹「保存设置失败」），不再出现一失败一成功两条互相矛盾的 toast。
+  persist: (applied) => patch({ launcher_shortcut: applied }),
 })
 
 /** 页面说明：放在脚本里拼接，避免模板换行在中文之间引入空格。 */
