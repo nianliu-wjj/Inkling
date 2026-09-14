@@ -27,6 +27,7 @@
 | D47 | 桩的对策 | **形态照原型、能力用我们的**（对照表见 §3「原型桩」列） | 照抄会掉能力（详见 §1 本阶段特殊性） |
 | D48 | 未保存修改 | **保留我们的**：`dirty` 时关窗 `confirm('思维导图尚未保存，确认关闭？')`（`MindMapApp.vue:207`） | 原型直接丢弃修改（✕ 与「取消」都没有提示），照抄是降级 |
 | D49 | 内部命名 | 状态 key 沿用我们的 `structure` / `setting`（UI 文案与原型一致：「结构」「设置」） | 原型用 `data-side="struct"/"settings"` 只是它自己的 DOM 属性；我们的 key 更可读，且已被 10 个侧栏与 `store.ts` 引用，改名收益为零 |
+| D50 | 图标字形 | **沿用现有 iconfont 矢量图标**，不改成原型的 emoji（`<span class="mm-ico">💾</span>`） | 形态（三岛结构）照原型，字形技术沿用现状：换 emoji 会让整个窗口的图标语言与现状不一致，属纯外观变动、不在本阶段范围。新增的「保存 / 新建 / 关闭」三枚取自 `src/assets/mindmap/icon-font/iconfont.css` 实有清单（`iconlingcunwei` / `iconxinjian` / `iconguanbi`），**不得凭印象造类名** |
 
 ## 3. 与原型的差异处理表
 
