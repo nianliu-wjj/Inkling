@@ -221,7 +221,7 @@ onBeforeUnmount(() => offs.forEach((off) => off()))
 </script>
 
 <template>
-  <!-- 挂 body：菜单 DOM 不再落在 .mm-stage 内（层序见 mindmap.css 的 .mm-ctx 注释）。 -->
+  <!-- 挂 body：菜单 DOM 不再落在 .mm-stage 内（层序见 `mindmap.css` 文件头总表②）。 -->
   <Teleport to="body">
     <!-- subLeft 只作用于二级菜单（.mm-ctx-sub.left），根元素上没有对应规则，故不挂 class。 -->
     <div v-show="isShow" ref="menuRef" class="mm-ctx" :style="{ left: `${left}px`, top: `${top}px` }">
