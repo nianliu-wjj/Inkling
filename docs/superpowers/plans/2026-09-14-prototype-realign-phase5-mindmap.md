@@ -308,14 +308,28 @@ const emit = defineEmits<{ rename: [name: string]; save: []; close: []; 'new-map
 `<script setup>` 新增：
 
 ```ts
-/** 文件名岛显示的名字＝笔记标题（`notes.content`；`save()` 既有的写入字段就是它）。 */
-const mapName = computed(() => note.value?.content || MAP_NAME_FALLBACK)
+/** 未保存的新导图上改的名字（此时还没有笔记，先记在本地，保存时写入 `content`）。 */
+const pendingName = ref('')
 
-/** 文件名岛改名：写回笔记标题，主窗口经 notes-changed 事件刷新列表。 */
+/** 文件名岛显示的名字：已有笔记用笔记标题；尚未保存的新导图用本地暂存名。 */
+const mapName = computed(() => note.value?.content || pendingName.value || MAP_NAME_FALLBACK)
+
+/**
+ * 文件名岛改名。
+ *
+ * 已有笔记：立即写回 `content`（`save()` 写的就是这个字段），主窗口经 notes-changed 刷新列表。
+ * 尚未保存的新导图：**只记在本地**——不能为了改名就静默建一条笔记，那会破坏
+ * `markDirtyAndAutosave` 里「新建导图首次必须手动保存」的约定（`:168` 注释）。
+ */
 async function renameTo(name: string): Promise<void> {
+  if (!noteId.value) {
+    pendingName.value = name
+    logger.info('mindmap', `新导图暂存名「${name}」，保存时写入`)
+    return
+  }
   try {
     await api.notes.save({
-      id: noteId.value || undefined,
+      id: noteId.value,
       content: name,
       tags: [...tags.value],
       editorMode: 'mindmap',
@@ -323,6 +337,7 @@ async function renameTo(name: string): Promise<void> {
       draft: false,
     })
     toast('已重命名')
+    logger.info('mindmap', `导图改名为「${name}」`)
   } catch (error) {
     logger.error('mindmap', '导图改名失败', error)
     toast('重命名失败')
@@ -335,6 +350,7 @@ function startNewMap(): void {
   const instance = mindMap.value
   if (!instance) return
   noteId.value = ''
+  pendingName.value = ''
   mindmapData.value = null
   instance.setData({ data: { text: '中心主题' } })
   instance.view.fit()
@@ -342,6 +358,8 @@ function startNewMap(): void {
   logger.info('mindmap', '已清空为新建导图')
 }
 ```
+
+**并且 `save()` 里把 `content` 换成 `mapName.value`**（原为 `note.value?.content ?? ''`），这样新导图保存时会把暂存名一并写入；保存成功后 `pendingName.value = ''` 清空暂存。
 
 > `setData` 的入参形状以现有 `core/persistence.ts` 的 `parseMindMapData` 默认值为准（实现时读该文件对齐，勿凭记忆写）。
 
@@ -413,6 +431,12 @@ const CONTENT = {
   structure: StructureSidebar,
   outline: OutlineSidebar,
   setting: SettingSidebar,
+  // 以下三项是过渡：图标/公式在 Task 4 迁到模态、快捷键在 Task 5 保持不变但入口在底栏，
+  // 收敛壳的这一步先把它们一并纳进来，**保证本任务结束后每一项入口都仍然可用**
+  // （否则 Task 3 结束到 Task 4/5 之间，点「图标」「公式」「更多」会没有任何反应）。
+  nodeIconSidebar: IconSidebar,
+  formulaSidebar: FormulaSidebar,
+  shortcutKey: ShortcutSidebar,
 } as const
 
 const current = computed(() => CONTENT[ui.activeSidebar as keyof typeof CONTENT] ?? null)
@@ -438,7 +462,7 @@ const title = computed(() => sidebarTriggerList.find((item) => item.value === ui
 
 - [ ] **Step 2: `MindMapApp.vue` 换挂载**
 
-删掉 `:369-378` 的 10 行 `<XxxSidebar />`，替换为一行 `<MmDrawer v-if="!ui.isZenMode" />`；同步删除这些侧栏组件的 import（`ShortcutSidebar` / `IconSidebar` / `FormulaSidebar` 除外——它们后续由模态与底栏接管，Task 4/5 再处理）。
+删掉 `:369-378` 的 10 行 `<XxxSidebar />`（含 `NoteSidebar`），替换为一行 `<MmDrawer v-if="!ui.isZenMode" />`；同步删除这些侧栏组件的 import——**但 `IconSidebar` / `FormulaSidebar` / `ShortcutSidebar` 三个的 import 要在本步补进 `SidebarShell.vue`**（见上一步的 CONTENT 过渡项），它们在 Task 4/5 才迁走。
 
 - [ ] **Step 3: 删死码**
 
@@ -634,14 +658,29 @@ const MM_TOKENS = [
 ] as const
 
 test('每套主题块都覆盖了全部 13 个 --mm-* 令牌', () => {
-  const css = readFileSync('docs/styles.css', 'utf8')
-  // 主题块形如 :root[data-theme='x'] { … }
-  const blocks = [...css.matchAll(/:root\[data-theme='([^']+)'\]\s*\{([\s\S]*?)\n\}/g)]
-  assert.ok(blocks.length >= 30, `主题块数量异常：${blocks.length}`)
-  for (const [, name, body] of blocks) {
-    const missing = MM_TOKENS.filter((token) => !body.includes(`${token}:`))
-    assert.deepEqual(missing, [], `主题 ${name} 缺少：${missing.join(', ')}`)
+  // 两处来源：docs/styles.css（30 套原型主题）与 src/styles/extensions.css（项目新增的 sepia 棕褐）
+  const sources = [
+    { file: 'docs/styles.css', label: '原型主题' },
+    { file: 'src/styles/extensions.css', label: '项目扩展主题' },
+  ]
+  for (const { file, label } of sources) {
+    const css = readFileSync(file, 'utf8')
+    const blocks = [...css.matchAll(/:root\[data-theme='([^']+)'\]\s*\{([\s\S]*?)\n\}/g)]
+    for (const [, name, body] of blocks) {
+      const missing = MM_TOKENS.filter((token) => !body.includes(`${token}:`))
+      assert.deepEqual(missing, [], `${label} ${file} 的主题 ${name} 缺少：${missing.join(', ')}`)
+    }
   }
+  // 总量兜底：原型 30 套 + sepia 1 套（typewriter 已在原型里）
+  const docCss = readFileSync('docs/styles.css', 'utf8')
+  assert.ok(
+    [...docCss.matchAll(/:root\[data-theme='([^']+)'\]/g)].length >= 30,
+    '原型主题块数量异常',
+  )
+  assert.ok(
+    readFileSync('src/styles/extensions.css', 'utf8').includes(":root[data-theme='sepia']"),
+    'extensions.css 里找不到 sepia 主题块',
+  )
 })
 ```
 
