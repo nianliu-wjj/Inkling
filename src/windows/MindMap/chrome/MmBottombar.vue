@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { NDropdown } from 'naive-ui'
-import { ref } from 'vue'
 import { logger } from '@/service/logger'
 // 自适应 / 展开全部 / 收起全部：与右键菜单同一条命令（收尾批补齐原型 12 项）
 import { expandAll, fitCanvas, unexpandAll } from '../core/canvasCommands'
@@ -30,9 +29,6 @@ import Demonstrate from './Demonstrate.vue'
 const ctx = useMindMap()
 const { bus, ui } = ctx
 
-/** 小地图开关（Navigator 组件订阅 toggleMiniMap，见 Task 25）。 */
-const openMiniMap = ref(false)
-
 function backToRoot(): void {
   requireMindMap(ctx).renderer.setRootNodeCenter()
 }
@@ -41,9 +37,15 @@ function showSearch(): void {
   bus.emit('showSearch')
 }
 
+/**
+ * 小地图开关。**读写都走 `ui.isMiniMapOpen`**（不再是本组件的局部 ref）：
+ * 本组件带 `v-if="!ui.isZenMode"`，进出禅模式会卸载重挂，局部 ref 会复位成 false，
+ * 而订阅同一开关的 Navigator 并不卸载 ⇒ 小地图仍开着、按钮却是关闭态，出来后第一次点击没反应。
+ * 提到 `ui` 后按钮与 Navigator 读同一个真值，重挂不再丢状态（详见 store.ts 的字段注释）。
+ */
 function toggleMiniMap(): void {
-  openMiniMap.value = !openMiniMap.value
-  bus.emit('toggleMiniMap', openMiniMap.value)
+  ui.isMiniMapOpen = !ui.isMiniMapOpen
+  bus.emit('toggleMiniMap', ui.isMiniMapOpen)
 }
 
 /** 只读 / 编辑切换（ui.isReadonly 由 MindMapApp 订阅 mode_change 维护）。 */
@@ -95,8 +97,8 @@ function onUnexpandAll(): void {
       <button
         type="button"
         class="mm-ctrl-btn iconfont icondaohang1"
-        :class="{ active: openMiniMap }"
-        :title="openMiniMap ? '关闭小地图' : '开启小地图'"
+        :class="{ active: ui.isMiniMapOpen }"
+        :title="ui.isMiniMapOpen ? '关闭小地图' : '开启小地图'"
         @click="toggleMiniMap"
       />
       <Fullscreen />

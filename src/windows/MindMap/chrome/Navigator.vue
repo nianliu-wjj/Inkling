@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { nextTick, onBeforeUnmount, onMounted, reactive, ref } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref } from 'vue'
 import { logger } from '@/service/logger'
 import { requireMindMap, useMindMap } from '../core/useMindMap'
 
@@ -11,11 +11,15 @@ import { requireMindMap, useMindMap } from '../core/useMindMap'
  * 拖拽平移与视口框拖动直接转交 miniMap 的鼠标事件方法；库事件
  * `mini_map_view_box_position_change` 实时更新视口框位置（该事件仅本组件关心，直接
  * 用 mindMap.on 订阅，不经全局 bus）。
+ *
+ * 阶段五 Task 7：开合状态由组件内的局部 ref 改为 `ui.isMiniMapOpen`（`core/store.ts`）。
+ * 底栏在禅模式下会卸载重挂、局部 ref 会复位，而本组件始终挂载 ⇒ 两边状态会失同步
+ * （底栏按钮显示关闭、小地图却还开着）。状态提到共享层后，事件与状态同源，重挂不再丢。
  */
 const ctx = useMindMap()
-const { bus } = ctx
+const { bus, ui } = ctx
 
-const showMiniMap = ref(false)
+const showMiniMap = computed(() => ui.isMiniMapOpen)
 const width = ref(0)
 const boxWidth = ref(0)
 const boxHeight = ref(0)
@@ -58,7 +62,7 @@ function drawMiniMap(): void {
 
 /** 开合小地图（参考端 toggle_mini_map，本项目事件名 toggleMiniMap）。 */
 function onToggle(show: boolean): void {
-  showMiniMap.value = show
+  ui.isMiniMapOpen = show
   logger.info('mindmap', `小地图${show ? '开启' : '关闭'}`)
   if (!show) return
   void nextTick(() => {
