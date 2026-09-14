@@ -83,9 +83,44 @@ const ROOT = new URL('../../', import.meta.url)
 /** 主题令牌块的来源：生成层 + 项目扩展层 + 原型参照（typewriter 的块只在后两者里）。 */
 const THEME_BLOCK_FILES = ['src/styles/themes.css', 'src/styles/extensions.css', 'docs/styles.css']
 
+/** 匹配 `:root[data-theme='x'] { … }` 块（单双引号都收）。 */
+const THEME_BLOCK_PATTERN = /:root\[data-theme=['"]([^'"]+)['"]\]\s*\{([\s\S]*?)\n\}/g
+
 /** 读项目根下的文件文本。 */
 function read(relativePath: string): string {
   return readFileSync(new URL(relativePath, ROOT), 'utf8')
+}
+
+/**
+ * 剥掉 CSS 注释（含跨行）。
+ * 比对前必须剥——否则「在块里加一行解释取值的注释」就会让断言变红，而本项目扩展层的
+ * 既有风格恰恰是到处写注释（见 extensions.css 各节头）。
+ */
+function stripComments(text: string): string {
+  return text.replace(/\/\*[\s\S]*?\*\//g, ' ')
+}
+
+/** 比对用的规范化形式：抹掉 `,` `:` 两侧空白再折叠任意空白，只留「哪条声明、什么取值」。 */
+function canonical(declaration: string): string {
+  return declaration
+    .replace(/\s*([,:])\s*/g, '$1')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
+/** 把声明体切成声明列表（已剥注释、丢掉空段）。 */
+function splitDeclarations(body: string): string[] {
+  return stripComments(body)
+    .split(';')
+    .map((piece) => piece.trim())
+    .filter(Boolean)
+}
+
+/** 扩展层里含 `--mm-*` 的主题块（= §12 的 31 个；§7 的 sepia 自有令牌块不含 `--mm-`）。 */
+function extensionMmBlocks(): { key: string; body: string }[] {
+  return [...read('src/styles/extensions.css').matchAll(THEME_BLOCK_PATTERN)]
+    .filter(([, , body]) => body.includes('--mm-'))
+    .map(([, key, body]) => ({ key, body }))
 }
 
 /** 主题清单以 constants/themes.ts 为唯一真源，避免测试里再维护一份 32 套的名单。 */
@@ -105,8 +140,7 @@ function themeKeys(): string[] {
 function themeBlocks(): Map<string, string> {
   const blocks = new Map<string, string>()
   for (const file of THEME_BLOCK_FILES) {
-    const pattern = /:root\[data-theme=['"]([^'"]+)['"]\]\s*\{([\s\S]*?)\n\}/g
-    for (const [, key, body] of read(file).matchAll(pattern)) {
+    for (const [, key, body] of read(file).matchAll(THEME_BLOCK_PATTERN)) {
       blocks.set(key, (blocks.get(key) ?? '') + body)
     }
   }
@@ -146,39 +180,44 @@ test('32 套主题各自都定义了全部 13 个 --mm-* 令牌', () => {
 })
 
 test('扩展层每套主题的 13 条 --mm-* 逐条等于规范模板', () => {
-  // 取扩展层里含 --mm-* 的块：§7 是 sepia 的主题令牌块（不含 --mm-*），§12 才是这 31 套。
-  const pattern = /:root\[data-theme=['"]([^'"]+)['"]\]\s*\{([\s\S]*?)\n\}/g
-  const blocks = [...read('src/styles/extensions.css').matchAll(pattern)].filter(([, , body]) => body.includes('--mm-'))
+  const blocks = extensionMmBlocks()
   // 先对齐名单：32 套里除 typewriter（其 13 个令牌由生成层提供）都该有块。
   // 这一步同时兜住「新增主题忘了加块」——那时下面的逐块比对根本不会看到它。
   const expected = themeKeys().filter((key) => key !== 'typewriter')
   assert.deepEqual(
-    blocks.map(([, key]) => key).sort(),
+    blocks.map(({ key }) => key).sort(),
     [...expected].sort(),
     '扩展层的 --mm-* 主题块与「32 套减 typewriter」对不上',
   )
 
-  // 比对前把连续空白折叠掉：这样只关心「哪条声明、什么取值」，缩进或换行（prettier 重排）
-  // 都不会造成假红。逐条比对是为了让报错能指到具体是第几条不一样。
-  const split = (text: string): string[] =>
-    text
-      .replace(/\s+/g, ' ')
-      .split(';')
-      .map((piece) => piece.trim())
-      .filter(Boolean)
+  // 逐条比对（而非整块字符串相等）：报错能指到具体是第几条不一样。
+  // 比对用 canonical()，缩进 / 换行 / 标点后空格（prettier 的口味）都不会造成假红。
   const problems: string[] = []
-  for (const [, key, body] of blocks) {
-    const actual = split(body)
+  for (const { key, body } of blocks) {
+    const actual = splitDeclarations(body)
     if (actual.length !== MM_TEMPLATE.length) {
       problems.push(`${key}：${actual.length} 条声明，期望 ${MM_TEMPLATE.length} 条`)
       continue
     }
-    const bad = actual.findIndex((line, i) => line !== MM_TEMPLATE[i])
+    const bad = actual.findIndex((line, i) => canonical(line) !== canonical(MM_TEMPLATE[i]))
     if (bad >= 0) {
       problems.push(`${key} 第 ${bad + 1} 条：实际 \`${actual[bad]}\`，期望 \`${MM_TEMPLATE[bad]}\``)
     }
   }
   assert.deepEqual(problems, [], `以下主题块偏离规范模板：\n${problems.join('\n')}`)
+})
+
+test('扩展层每套主题块引用的变量名都落在 10 个来源令牌之内', () => {
+  // 拦住「模板与 CSS 被同时改成同一个错值」：那种情况逐块比对是绿的（两边一致），
+  // 但那个名字不在来源令牌里。变量的真源是各主题块，名字写错就等于用了个不存在的令牌。
+  const allowed = new Set<string>(SOURCE_TOKENS)
+  const problems: string[] = []
+  for (const { key, body } of extensionMmBlocks()) {
+    for (const [, name] of stripComments(body).matchAll(/var\(\s*(--[\w-]+)/g)) {
+      if (!allowed.has(name)) problems.push(`${key}：引用了 ${name}（不在来源令牌里）`)
+    }
+  }
+  assert.deepEqual(problems, [], `以下主题块引用了未知令牌：\n${problems.join('\n')}`)
 })
 
 test('每套主题都定义了 --mm-* 取值引用的 10 个来源令牌', () => {
@@ -203,9 +242,8 @@ test('扩展层新增的 --mm-* 取值全部由主题既有令牌推导，不手
   const literals: string[] = []
   // 只看主题块里的声明：`rgba(var(--wsa), .08)` 与 `color-mix(in srgb, var(--red) …)` 合格，
   // 裸的 `#ffffff` / `rgba(255, 255, 255, .9)` 说明是手挑的、不会随主题变。
-  const pattern = /:root\[data-theme=['"]([^'"]+)['"]\]\s*\{([\s\S]*?)\n\}/g
-  for (const [, key, body] of read('src/styles/extensions.css').matchAll(pattern)) {
-    for (const line of body.split('\n')) {
+  for (const { key, body } of extensionMmBlocks()) {
+    for (const line of stripComments(body).split('\n')) {
       const declared = /^\s*(--mm-[\w-]+)\s*:\s*(.+?);\s*$/.exec(line)
       if (!declared) continue
       if (!/var\(|color-mix\(/.test(declared[2])) {
