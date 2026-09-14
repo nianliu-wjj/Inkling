@@ -6,7 +6,11 @@ import { requireMindMap, useMindMap } from '../core/useMindMap'
  * 字数与节点数统计（移植参考端 Count.vue）。
  *
  * 每次 `data_change` / 首次渲染后遍历完整节点树：节点数累加，文本拼接后用 DOM 取纯文本长度
- * （节点文本可能是富文本 HTML，直接 length 会把标签算进去）。左下角常显。
+ * （节点文本可能是富文本 HTML，直接 length 会把标签算进去）。
+ *
+ * 阶段五 Task 5 起由 `MmBottombar.vue` 挂在底栏左侧的 `.mm-stat-left` 里（原来是绝对定位在画布
+ * 左下角的 `.mm-count.mm-panel`，那层外壳与样式已随底栏重排删除）。
+ * 故本组件只输出两段数值文本（多根节点），盒子、内距与底色都由生成层的 `.mm-stat-left` 负责。
  */
 const ctx = useMindMap()
 const { bus } = ctx
@@ -47,8 +51,7 @@ onBeforeUnmount(() => offs.forEach((off) => off()))
 </script>
 
 <template>
-  <div class="mm-count mm-panel">
-    <span>字数 {{ words }}</span>
-    <span>节点 {{ num }}</span>
-  </div>
+  <!-- 两段文本作为 .mm-stat-left 的直接内容（原型是「字数 0 &nbsp; 节点 1」一行文本）。 -->
+  <span>字数 {{ words }}</span>
+  <span>节点 {{ num }}</span>
 </template>

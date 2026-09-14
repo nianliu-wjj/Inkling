@@ -6,7 +6,7 @@ import { requireMindMap, useMindMap } from '../core/useMindMap'
 /**
  * 搜索与替换浮层（移植参考端 Search.vue）。
  *
- * 订阅自定义事件 `showSearch`（NavigatorToolbar 发出）与 Ctrl+F 呼出；回车逐个定位命中，
+ * 订阅自定义事件 `showSearch`（底栏 MmBottombar 的搜索按钮发出）与 Ctrl+F 呼出；回车逐个定位命中，
  * 展示 `currentIndex / total` 与命中列表；支持替换当前 / 全部。命中列表、计数由库事件
  * `search_match_node_list_change` / `search_info_change` 驱动；点画布 / 节点 / 展开按钮时输入框失焦。
  */

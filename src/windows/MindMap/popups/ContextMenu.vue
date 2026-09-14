@@ -17,6 +17,11 @@ import { requireMindMap, useMindMap } from '../core/useMindMap'
  * - 画布右键：`svg_mousedown` 记右键按下点，`mouseup` 时若没拖动且不是在节点上按下，则显示画布菜单；
  * - `node_click / draw_click / expand_btn_click / translate` 都隐藏。
  * 命令经 `bus.emit('execCommand', …)` 或直接调库（copy/cut/paste/fit 等），与参考端一致。
+ *
+ * 阶段五 Task 5：改为 `Teleport to="body"`（原型 #mindmapCtxMenu 就在 body 级，spec 差异表 #14
+ * 的理由是窗口的 `overflow`/`transform` 会裁剪菜单——本窗当前祖先链上没有 transform，实际未被裁剪，
+ * 但挂 body 后与原型同构，也不受后续给外壳加形变/滤镜时的连带影响），根类由自有层的 `.mm-ctxmenu`
+ * 换成生成层的 `.mm-ctx`（定位仍是 `fixed` + `clientX/clientY`，坐标语义不变）。
  */
 const ctx = useMindMap()
 const { bus, ui, localConfig } = ctx
@@ -215,83 +220,86 @@ onBeforeUnmount(() => offs.forEach((off) => off()))
 </script>
 
 <template>
-  <div
-    v-show="isShow"
-    ref="menuRef"
-    class="mm-ctxmenu mm-panel"
-    :class="{ 'sub-left': subLeft }"
-    :style="{ left: `${left}px`, top: `${top}px` }"
-  >
-    <!-- 节点菜单 -->
-    <template v-if="type === 'node'">
-      <div class="mm-ctx-item" :class="{ disabled: insertDisabled }" @click="exec('INSERT_NODE', insertDisabled)">
-        插入同级节点
-      </div>
-      <div class="mm-ctx-item" @click="exec('INSERT_CHILD_NODE')">插入子级节点</div>
-      <div
-        class="mm-ctx-item"
-        :class="{ disabled: insertDisabled }"
-        @click="exec('INSERT_PARENT_NODE', insertDisabled)"
-      >
-        插入父节点
-      </div>
-      <div
-        class="mm-ctx-item"
-        :class="{ disabled: insertDisabled }"
-        @click="exec('ADD_GENERALIZATION', insertDisabled)"
-      >
-        插入概要
-      </div>
-      <div class="mm-ctx-sep" />
-      <div class="mm-ctx-item" :class="{ disabled: upDisabled }" @click="exec('UP_NODE', upDisabled)">上移节点</div>
-      <div class="mm-ctx-item" :class="{ disabled: downDisabled }" @click="exec('DOWN_NODE', downDisabled)">
-        下移节点
-      </div>
-      <div class="mm-ctx-item" @click="exec('UNEXPAND_ALL')">收起所有下级节点</div>
-      <div class="mm-ctx-item" @click="exec('EXPAND_ALL')">展开所有下级节点</div>
-      <div class="mm-ctx-sep" />
-      <div class="mm-ctx-item danger" @click="exec('REMOVE_NODE')">删除节点</div>
-      <div class="mm-ctx-item danger" @click="exec('REMOVE_CURRENT_NODE')">仅删除当前节点</div>
-      <div class="mm-ctx-item" @click="exec('COPY_NODE')">复制节点</div>
-      <div class="mm-ctx-item" @click="exec('CUT_NODE')">剪切节点</div>
-      <div class="mm-ctx-item" @click="exec('PASTE_NODE')">粘贴节点</div>
-      <div v-if="hasHyperlink" class="mm-ctx-item" @click="exec('REMOVE_HYPERLINK')">移除超链接</div>
-      <div v-if="hasNote" class="mm-ctx-item" @click="exec('REMOVE_NOTE')">移除备注</div>
-      <div class="mm-ctx-item" @click="exec('REMOVE_CUSTOM_STYLES')">一键去除自定义样式</div>
-      <div class="mm-ctx-item" @click="exec('EXPORT_CUR_NODE_TO_PNG')">导出该节点为图片</div>
-    </template>
+  <!-- 挂 body：菜单 DOM 不再落在 .mm-stage 内（层序见 mindmap.css 的 .mm-ctx 注释）。 -->
+  <Teleport to="body">
+    <div
+      v-show="isShow"
+      ref="menuRef"
+      class="mm-ctx"
+      :class="{ 'sub-left': subLeft }"
+      :style="{ left: `${left}px`, top: `${top}px` }"
+    >
+      <!-- 节点菜单 -->
+      <template v-if="type === 'node'">
+        <div class="mm-ctx-item" :class="{ disabled: insertDisabled }" @click="exec('INSERT_NODE', insertDisabled)">
+          插入同级节点
+        </div>
+        <div class="mm-ctx-item" @click="exec('INSERT_CHILD_NODE')">插入子级节点</div>
+        <div
+          class="mm-ctx-item"
+          :class="{ disabled: insertDisabled }"
+          @click="exec('INSERT_PARENT_NODE', insertDisabled)"
+        >
+          插入父节点
+        </div>
+        <div
+          class="mm-ctx-item"
+          :class="{ disabled: insertDisabled }"
+          @click="exec('ADD_GENERALIZATION', insertDisabled)"
+        >
+          插入概要
+        </div>
+        <div class="mm-ctx-sep" />
+        <div class="mm-ctx-item" :class="{ disabled: upDisabled }" @click="exec('UP_NODE', upDisabled)">上移节点</div>
+        <div class="mm-ctx-item" :class="{ disabled: downDisabled }" @click="exec('DOWN_NODE', downDisabled)">
+          下移节点
+        </div>
+        <div class="mm-ctx-item" @click="exec('UNEXPAND_ALL')">收起所有下级节点</div>
+        <div class="mm-ctx-item" @click="exec('EXPAND_ALL')">展开所有下级节点</div>
+        <div class="mm-ctx-sep" />
+        <div class="mm-ctx-item danger" @click="exec('REMOVE_NODE')">删除节点</div>
+        <div class="mm-ctx-item danger" @click="exec('REMOVE_CURRENT_NODE')">仅删除当前节点</div>
+        <div class="mm-ctx-item" @click="exec('COPY_NODE')">复制节点</div>
+        <div class="mm-ctx-item" @click="exec('CUT_NODE')">剪切节点</div>
+        <div class="mm-ctx-item" @click="exec('PASTE_NODE')">粘贴节点</div>
+        <div v-if="hasHyperlink" class="mm-ctx-item" @click="exec('REMOVE_HYPERLINK')">移除超链接</div>
+        <div v-if="hasNote" class="mm-ctx-item" @click="exec('REMOVE_NOTE')">移除备注</div>
+        <div class="mm-ctx-item" @click="exec('REMOVE_CUSTOM_STYLES')">一键去除自定义样式</div>
+        <div class="mm-ctx-item" @click="exec('EXPORT_CUR_NODE_TO_PNG')">导出该节点为图片</div>
+      </template>
 
-    <!-- 画布菜单 -->
-    <template v-else>
-      <div class="mm-ctx-item" @click="exec('RETURN_CENTER')">回到根节点</div>
-      <div class="mm-ctx-item" @click="exec('EXPAND_ALL')">展开所有</div>
-      <div class="mm-ctx-item" @click="exec('UNEXPAND_ALL')">收起所有</div>
-      <div class="mm-ctx-item has-sub">
-        展开到
-        <div class="mm-ctx-sub" :class="{ left: subLeft }">
-          <div
-            v-for="(label, index) in expandLevels"
-            :key="index"
-            class="mm-ctx-item"
-            @click="unexpandToLevel(index + 1)"
-          >
-            {{ label }}
+      <!-- 画布菜单 -->
+      <template v-else>
+        <div class="mm-ctx-item" @click="exec('RETURN_CENTER')">回到根节点</div>
+        <div class="mm-ctx-item" @click="exec('EXPAND_ALL')">展开所有</div>
+        <div class="mm-ctx-item" @click="exec('UNEXPAND_ALL')">收起所有</div>
+        <div class="mm-ctx-item has-sub">
+          展开到
+          <div class="mm-ctx-sub" :class="{ left: subLeft }">
+            <div
+              v-for="(label, index) in expandLevels"
+              :key="index"
+              class="mm-ctx-item"
+              @click="unexpandToLevel(index + 1)"
+            >
+              {{ label }}
+            </div>
           </div>
         </div>
-      </div>
-      <div class="mm-ctx-sep" />
-      <div class="mm-ctx-item" @click="exec('RESET_LAYOUT')">一键整理布局</div>
-      <div class="mm-ctx-item" @click="exec('FIT_CANVAS')">适应画布</div>
-      <div class="mm-ctx-item" @click="exec('TOGGLE_ZEN_MODE')">{{ ui.isZenMode ? '退出禅模式' : '禅模式' }}</div>
-      <div class="mm-ctx-item" @click="exec('REMOVE_ALL_NODE_CUSTOM_STYLES')">一键去除所有节点自定义样式</div>
-      <div class="mm-ctx-item has-sub">
-        复制到剪贴板
-        <div class="mm-ctx-sub" :class="{ left: subLeft }">
-          <div v-for="item in copyList" :key="item.value" class="mm-ctx-item" @click="copyToClipboard(item.value)">
-            {{ item.name }}
+        <div class="mm-ctx-sep" />
+        <div class="mm-ctx-item" @click="exec('RESET_LAYOUT')">一键整理布局</div>
+        <div class="mm-ctx-item" @click="exec('FIT_CANVAS')">适应画布</div>
+        <div class="mm-ctx-item" @click="exec('TOGGLE_ZEN_MODE')">{{ ui.isZenMode ? '退出禅模式' : '禅模式' }}</div>
+        <div class="mm-ctx-item" @click="exec('REMOVE_ALL_NODE_CUSTOM_STYLES')">一键去除所有节点自定义样式</div>
+        <div class="mm-ctx-item has-sub">
+          复制到剪贴板
+          <div class="mm-ctx-sub" :class="{ left: subLeft }">
+            <div v-for="item in copyList" :key="item.value" class="mm-ctx-item" @click="copyToClipboard(item.value)">
+              {{ item.name }}
+            </div>
           </div>
         </div>
-      </div>
-    </template>
-  </div>
+      </template>
+    </div>
+  </Teleport>
 </template>

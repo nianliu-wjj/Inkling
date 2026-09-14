@@ -7,6 +7,9 @@ import { requireMindMap, useMindMap } from '../core/useMindMap'
  * 演示模式（移植参考端 Demonstrate.vue）。
  * 进入 `mindMap.demonstrate.enter()`；演示中悬浮控制条：上一步 / 步数 / 下一步 / 跳转输入 / 退出。
  * 订阅库事件 `demonstrate_jump(index, total)` 更新步数，`exit_demonstrate` 复位状态。
+ *
+ * 阶段五 Task 5 起入口由 `MmBottombar.vue` 挂在底栏「鼠标行为」之后，类名换成生成层的
+ * `.mm-ctrl-btn`；演示中的悬浮控制条仍在 body 级（`.mm-demo-*`，自有层样式），不受影响。
  */
 const ctx = useMindMap()
 const { bus } = ctx
@@ -62,7 +65,7 @@ onBeforeUnmount(() => offs.forEach((off) => off()))
 </script>
 
 <template>
-  <button type="button" class="mm-nav-btn iconfont iconyanshibofang" title="演示" @click="enter" />
+  <button type="button" class="mm-ctrl-btn iconfont iconyanshibofang" title="演示" @click="enter" />
 
   <!-- 演示中：退出按钮（右上）+ 步进控制条（右下），fixed 覆盖全屏演示画布 -->
   <Teleport to="body">

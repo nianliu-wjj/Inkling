@@ -22,11 +22,11 @@ import { type MindMapFullData, parseMindMapData, serializeMindMapData } from './
 import { createUiState } from './core/store'
 import { provideMindMapContext } from './core/useMindMap'
 import Toolbar from './chrome/Toolbar.vue'
-import NavigatorToolbar from './chrome/NavigatorToolbar.vue'
 import Navigator from './chrome/Navigator.vue'
 import ScrollbarBars from './chrome/ScrollbarBars.vue'
 import SidebarTrigger from './chrome/SidebarTrigger.vue'
-import Count from './chrome/Count.vue'
+// 底部控制栏：阶段五 Task 5 由 NavigatorToolbar.vue + Count.vue 合并而来（原两个组件已删）。
+import MmBottombar from './chrome/MmBottombar.vue'
 import ContextMenu from './popups/ContextMenu.vue'
 import SearchBox from './popups/SearchBox.vue'
 import RichTextToolbar from './popups/RichTextToolbar.vue'
@@ -460,11 +460,9 @@ onUnmounted(() => {
               @close="close"
               @new-map="startNewMap"
             />
-            <NavigatorToolbar v-if="!ui.isZenMode" />
             <Navigator />
             <ScrollbarBars />
             <SidebarTrigger v-if="!ui.isZenMode" />
-            <Count v-if="!ui.isZenMode" />
             <ContextMenu />
             <SearchBox />
             <RichTextToolbar />
@@ -487,8 +485,14 @@ onUnmounted(() => {
             <SourceCodeDialog />
             <NodeLinkDialog />
           </template>
-          <!-- 后续阶段在此挂 NavigatorToolbar / 各侧栏 / 各浮层 / 各对话框 -->
         </div>
+
+        <!-- 底部控制栏（阶段五 Task 5）：挂在 .mm-stage 之外、.mindmap-window 之内，与原型
+             （docs/index.html:414，.mm-canvas-wrap 的兄弟节点）一致——它是窗口里占位的静态一条，
+             不再是压在画布上的浮层（原 .mm-nav 绝对定位在画布右下、.mm-count 在左下）。
+             仍需 v-if="mindMap"：Count / Scale 的 onMounted 里会 requireMindMap 取实例与缩放值，
+             实例未就绪时挂载会抛错（v-if="mindMap" 的守卫原本由 stage 内那层模板提供）。 -->
+        <MmBottombar v-if="mindMap && !ui.isZenMode" />
 
         <!-- 图标 / 公式：工具栏按钮弹出的节点模态（spec D42），与其它弹层一样常驻挂载、靠 bus 唤出。
              刻意挂在 .mm-stage 之外、.mindmap-window 之内——原型 #mmModalOverlay 正是在 #mindmapWindow 里。

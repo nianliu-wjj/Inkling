@@ -8,6 +8,10 @@ import { requireMindMap, useMindMap } from '../core/useMindMap'
  * 「全屏查看」= 进入全屏并切只读模式；「全屏编辑」= 仅进入全屏。
  * 退出全屏（Esc / fullscreenchange）时恢复编辑模式并 resize 画布。
  * 全屏对整个窗口文档生效（Tauri WebView2 里即整窗铺满）。
+ *
+ * 阶段五 Task 5 起由 `MmBottombar.vue` 挂在底栏，类名换成生成层的 `.mm-ctrl-btn`；
+ * 两枚按钮不再包一层自有壳（原型底栏的按钮就是 `.mm-ctrl-right` 的直接子项，靠容器 gap 排布）。
+ * 原型底栏只有一枚全屏按钮，我们区分「查看（只读）/ 编辑」两枚——能力差异，保留。
  */
 const ctx = useMindMap()
 
@@ -47,8 +51,7 @@ onBeforeUnmount(() => document.removeEventListener('fullscreenchange', onFullscr
 </script>
 
 <template>
-  <span class="mm-nav-fullscreen">
-    <button type="button" class="mm-nav-btn iconfont iconquanping" title="全屏查看（只读）" @click="fullscreenShow" />
-    <button type="button" class="mm-nav-btn iconfont iconquanping1" title="全屏编辑" @click="fullscreenEdit" />
-  </span>
+  <!-- 两枚按钮是底栏 .mm-ctrl-right 的直接子项（多根节点），顺序与原型一致：查看在前、编辑在后。 -->
+  <button type="button" class="mm-ctrl-btn iconfont iconquanping" title="全屏查看（只读）" @click="fullscreenShow" />
+  <button type="button" class="mm-ctrl-btn iconfont iconquanping1" title="全屏编辑" @click="fullscreenEdit" />
 </template>

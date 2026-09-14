@@ -6,7 +6,7 @@ import { requireMindMap, useMindMap } from '../core/useMindMap'
 /**
  * 小地图导航（移植参考端 Navigator.vue）。
  *
- * 订阅自定义事件 `toggleMiniMap`（由 NavigatorToolbar 发出）开合；数据/视图变化时
+ * 订阅自定义事件 `toggleMiniMap`（由底栏 MmBottombar 的小地图按钮发出）开合；数据/视图变化时
  * 500ms 节流重绘。缩略图与视口框由 `mindMap.miniMap.calculationMiniMap(w,h)` 计算；
  * 拖拽平移与视口框拖动直接转交 miniMap 的鼠标事件方法；库事件
  * `mini_map_view_box_position_change` 实时更新视口框位置（该事件仅本组件关心，直接

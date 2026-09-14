@@ -374,28 +374,49 @@
   width: 96px;
 }
 
-/* ═══ 右键菜单 ═══ */
-.mm-ctxmenu {
-  position: fixed;
-  z-index: 60;
-  min-width: 160px;
-  padding: 5px;
-  font-size: 12.5px;
+/* ═══ 右键菜单（阶段五 Task 5：改挂 body，类名换成生成层 .mm-ctx 系列）═══
+   外观交给生成层（components.css:1434-1471）；自有层只留生成层没有的三样，外加一次令牌改宗。
+
+   1) **令牌改宗**（spec 差异表 #14）：原型 .mm-ctx 走通用令牌（--wsa / --text-strong /
+      --red-soft），而窗口外壳走 --mm-*，两套在 30 套主题下不同步。**底色必须跟着改**：原型那
+      块底是硬编码的 rgba(24, 26, 36, .96)，它只在「通用令牌恰好是深底浅字」时成立（原型默认
+      主题正是如此）；令牌改宗后若留着这块深底，浅色主题下就是深底配 --mm-text 的深字，整块
+      菜单读不出来。改用 --mm-surface 后菜单与抽屉 / 模态 / dock 同一套底色。
+      （.mm-ctx-kbd 也吃 --text-dim，但那是原型的快捷键提示，我们不渲染，不补死规则。）
+   2) **二级菜单** .mm-ctx-sub 与 .has-sub 的箭头：原型没有二级菜单，绝对定位需要 position。
+   3) **禁用态与危险项悬停**：原型没有禁用概念（点了没反应），我们靠 .disabled 表达。
+
+   层序：生成层给 .mm-ctx 的 z-index 是 9760（fixed，挂 body ⇒ 参与根层叠上下文）。本窗口
+   自有层最高的是 toast 10001 与演示控制条 10001，其余浮层在 20–60、弹窗 2000+ ⇒ 菜单仍压过
+   窗口内全部浮层，无需在自有层另声明。 */
+.mm-ctx {
+  background: var(--mm-surface);
+  border: 1px solid var(--mm-border);
 }
 .mm-ctx-item {
-  position: relative;
-  padding: 7px 12px;
-  border-radius: 6px;
-  color: var(--text);
-  cursor: pointer;
-  white-space: nowrap;
+  color: var(--mm-text);
 }
 .mm-ctx-item:hover {
-  background: rgba(var(--wsa), 0.12);
+  background: var(--mm-surface-3);
+}
+.mm-ctx-item.danger {
+  color: var(--mm-danger);
 }
 .mm-ctx-item.danger:hover {
-  background: rgba(255, 95, 87, 0.18);
-  color: var(--red);
+  background: var(--mm-danger-soft);
+  color: var(--mm-danger);
+}
+.mm-ctx-sep {
+  background: var(--mm-border);
+}
+.mm-ctx-item.has-sub {
+  position: relative;
+}
+.mm-ctx-item.has-sub::after {
+  content: '›';
+  position: absolute;
+  right: 10px;
+  color: var(--mm-text-2);
 }
 .mm-ctx-item.disabled {
   opacity: 0.36;
@@ -404,18 +425,6 @@
 .mm-ctx-item.disabled:hover {
   background: transparent;
 }
-.mm-ctx-sep {
-  height: 1px;
-  margin: 4px 8px;
-  background: rgba(var(--wsa), 0.12);
-}
-/* 二级菜单：默认右侧展开，空间不足时（sub-left）左侧展开。 */
-.mm-ctx-item.has-sub::after {
-  content: '›';
-  position: absolute;
-  right: 10px;
-  color: var(--text-dim);
-}
 .mm-ctx-sub {
   display: none;
   position: absolute;
@@ -423,8 +432,8 @@
   left: 100%;
   min-width: 120px;
   padding: 5px;
-  background: var(--menu-bg);
-  border: 1px solid rgba(var(--wsa), 0.14);
+  background: var(--mm-surface);
+  border: 1px solid var(--mm-border);
   border-radius: 10px;
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
   backdrop-filter: blur(20px);
@@ -435,20 +444,6 @@
 }
 .mm-ctx-item.has-sub:hover > .mm-ctx-sub {
   display: block;
-}
-
-/* ═══ 左下角字数/节点数 ═══ */
-.mm-count {
-  position: absolute;
-  left: 10px;
-  bottom: 10px;
-  z-index: 25;
-  display: flex;
-  gap: 12px;
-  padding: 5px 12px;
-  font-size: 11.5px;
-  color: var(--text-dim);
-  font-variant-numeric: tabular-nums;
 }
 
 /* ═══ 快捷键侧栏 ═══ */
@@ -977,78 +972,46 @@
 .mm-ns-tip-text {
   font-size: 12.5px;
 }
-/* ═══ 底部导航控制栏（NavigatorToolbar 及其子组件）专用样式 ═══
-   参考端 NavigatorToolbar / Scale / Fullscreen / Demonstrate 的样式移植，走 Inkling 令牌；
-   由控制器合并进 mindmap.css。 */
+/* ═══ 底部控制栏（阶段五 Task 5：NavigatorToolbar + Count 合并为单条 .mm-bottombar）═══
+   形态来自生成层 .mm-bottombar / .mm-stat-left / .mm-ctrl-right / .mm-ctrl-btn / .mm-ctrl-sep /
+   .mm-zoom-val（components.css:1367-1432），挂载点见 MindMapApp.vue。自有层只补生成层照原型
+   emoji 画时没有的三件事：字形统一、active 态、以及「百分比可手输」这一处项目扩展。 */
 
-/* 导航栏：浮于画布右下角，横排 */
-.mm-nav {
-  position: absolute;
-  right: 16px;
-  bottom: 16px;
-  z-index: 20;
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  height: 40px;
-  padding: 0 14px;
-  border-radius: 10px;
+/* 原型那排按钮装的是 emoji（.mm-ctrl-btn 未定字号，继承 .mm-ctrl-right 的 12px）；我们用的是
+   iconfont 字形与 −/＋/⋯ 文本，12px 偏小 ⇒ 统一抬到 16px（与旧导航栏一致）。 */
+.mm-ctrl-btn {
+  font-size: 16px;
+  /* 生成层对 .mm-ctrl-btn 套了 filter: grayscale(1)——那是给原型彩色 emoji 去色的。我们这排是
+     单色矢量字形（颜色由 color 决定），去色会把 :hover / .active 的 --mm-primary 一起抹成灰，
+     悬停与高亮态因此完全看不见。窗口内另一处矢量按钮（.mm-tool-btn，Task 2）同样不套去色。 */
+  filter: none;
 }
-
-/* 通用图标 / 文本按钮 */
-.mm-nav-btn {
+/* 高亮态：生成层没有 .mm-ctrl-btn.active（原型的小地图/只读没有常显状态）。照窗口内另一处
+   active 先例（.mm-tool-btn.active）用 --mm-primary-soft 底 + --mm-primary 字。 */
+.mm-ctrl-btn.active {
+  background: var(--mm-primary-soft);
+  color: var(--mm-primary);
+}
+/* 「更多」是文本 ⋯（比字形小一号），单给一条——对应已删的 .mm-nav-more。 */
+.mm-ctrl-more {
+  font-size: 20px;
+}
+/* 生成层 .mm-zoom-val 是「纯文本百分比」的行内排版（原型那里是只读 span）；我们这里是可编辑
+   输入框 + % 后缀，用 inline-flex 让两者居中对齐；输入框本身生成层没有（对应已删的
+   .mm-nav-scale-input）。 */
+.mm-zoom-val {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-width: 22px;
-  height: 22px;
-  padding: 0 2px;
-  background: transparent;
-  border: none;
-  color: var(--text-dim);
-  font-size: 16px;
-  line-height: 1;
-  cursor: pointer;
-  transition: color var(--dur-fast, 150ms) var(--ease-out, ease);
 }
-.mm-nav-btn:hover {
-  color: var(--text);
-}
-.mm-nav-btn.active {
-  color: var(--accent);
-}
-.mm-nav-more {
-  font-size: 20px;
-}
-
-/* 全屏 / 演示两个按钮成组时的内间距 */
-.mm-nav-fullscreen {
-  display: inline-flex;
-  align-items: center;
-  gap: 10px;
-}
-
-/* 缩放控件 */
-.mm-nav-scale {
-  display: inline-flex;
-  align-items: center;
-  gap: 10px;
-}
-.mm-nav-scale-info {
-  display: inline-flex;
-  align-items: center;
-  color: var(--text-dim);
-  font-size: 12px;
-}
-.mm-nav-scale-input {
+.mm-zoom-input {
   width: 34px;
-  text-align: center;
-  background: transparent;
-  border: none;
+  border: 0;
   outline: none;
-  color: var(--text);
-  font-size: 12px;
-  font-family: inherit;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: center;
 }
 
 /* ═══ 演示模式悬浮控制（Teleport 到 body，覆盖全屏演示画布）═══ */
