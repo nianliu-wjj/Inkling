@@ -509,7 +509,7 @@ onUnmounted(() => {
              挂到这里后祖先链上再无定位祖先（.mindmap-window 是 static，NConfigProvider / #app 也不定位）
              ⇒ 定位上下文回落到初始包含块，`inset: 0` 即整个窗口，标题栏一并盖住。
              层序无需调整：.mm-stage 是 `position: relative` + `z-index: auto`，**不构成层叠上下文**，
-             遮罩的 36 照旧压过抽屉 35 / 顶栏 30（见 mindmap.css 里那两条自有层规则）。
+             遮罩与窗口内浮层同处一个层叠上下文（层序见 mindmap.css 文件头总表：遮罩压过抽屉与搜索浮层）。
              两者 setup 只调 useMindMap()，而 context 由 MindMapApp 在根部 provide（与 v-if 无关）；
              requireMindMap 只在 insert() 内调用、open() 另有 activeNodes 空守卫，故脱离 v-if="mindMap" 是安全的。 -->
         <NodeIconModal />

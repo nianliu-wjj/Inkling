@@ -11,7 +11,8 @@ import type { SidebarName } from '../core/store'
  * 阶段五 Task 7：类名从自有层的 `.mm-trigger*` 换成生成层的 `.mm-sidebar-dock` / `.mm-dock-item` /
  * `.mm-dock-ico` / `.mm-dock-lbl`（`components.css:849-890`，照原型 `docs/index.html:373-380`），
  * 六项与顺序本就与原型一致（spec 差异表 #6）。壳上的 `.mm-panel` 一并去掉：生成层那颗 dock 自带
- * 底色 / 描边 / 投影，原型就是这样。自有层只补层序 28 与图标去色复位，理由见 mindmap.css。
+ * 底色 / 描边 / 投影，原型就是这样。自有层只补层序与图标去色复位两处，取值与理由见
+ * `mindmap.css` 文件头总表（层序数值只在那一处维护，别在组件里另抄一份）。
  */
 const { ui } = useMindMap()
 

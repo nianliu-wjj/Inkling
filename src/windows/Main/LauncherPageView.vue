@@ -174,6 +174,20 @@ const historyCountText = computed(
   () => `${historyCount.value} 条（保留近 ${settings.value.launcher_history_retention_days} 天 · 无痕访问不记录）`,
 )
 
+/**
+ * 全盘文件索引开关：持久化成功后由 `useLauncherSettings` 立即重建索引。
+ *
+ * 保存失败时把勾选框**显式回退**成当前生效值（与 `setHistoryRetention` 同一手法）：
+ * `:checked` 绑定只在设置值**变化**时才更新 DOM，而 `save()` 只在成功时写 `settings`，
+ * 不回退就会出现「开关显示已开、实际没保存」这种看不见的不一致。
+ */
+async function onFullDiskIndexChange(event: Event): Promise<void> {
+  const input = event.target as HTMLInputElement
+  if (await toggleFullDiskIndex(input.checked)) return
+  input.checked = settings.value.launcher_full_disk_index
+  logger.warn('launcher-page', '全盘文件索引开关未保存，已回退勾选框')
+}
+
 onMounted(() => {
   void refreshLauncherStatus()
   // 原型进入启动台页即 pruneBrowserHistory 并刷新计数；这里等价地在挂载时读一次
@@ -295,11 +309,7 @@ onMounted(() => {
       <!-- 以下为项目扩展行（原型没有），同样按「排在原型行之后」落在最后 -->
       <label class="setting-row">
         <span>全盘文件索引（搜索所有文件 / 文件夹）</span>
-        <input
-          type="checkbox"
-          :checked="settings.launcher_full_disk_index"
-          @change="toggleFullDiskIndex(($event.target as HTMLInputElement).checked)"
-        />
+        <input type="checkbox" :checked="settings.launcher_full_disk_index" @change="onFullDiskIndexChange" />
       </label>
       <div class="setting-col">
         <span class="setting-col-label">额外排除目录（逗号分隔目录名）</span>

@@ -14,15 +14,19 @@ export interface LauncherRootRow {
 
 /**
  * 启动器设置逻辑（主窗口启动台页使用）：索引状态与重建、全盘索引开关、额外排除目录、扫描根目录增删改。
- * 从偏好设置页抽出，`patch` 为调用方的统一保存入口（局部覆盖后整体写回）；
- * 其返回值可由本模块用来判断是否保存成功（失败时通常已由 `patch` 自行提示），不关心则忽略。
+ * 从偏好设置页抽出，`patch` 为调用方的统一保存入口（局部覆盖后整体写回）。
+ *
+ * `patch` 的返回类型收成 `Promise<boolean>`（而不是 `unknown`）：本模块已有多处**依赖解析值的真值**
+ * 决定要不要走后续流程（重建索引、返回是否落库）。放宽成 `unknown` 时编译器挡不住「传进来一个返回
+ * `Promise<void>` 的 patch」——那种情况下这些分支会静默失效（`!(await patch(...))` 恒真 ⇒ 永不重建、
+ * 永远报失败），是排查起来很贵的坑。收紧后由类型自证。
  */
-export function useLauncherSettings(patch: (partial: Partial<Settings>) => Promise<unknown>): {
+export function useLauncherSettings(patch: (partial: Partial<Settings>) => Promise<boolean>): {
   launcherStatus: Ref<LauncherStatus | null>
   rebuilding: ComputedRef<boolean>
   refreshLauncherStatus: () => Promise<void>
   rebuildLauncher: () => Promise<void>
-  toggleFullDiskIndex: (value: boolean) => Promise<void>
+  toggleFullDiskIndex: (value: boolean) => Promise<boolean>
   setExtraExcludes: (value: string) => Promise<void>
   launcherRoots: ComputedRef<LauncherRootRow[]>
   newRootPath: Ref<string>
@@ -58,14 +62,17 @@ export function useLauncherSettings(patch: (partial: Partial<Settings>) => Promi
   }
 
   /**
-   * 切换全盘文件索引：持久化后立即重建（索引来源变化）。
+   * 切换全盘文件索引：持久化后立即重建（索引来源变化），返回是否已落库。
    *
-   * 保存失败即中止：`patch` 自己已弹「保存设置失败」，再往下走会拿**没生效**的旧配置去重建，
-   * 还附送一条「已开始重建索引」——与 4C 验收记录 §5.1 那两处是同一类"失败仍报成功"。
+   * 保存失败即中止并返回 false：`patch` 自己已弹「保存设置失败」，再往下走会拿**没生效**的旧配置
+   * 去重建，还附送一条「已开始重建索引」——与 4C 验收记录 §5.1 那两处是同一类"失败仍报成功"。
+   * 返回值交给调用方回退勾选框（`:checked` 绑定只在设置值**变化**时才更新 DOM，不回退就会
+   * 「开关显示已开、实际没保存」）。
    */
-  async function toggleFullDiskIndex(value: boolean): Promise<void> {
-    if (!(await patch({ launcher_full_disk_index: value }))) return
+  async function toggleFullDiskIndex(value: boolean): Promise<boolean> {
+    if (!(await patch({ launcher_full_disk_index: value }))) return false
     void rebuildLauncher()
+    return true
   }
 
   /** 修改额外排除目录：持久化（下次重建生效，用户可手动「立即重建」）。 */

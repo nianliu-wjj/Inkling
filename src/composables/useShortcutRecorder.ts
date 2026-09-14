@@ -10,7 +10,8 @@ import { logger } from '@/service/logger'
  *
  * `persist` 返回**是否已落库**：改绑成功但设置没保存时，后端已经生效、设置里却还是旧值，
  * 这时不能再报「已设为 X」（4C 验收记录 §5.1）。保存失败的具体提示由 `persist` 自己给
- * （两处调用方的 `patch` 都会弹「保存设置失败」），本组合式只负责**不报假成功**。
+ * （两处调用方的 `patch` 都会弹「保存设置失败」），本组合式负责**不报假成功**，并补一条
+ * 「已生效但未能保存」把「改绑成功、只是没存下」这层意思说清楚。
  */
 export function useShortcutRecorder(options: {
   /** 用于日志与提示的名称，如「面板」「启动器」。 */
@@ -32,9 +33,12 @@ export function useShortcutRecorder(options: {
     logger.info('shortcut-recorder', `重新绑定${options.label}快捷键 ${combo}`)
     try {
       const applied = await options.apply(combo)
-      // 保存失败时不报成功：`persist` 内部已弹过「保存设置失败」，这里直接中止，
-      // 否则会出现「保存设置失败」+「快捷键已设为 X」两条互相矛盾的提示（后一条是假的）。
-      if (!(await options.persist(applied))) return
+      // 保存失败时不报「已设为 X」：`persist` 内部已弹过「保存设置失败」，这里再补一条说明
+      // 「后端已改绑、只是没存进设置」——否则用户只看到保存失败，会以为改绑也没生效。
+      if (!(await options.persist(applied))) {
+        toast(`${options.label}快捷键已生效，但未能保存到设置`)
+        return
+      }
       toast(`${options.label}快捷键已设为 ${applied}`)
     } catch (error) {
       logger.error('shortcut-recorder', `${options.label}快捷键绑定失败`, error)
