@@ -20,10 +20,13 @@ const HOTZONE_HEIGHT: f64 = 80.0;
 /// 置顶浮窗初始尺寸（逻辑像素）：宽对齐原型 #pinnedWindow 的 220px（spec 4B #25）。
 const PINNED_SIZE: (f64, f64) = (220.0, 150.0);
 const REMINDER_SIZE: (f64, f64) = (320.0, 208.0);
-/// 导图窗口默认逻辑尺寸：对齐原型 `#mindmapWindow` 的 `min(97vw, 1180px) × min(90vh, 820px)`
-/// （`docs/styles.css:461`）。960×700 放不下原型的三段式顶栏——左岛 15 枚 + 右岛 5 枚约需 992px
-/// 内容宽，1180 宽下才够一行摆开（阶段五 Task 2 实机发现）。
-const MINDMAP_SIZE: (f64, f64) = (1180.0, 820.0);
+/// 导图窗口默认逻辑尺寸。
+///
+/// 三段式顶栏（左岛 + 文件名岛 + 右岛）按生成层的实际字号实测需要 1325–1525px 才排得下一行
+/// （左岛 17 枚 893px + 右岛 5 枚 256px + 中岛 120–320px + `.mm-topbar` 的 gap/内距 56px），
+/// 故默认宽取 1360 留余量；原型的 `min(97vw, 1180px)` 在自家宽度下也会让两岛内部滚动。
+/// 窄窗口由 `mindmap.css` 里的降级规则兜底（左岛滚动、右岛固定）。
+const MINDMAP_SIZE: (f64, f64) = (1360.0, 900.0);
 
 /// 光标所在显示器（回退主屏）。
 pub fn cursor_monitor(app: &AppHandle) -> Option<tauri::Monitor> {

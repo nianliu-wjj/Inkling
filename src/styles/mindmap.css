@@ -109,7 +109,11 @@
   margin: 2px 4px;
   background: rgba(var(--wsa), 0.14);
 }
-/* 单个工具按钮：图标在上、文字在下，hover 提亮，禁用降透明。 */
+/* 单个工具按钮：图标在上、文字在下。
+   只保留生成层没有的排布微调、禁用态与格式刷取材态；**颜色与 hover 底色交给生成层**
+   （components.css:769-800 的 .mm-tool-btn，走 --mm-* 令牌）。自有层在生成层之后加载，
+   同特异性下自有层赢，这里若再写 color / :hover 底色就会盖掉 --mm-text / --mm-surface-3：
+   深色主题下 --mm-surface 仍是 #ffffff 而 --text 是浅色，两座岛会变成白底白字白图标。 */
 .mm-tool-btn {
   display: flex;
   flex-direction: column;
@@ -120,45 +124,39 @@
   border: none;
   border-radius: 7px;
   background: transparent;
-  color: var(--text);
   cursor: pointer;
-  transition: background 0.14s;
 }
+/* 图标用 iconfont 字形（生成层只为原型的 emoji 备了 .mm-ico）；颜色继承按钮 color。 */
 .mm-tool-btn .iconfont {
   font-size: 16px;
   line-height: 1;
 }
-.mm-tool-label {
-  font-size: 10.5px;
-  color: var(--text-dim);
-  white-space: nowrap;
-}
-.mm-tool-btn:hover:not(:disabled) {
-  background: rgba(var(--wsa), 0.12);
-}
-.mm-tool-btn:hover:not(:disabled) .mm-tool-label {
-  color: var(--text);
-}
-.mm-tool-btn.active {
-  background: rgba(var(--accent-rgb), 0.22);
-}
-.mm-tool-btn.active .mm-tool-label {
-  color: var(--accent);
-}
-.mm-tool-btn:disabled {
+/* 禁用态：生成层的 :hover 没有 :not(:disabled) 守卫，故连悬停底色一起复位。 */
+.mm-tool-btn:disabled,
+.mm-tool-btn:disabled:hover {
   opacity: 0.32;
   cursor: not-allowed;
+  background: transparent;
+}
+/* 格式刷取材中：生成层没有 active 态，用导图主题的强调色标出（含文字，光靠底色不够显眼）。 */
+.mm-tool-btn.active {
+  background: var(--mm-primary-soft);
+}
+.mm-tool-btn.active .mm-txt {
+  color: var(--mm-primary);
 }
 
 /* ═══ 顶栏三岛（左岛 / 文件名岛 / 右岛，阶段五 Task 2）═══
    三段式形态来自生成层的 .mm-topbar / .mm-island（components.css:666-686），
-   这里只补两处自有层适配——生成层是照 docs/ 原型生成的，改不得：
+   这里只补三处自有层适配——生成层是照 docs/ 原型生成的，改不得：
 
    1) .mm-topbar 必须脱离文档流并抬到画布之上：画布 .mm-canvas 是 `absolute; inset:0`
       的定位元素，会盖住静态流里的兄弟节点，连点击都会被它截走；
    2) 生成层的 .mm-filename-island（components.css:688-692）仍是原型里「单岛居中」时代的
       `absolute; left:50%; top:10px` —— 原型的中岛本来就浮在左岛上面（窄窗口下会压住左岛
       尾部按钮）。三段式排布下让它回到静态流，用 `margin:0 auto` 在左右两岛之间居中。
+
+   3) 窄窗口的降级拓扑见下面三条岛规则——生成层是照原型的宽窗口画的，没管压缩顺序。
 
    待 Task 7 收敛自有层时一并复核。 */
 .mm-topbar {
@@ -168,9 +166,29 @@
   right: 0;
   z-index: 30;
 }
+/* 左岛先让位：收缩权重 3 倍于文件名岛，窗口变窄时它先被压到 0 并在岛内横向滚动
+   （生成层的 .mm-island 是 overflow-x: auto，岛内滚动条即由此而来），
+   而不是去挤右岛的「保存 / 新建 / 导入 / 导出 / 关闭」。
+   min-width: 0 是显式兜底：滚动容器的自动最小尺寸本就是 0，写出来免得日后被别的规则改坏。 */
+.mm-island-left {
+  flex-shrink: 3;
+  min-width: 0;
+}
+/* 右岛绝不收缩：它是唯一的落盘 / 关闭出口，宁可让左岛滚起来也不能把它裁进滚动区。
+   生成层的 .mm-island 同样带 overflow-x: auto，不锁死的话一窄就先滚动、后裁切。 */
+.mm-island-right {
+  flex: none;
+}
 .mm-filename-island {
   position: static;
   transform: none;
+  /* 中岛可收缩（长名字最终交给 .mm-filename-text 的省略号），但不与左岛同权：
+     它只在左岛归零后才继续缩。margin: 0 auto 的 auto 外边距会吃掉剩余空间，
+     把中岛推到左右两岛之间（生成层的 justify-content: space-between 因此不再生效）；
+     原型是 absolute 真居中，静态流下只能近似——偏差为（左岛宽 − 右岛宽）/ 2，
+     宽窗口下基本贴满时看不出来，需实机复核。 */
+  flex: 0 1 auto;
+  min-width: 0;
   margin: 0 auto;
 }
 

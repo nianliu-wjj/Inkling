@@ -74,6 +74,8 @@ applyCachedGlass()
 document.documentElement.dataset.window = 'mindmap'
 
 const label = getCurrentWindow().label
+/** 新建导图的窗口 label，与 `windows.rs::mindmap_open` 里 `note_id == None` 分支保持一致。 */
+const NEW_MAP_LABEL = 'mindmap-new'
 
 const { notes } = useNotes()
 const { settings } = useSettings()
@@ -111,6 +113,13 @@ const pendingName = ref('')
  * 那会破坏 `markDirtyAndAutosave` 里「新建导图首次必须手动保存」的约定。
  */
 const mapName = computed(() => note.value?.content || pendingName.value || MAP_NAME_FALLBACK)
+/**
+ * 落库用的导图名：优先用户刚改的暂存名，其次笔记原标题；**不含显示回退**。
+ *
+ * `mapName` 的 `MAP_NAME_FALLBACK` 只为显示（顶栏文件名岛 / 窗口标题），不能兼作落库默认值——
+ * 既有笔记的 `content` 本来就是空串时，保存一次会把标题写成「未命名导图」。
+ */
+const persistName = computed(() => pendingName.value || note.value?.content || '')
 /**
  * 何时可以创建画布：参数已就绪，且——新建导图立即可建，编辑既有导图必须等目标笔记从
  * 列表异步加载出来。否则会先用空的「中心主题」建实例，等真实数据到达时画布已经建好、
@@ -195,8 +204,9 @@ async function save(silent = false): Promise<void> {
   try {
     const saved = await api.notes.save({
       id: noteId.value || undefined,
-      // 用 mapName 而不是 note.content：新建导图的暂存名（在文件名岛上改的）要随首次保存写进笔记。
-      content: mapName.value,
+      // 用 persistName 而不是 note.content：新建导图的暂存名（在文件名岛上改的）要随首次保存写进笔记；
+      // 也不用 mapName：显示回退（「未命名导图」）不该被写进库，空的标题就保持为空。
+      content: persistName.value,
       tags: [...tags.value],
       editorMode: 'mindmap',
       mindmapData: mindmapData.value,
@@ -249,21 +259,43 @@ async function renameTo(name: string): Promise<void> {
   }
 }
 
-/** 新建：原型 `#mmNew`（`docs/app.js:1748-1756`）——确认后把当前内容清空为空白导图。 */
+/**
+ * 新建：原型 `#mmNew`（`docs/app.js:1748-1756`）——确认后换成一个空白导图。
+ *
+ * 必须「换窗口」而不是就地清空：窗口 label 是「一个笔记一个窗口」的唯一保证
+ * （`windows.rs::mindmap_open` 按 label 复用，命中即聚焦、不叠第二个），而 label 在
+ * Tauri v2 里不可变。就地清空会让本窗顶着旧笔记的 label 显示新导图 —— 那条笔记的
+ * 导图在关窗之前打不开；新建保存后从主窗口再打开新笔记还会另开一窗，两窗同编一条
+ * 笔记、自动保存互相覆盖。
+ *
+ * 先开新窗再关本窗：中途失败也只是多留一个窗口，不会两边都没有。
+ *
+ * 例外：本窗 label 已是 `mindmap-new`（用户在一个尚未保存的新导图上再点新建）时不能换窗 ——
+ * `mindmap_open` 会命中本窗自身并原样返回，紧接着关掉的就是唯一那个窗口。此态下 label 与内容
+ * 本来就一致（都表示「新建」），不存在错配，就地清空即可。
+ */
 function startNewMap(): void {
   if (!window.confirm('新建导图将清空当前未保存的内容，确认新建？')) return
-  const instance = mindMap.value
-  if (!instance) return
-  // 切断与原笔记的关联：此后保存会新建一条笔记，原笔记不受影响。
-  noteId.value = ''
-  pendingName.value = ''
-  mindmapData.value = null
-  // 入参形状与 `parseMindMapData` 的空数据兜底一致（`{ data: { text }, children: [] }`），
-  // 库里 setData 要的是 root 节点，不是全量对象。setData 会重置历史记录，正合「新建」语义。
-  instance.setData(parseMindMapData(null).root)
-  instance.view.fit()
-  dirty.value = false
-  logger.info('mindmap', '已清空为新建导图')
+  if (label === NEW_MAP_LABEL) {
+    // label 已与内容一致，没有错配，就地重建为空导图（换窗前的老行为）。
+    const instance = mindMap.value
+    if (!instance) return
+    pendingName.value = ''
+    mindmapData.value = null
+    // 入参形状与 `parseMindMapData` 的空数据兜底一致（`{ data: { text }, children: [] }`），
+    // 库里 setData 要的是 root 节点，不是全量对象。setData 会重置历史记录，正合「新建」语义。
+    instance.setData(parseMindMapData(null).root)
+    instance.view.fit()
+    dirty.value = false
+    logger.info('mindmap', '已清空为新建导图（label 已是 mindmap-new，就地重建）')
+    return
+  }
+  const closing = label
+  logger.info('mindmap', `新建导图：切换窗口 ${closing} → ${NEW_MAP_LABEL}`)
+  void api.windows
+    .mindmapOpen()
+    .then(() => api.windows.mindmapClose(closing))
+    .catch((error: unknown) => logger.error('mindmap', '新建导图失败', error))
 }
 
 async function close(): Promise<void> {
