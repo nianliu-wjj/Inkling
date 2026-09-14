@@ -393,15 +393,24 @@ git commit -m "feat(mindmap): 顶栏按原型改为双工具岛 + 新建文件�
 
 ## Task 3: 单抽屉壳（10 个实例 → 1 个）
 
+> **⚠️ 实施期订正（2026-09-14，实现者开工前发现）**：本节原先假设 `MindMapApp.vue` 直接使用 `SidebarShell`——**实际是每个侧栏组件自己包自己**（`ShortcutSidebar` / `StructureSidebar` / `ThemeSidebar` / `BaseStyleSidebar` / `NodeStyleSidebar` / `SettingSidebar` / `IconSidebar` / `FormulaSidebar` / `OutlineSidebar` / `NoteSidebar` 各写 `<SidebarShell name title>内容</SidebarShell>`，`MindMapApp` 只挂 `<XxxSidebar />` 不传 props）。照原方案做会得到**抽屉套抽屉**。已批准的做法（方案 A）：
+> 1. `git mv SidebarShell.vue → MmDrawer.vue` 并改造为分发壳；
+> 2. **9 个侧栏组件去掉自带的 `<SidebarShell>` 外壳与 import**，只留 body 内容（**本节的额外改动范围**）；
+> 3. `MindMapApp.vue` 换一行 `<MmDrawer v-if="!ui.isZenMode" />`；
+> 4. 三处必要补充：图标/公式/快捷键三项的标题映射（`sidebarTriggerList` 只有 dock 六项）、自有层给 `.mm-drawer-body` 补 `display:flex; flex-direction:column; gap:10px`（原侧栏表单件靠父级 gap 撑开）、过渡名改 `mm-drawer-slide`；
+> 5. 动态渲染包 **`<KeepAlive>`**：现状是 10 个侧栏常驻挂载、切换不丢状态；不包会退化成「切侧栏卸载重挂」（大纲树展开态重置等），那是**对现状的回归**。KeepAlive 缓存的是组件实例、DOM 里仍只有一个抽屉，收益与状态兼得。
+
 **Files:**
-- Modify: `src/windows/MindMap/sidebars/SidebarShell.vue`（改造为内容分发壳）
+- Rename+Modify: `src/windows/MindMap/sidebars/SidebarShell.vue` → `MmDrawer.vue`（改造为内容分发壳）
 - Modify: `src/windows/MindMap/MindMapApp.vue:369-378`（10 个 `<XxxSidebar />` → 1 个 `<MmDrawer />`）
+- Modify: **9 个侧栏组件**（去掉自带的 `<SidebarShell>` 外壳与 import，只留 body 内容）
+- Modify: `src/styles/mindmap.css`（`.mm-drawer-body` 的 flex+gap）
 - Delete: `src/windows/MindMap/sidebars/NoteSidebar.vue`
 - Modify: `src/windows/MindMap/core/store.ts:5-16`（`SidebarName` 去掉 `nodeNoteSidebar`）
 
 **Interfaces:**
-- Consumes：`ui.activeSidebar`（单值）、6 个侧栏组件（NodeStyle / BaseStyle / Theme / Structure / Outline / Setting）
-- Produces：`MmDrawer.vue`（原名 `SidebarShell.vue` 改造），按 `ui.activeSidebar` 渲染对应侧栏，根元素 `.mm-drawer`
+- Consumes：`ui.activeSidebar`（单值）、9 个侧栏组件（dock 六项 + 图标 / 公式 / 快捷键三个过渡项）
+- Produces：`MmDrawer.vue`（原名 `SidebarShell.vue`），按 `ui.activeSidebar` 用 `<KeepAlive><component :is>` 渲染对应侧栏，根元素 `.mm-drawer`
 
 - [ ] **Step 1: 改造 `SidebarShell.vue` 为单壳**
 
