@@ -978,6 +978,15 @@
    emoji 画时没有的几件事：字形统一、active 态、统计段间距、窄窗口滚动，以及「百分比可手输」
    这一处项目扩展。 */
 
+/* 底栏本身不许被压扁：窗口拉矮时，宁可画布少一点，也不能让控件挤出窗外。
+   （现状下这条多半是「说清楚意图」而非救火：生成层没给 .mm-bottombar 定 flex，默认 `0 1 auto`
+   且 overflow: visible ⇒ 它的 `min-height: auto`（content-based）本就把它兜在内容高度上，
+   `.mm-stage` 的 `flex: 1` + `min-height: 0` 会先让出空间。但一旦有人给本栏加上非 visible 的
+   overflow（例如为 `.mm-ctrl-right` 的圆角补 `overflow: hidden`），自动最小尺寸就会归零、
+   本栏立刻变成唯一的可压缩项；写死 flex: none 把这个坑封住。） */
+.mm-bottombar {
+  flex: none;
+}
 /* 生成层 .mm-stat-left 是照原型的「一行文本 + &nbsp;」排的，我们拆成了两个 span；而 Vue 的
    whitespace: 'condense' 会吃掉两个元素之间「含换行的纯空白」文本节点 ⇒ 两段会直接贴成
    「字数 0节点 1」。用 flex 间距表达「并排两段」比在模板里塞 &nbsp; 稳：&nbsp; 把渲染细节写进
@@ -990,8 +999,13 @@
 }
 /* 窄窗口：本栏收尾后有 14 枚按钮 + 百分比 + 分隔线，容器默认允许收缩，压到极限就是横向溢出，
    而 #app 是 overflow: hidden ⇒ 溢出的最右那枚「更多」会被直接裁掉、点不到。
-   overflow-x: auto 让窗口再窄也能横向滚到它（不用 flex: none：那会让本段整体不收缩、直接顶出窗外，
-   容器自己的滚动条反而失效——溢出的是外层 .mm-bottombar 而不是本元素）。 */
+   overflow-x: auto 让窗口再窄也能横向滚到它。**与下面 .mm-ctrl-btn 的 flex: none 是一对，缺一不可**：
+   - 只有容器 overflow-x（非 visible 的溢出会让本元素的自动最小尺寸归零）⇒ 外层能一路压到 0，滚动条生效；
+   - 只有按钮 flex: none ⇒ 本元素的内层 min-content 约 480px 撑住它的 `min-width: auto`，外层压不下去，
+     溢出的变成外层 .mm-bottombar（被 #app 裁掉），正好退回「更多点不到」。
+   不用 `flex: none` 放在本元素上：那会让本段整体不收缩、直接顶出窗外，滚动条反而失效。
+   审查者另核：overflow-x: auto 会让 overflow-y 也变成 auto，但本元素高为内容高、又 align-items: center，
+   不会长出竖直滚动条。 */
 .mm-ctrl-right {
   overflow-x: auto;
 }
@@ -999,6 +1013,10 @@
    iconfont 字形与 −/＋/⋯ 文本，12px 偏小 ⇒ 统一抬到 16px（与旧导航栏一致）。 */
 .mm-ctrl-btn {
   font-size: 16px;
+  /* 不许被压扁：容器允许收缩（见上），没有这条时 flex 收缩会把 24px 的按钮压到 content-based min
+     （≈16px 字形宽），一窄就挤成一排小图标。加上后按钮恒为 width: 24px，空间不够时改由容器横向滚动。
+     注意别只留这一条而删掉容器的 overflow-x——那样溢出的是外层、会被 #app 裁掉。 */
+  flex: none;
   /* 生成层对 .mm-ctrl-btn 套了 filter: grayscale(1)——那是给原型彩色 emoji 去色的。我们这排是
      单色矢量字形（颜色由 color 决定），去色会把 :hover / .active 的 --mm-primary 一起抹成灰，
      悬停与高亮态因此完全看不见。窗口内另一处矢量按钮（.mm-tool-btn，Task 2）同样不套去色。 */
