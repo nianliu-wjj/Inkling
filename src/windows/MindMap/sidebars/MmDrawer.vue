@@ -35,7 +35,7 @@ const { ui } = useMindMap()
  * 图标 / 公式 / 快捷键不在 dock 列表里，用它们各自的标题常量兜底——
  * 少了这层回退，这三个入口的抽屉标题会是空串（旧壳是从各侧栏的 props 拿标题的）。
  */
-const EXTRA_TITLES: Record<string, string> = {
+const EXTRA_TITLES: Partial<Record<OpenSidebarName, string>> = {
   nodeIconSidebar: '图标 / 贴纸',
   formulaSidebar: '公式',
   shortcutKey: '快捷键',
@@ -65,6 +65,9 @@ const CONTENT: Record<OpenSidebarName, Component> = {
   shortcutKey: ShortcutSidebar,
 }
 
+/* 这里的断言不是多余的：`SidebarName` 含空串（抽屉关闭），而 `CONTENT` / `EXTRA_TITLES`
+   的键是 `OpenSidebarName`（已排除空串），此处没有真值分支可供 TS 收窄，直接取掉会报
+   TS7053（`Property '' does not exist…`）。空串的落空由下面两处的 `?? null` / `?? ''` 兜住。 */
 const activeName = computed(() => ui.activeSidebar as OpenSidebarName)
 /** 本次请求要展示的侧栏；`activeSidebar` 为空（或取值不认识）时为 null。 */
 const activeContent = computed<Component | null>(() => CONTENT[activeName.value] ?? null)
@@ -96,9 +99,11 @@ function close(): void {
 }
 
 // 抽屉开合是本窗口里少见的状态切换，记一条日志便于排查「点不动 / 打不开」类问题。
+// 打标题而不是键名：`nodeStyle` 这类键名对用户和排查者都不直观，标题才认得出是哪个面板。
+// （`title` 由 `activeName` 派生、computed 惰性求值，此刻读到的就是本次要打开的侧栏标题。）
 watch(
   () => ui.activeSidebar,
-  (name) => logger.info('mindmap', `右侧抽屉：${name ? `打开「${name}」` : '关闭'}`),
+  (name) => logger.info('mindmap', `右侧抽屉：${name ? `打开「${title.value}」` : '关闭'}`),
 )
 </script>
 
@@ -108,6 +113,12 @@ watch(
       `v-show` 而非 `v-if`：原型 `#mmDrawer` 也是常驻 DOM、只切 `.hidden`，且只有常驻才能让
       `<KeepAlive>` 的缓存在关闭后依然存活（见 lastShown 注释）。`@click.stop` 沿用旧壳：
       抽屉浮在画布上方，内部点击不应冒泡到舞台，免得顺手带出画布的选中 / 拖拽逻辑。
+
+      【不要改回去】计划简报里字面写的是 `<aside v-if="current">`，照着改会丢状态——这是
+      **夹具实测**结论（不是推测）：`<KeepAlive>` 此时落在被 `v-if` 销毁的子树里，抽屉一关
+      它连同缓存一起没了，重开时 setup 重跑、状态回退（大纲树展开态、公式框里没提交的 LaTeX）。
+      该取舍的唯一证据是 `.tmp/keepalive-check.mjs`（已 gitignore，可 `node .tmp/keepalive-check.mjs`
+      复跑）；Task 3 报告第三节给出了本写法与两种对照写法的完整读数。
     -->
     <aside v-show="visible" class="mm-drawer" @click.stop>
       <div class="mm-drawer-header">
