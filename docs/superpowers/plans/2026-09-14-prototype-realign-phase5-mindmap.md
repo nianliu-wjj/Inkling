@@ -662,25 +662,29 @@ const MM_TOKENS = [
 ] as const
 
 test('每套主题都有全部 13 个 --mm-* 令牌', () => {
-  // 覆盖来自三处：docs/styles.css 的 typewriter 块（经生成层进 themes.css）、
-  // src/styles/extensions.css 的其余 30 套 + sepia、以及 tokens.css 的 :root（dark 主题落在这里）。
-  const css =
-    readFileSync('docs/styles.css', 'utf8') +
-    readFileSync('src/styles/extensions.css', 'utf8') +
-    readFileSync('src/styles/tokens.css', 'utf8')
-  const blocks = new Map<string, string>()
-  for (const [, name, body] of css.matchAll(/:root(?:\[data-theme='([^']+)'\])?\s*\{([\s\S]*?)\n\}/g)) {
-    const key = name ?? 'dark' // 无 data-theme 的 :root 即 dark 主题的落点
-    blocks.set(key, (blocks.get(key) ?? '') + body)
-  }
-  // 主题清单以 constants/themes.ts 为准（唯一真源），逐套核对
-  const themeKeys = [...readFileSync('src/constants/themes.ts', 'utf8').matchAll(/key: '([^']+)'/g)].map((m) => m[1])
-  assert.ok(themeKeys.length >= 32, `主题清单异常：${themeKeys.length}`)
-  for (const key of themeKeys) {
-    const body = blocks.get(key)
-    assert.ok(body, `找不到主题 ${key} 的定义块`)
-    const missing = MM_TOKENS.filter((token) => !body.includes(`${token}:`))
+  // 覆盖来自两处：docs/styles.css 的 typewriter 块（经生成层进 themes.css）与
+  // src/styles/extensions.css 的其余主题（含 dark 与 sepia）。
+  // 注意 dark：它**必须**有显式的 [data-theme='dark'] 块——不能靠无 data-theme 的 :root 兜底，
+  // 因为那个 :root 的 --mm-* 是原型抄来的浅色值（深色主题下窗口会变浅，Task 2 实机发现）。
+  const extensionCss = readFileSync('src/styles/extensions.css', 'utf8')
+  const docCss = readFileSync('docs/styles.css', 'utf8')
+  for (const key of themeKeys()) {
+    const block = blockOf(key)
+    assert.ok(block, `找不到主题 ${key} 的 --mm-* 定义块`)
+    const missing = MM_TOKENS.filter((token) => !block.includes(`${token}:`))
     assert.deepEqual(missing, [], `主题 ${key} 缺少：${missing.join(', ')}`)
+  }
+
+  /** 主题清单以 constants/themes.ts 为唯一真源。 */
+  function themeKeys(): string[] {
+    return [...readFileSync('src/constants/themes.ts', 'utf8').matchAll(/key: '([^']+)'/g)].map((m) => m[1])
+  }
+
+  /** 取某主题的令牌定义块：typewriter 在 docs/styles.css，其余在 extensions.css。 */
+  function blockOf(key: string): string | undefined {
+    const source = key === 'typewriter' ? docCss : extensionCss
+    const matched = new RegExp(`:root\\[data-theme='${key}'\\]\\s*\\{([\\s\\S]*?)\\n\\}`).exec(source)
+    return matched?.[1]
   }
 })
 ```
@@ -691,9 +695,11 @@ Run: `pnpm test:unit 2>&1 | grep -E "mm-|fail"`
 
 Expected: FAIL —— 30 个主题块里除 `typewriter` 外全部报缺少 13 个令牌
 
-- [ ] **Step 3: 给 30 套主题补令牌**
+- [ ] **Step 3: 给 30 套主题 + `dark` 补令牌**
 
-在 `src/styles/extensions.css` 末尾**新增一节**（照 §7/§9/§10/§11 的分节风格），对 `docs/styles.css` 里**除 typewriter 外**的每套主题各写一个块（`sepia` 也在本节内）。取值全部由该主题**既有**令牌推导，不手挑颜色：
+⚠️ **`dark` 也必须显式覆盖**（Task 2 的实机发现）：`dark` 主题没有自己的块、落到 `tokens.css` 的 `:root`，而那个 `:root` 里的 `--mm-*` 是从原型逐字抄来的**浅色**值（`#ffffff` / `#333` / Ant 蓝）。Task 2 把顶栏换成原型类名后顶栏就开始吃 `--mm-*`——**若不覆盖 `dark`，深色主题下导图窗口会变成全站唯一的浅色窗口**。因此要在自有层写一个 `:root[data-theme='dark']` 块。
+
+在 `src/styles/extensions.css` 末尾**新增一节**（照 §7/§9/§10/§11 的分节风格），对 `src/constants/themes.ts` 里**除 `typewriter` 外**的每套主题各写一个块（`dark` 与 `sepia` 都在本节内）。取值全部由该主题**既有**令牌推导，不手挑颜色：
 
 ```css
 /* ═══ 12. 思维导图窗口令牌（阶段五 D46） ═══
