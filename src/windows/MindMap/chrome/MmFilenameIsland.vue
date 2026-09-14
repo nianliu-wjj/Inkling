@@ -40,10 +40,25 @@ function cancel(): void {
   editing.value = false
   logger.debug('mindmap', '文件名岛放弃改名')
 }
+
+/** Enter 提交；组合期间（中文输入法选词）不提交，见 `useLauncherResults` 的同款守卫。 */
+function onEnter(event: KeyboardEvent): void {
+  // 中文输入法：Enter 用于确认候选词（组合期间 isComposing 为真，部分环境只有 keyCode 229），
+  // 此时不应提交——否则 v-model 在组合期间不更新 draft，会把名字静默写成「未命名导图」。
+  if (event.isComposing || event.keyCode === 229) return
+  commit()
+}
+
+/** Esc 取消改名；组合期间（中文输入法）Esc 是「取消候选词」，不当作放弃改名。 */
+function onEsc(event: KeyboardEvent): void {
+  // 与 onEnter 同源的守卫：组合期间 Esc 先被输入法消费，此时取消改名会连带丢掉候选词。
+  if (event.isComposing || event.keyCode === 229) return
+  cancel()
+}
 </script>
 
 <template>
-  <div class="mm-filename-island" @keydown.esc.stop="cancel">
+  <div class="mm-filename-island" @keydown.esc.stop="onEsc">
     <template v-if="editing">
       <input
         ref="input"
@@ -52,14 +67,25 @@ function cancel(): void {
         :maxlength="MAP_NAME_LIMIT"
         spellcheck="false"
         autocomplete="off"
-        @keydown.enter.prevent="commit"
+        @keydown.enter.prevent="onEnter"
         @blur="commit"
       />
-      <button type="button" class="mm-filename-btn" title="保存名称" @mousedown.prevent @click="commit">💾</button>
+      <button
+        type="button"
+        class="mm-filename-btn"
+        title="保存名称"
+        aria-label="保存名称"
+        @mousedown.prevent
+        @click="commit"
+      >
+        💾
+      </button>
     </template>
     <template v-else>
       <span class="mm-filename-text" title="点击编辑导图名" @click="startEdit">{{ name }}</span>
-      <button type="button" class="mm-filename-btn" title="编辑导图名" @click="startEdit">✏️</button>
+      <button type="button" class="mm-filename-btn" title="编辑导图名" aria-label="编辑导图名" @click="startEdit">
+        ✏️
+      </button>
     </template>
   </div>
 </template>
