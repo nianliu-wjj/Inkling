@@ -645,6 +645,9 @@ git commit -m "feat(mindmap): 底栏按原型重排为单条控制栏，右键�
 
 ## Task 6: 30 套主题接入 `--mm-*` + 修 naive 浅色基底
 
+> **⚠️ 本任务因 Task 2/3 而变成阻塞项（2026-09-14）**：Task 2（顶栏三岛）与 Task 3（单抽屉壳）已把窗口外壳迁到生成层类名，而生成层的 `.mm-topbar` / `.mm-island` / `.mm-drawer` / `.mm-search-box` / `.mm-modal*` **全部走 `--mm-*`**，`--mm-*` 又只在 `:root`（原型抄来的**浅色**默认）与 `typewriter` 有定义 ⇒ **在 13 套 `--scheme: dark` 主题下，这些外壳是白底而内容是浅字**。Task 3 审查已把「13 套深色主题下抽屉正文不可读」报为 Important 并认领给本任务；Task 2 审查同样报过「dark 主题下岛屿白底白字」。
+> 因此本任务**不是可选完善**：它决定窗口在深色主题下能不能用。Task 4/5 之后、Task 8 实机验收之前必须落地；Task 4/5 期间**不要在深色主题下做观感判断**。
+
 **Files:**
 - Modify: `src/styles/extensions.css`（**自有层**：新增一节，给 30 套主题各补 13 个 `--mm-*`；`sepia` 也在同一节里）
 - Modify: `src/windows/MindMap/core/naiveTheme.ts`
