@@ -216,6 +216,8 @@ git commit -m "feat(mindmap): 导图名规范化纯函数与文件名岛组件"
 - Modify: `src/windows/MindMap/chrome/Toolbar.vue`（211 行 → 三岛）
 - Modify: `src/windows/MindMap/MindMapApp.vue:330-339`（标题栏按钮迁走）、`:353`（Toolbar 挂载）、`:176-205`（`save()` 复用）、新增 `renameTo()`
 - Modify: `src/windows/MindMap/core/store.ts`（若需要新的 bus 事件）
+- Modify: `src-tauri/src/app/windows.rs`（`MINDMAP_SIZE` 960×700 → **1360×900**；三段式顶栏实测需 1325–1525px，见 spec D51）
+- Modify: `src/styles/mindmap.css`（顶栏降级布局：左岛可压缩滚动、中/右岛不压缩，见 spec D51）
 
 **Interfaces:**
 - Consumes：Task 1 的 `MmFilenameIsland`（props `name`，emits `rename`）
