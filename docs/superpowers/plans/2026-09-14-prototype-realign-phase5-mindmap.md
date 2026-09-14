@@ -797,6 +797,11 @@ git commit -m "feat(mindmap): 其余 30 套主题接入 --mm-* 令牌，naive �
 >    - 大纲全屏编辑 40 → 拖拽遮罩 50 → 右键菜单 60 → 各弹窗 2000/3000 → toast 10001
 >    - **待裁决**：两个搜索浮层（生成层 `.mm-search-box` **12**、画布内替换浮层 `.mm-search` **30**）在抽屉抬到 35 之后，由「压抽屉」翻成「**被抽屉压**」——原型是「搜索压抽屉」（12 > 10）。要么把两者抬到 35 之上（注意别撞大纲编辑 40）、要么明确接受翻转并写进差异表，二选一，**不要留默认状态**。
 > 2. 本任务的「删被生成层取代的规则」清单里，**旧抽屉壳 `.mm-sidebar*`（`mindmap.css:241-286` 一带）已确认是死规则**（Task 3 把 `.mm-sidebar` 的用法整体换成了 `.mm-drawer`），要一并删；但注意 Task 3 只改了过渡名（`mm-drawer-slide`），整段壳样式仍在。
+>
+> 3. **三条 Task 4 审查留下的小项**（都属打磨，一并做并留注释）：
+>    - 公式表：给 `<table>` 加 **`role="presentation"`**（现有 `tr` 上的 `role="button"` 会覆盖 `row`、使表格的 required-owned-elements 不成立；让掉隐式的 row/cell 角色后整块成为「一串按钮」，结构合法、零 CSS）。**务必留注释说明为什么不把表格语义改回来**——那份「表格」只剩单列、无 `<th>`/`<caption>`，行语义信息量≈0，而按钮语义（Tab / Enter / `aria-disabled` / 全局焦点环）是真收益。
+>    - `.mm-icon-tile:disabled` 只改 `opacity`/`cursor`，生成层 `:hover` 仍给背景/边框/scale（`components.css:1123-1127`）⇒ 禁用态看起来仍可点；补齐复位或注明该分支实际不可达。
+>    - `.mm-struct-groupname`（`mindmap.css:613`）已被三处当通用分组小标题复用，名字仍带 `struct` ⇒ 改名为通用名（如 `.mm-group-title`）并同步三处。
 
 **Files:**
 - Modify: `src/styles/mindmap.css`（删被生成层取代的规则、**统一层级序**）
