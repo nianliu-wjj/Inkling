@@ -5,7 +5,6 @@ import themeImgMap from 'simple-mind-map-plugin-themes/themeImgMap'
 import { onBeforeUnmount, onMounted, ref } from 'vue'
 import { requireMindMap, useMindMap } from '../core/useMindMap'
 import { useConfirm } from '../core/confirm'
-import SidebarShell from './SidebarShell.vue'
 
 /**
  * 主题侧栏（移植参考端 Theme.vue）。
@@ -52,24 +51,22 @@ onBeforeUnmount(() => offs.forEach((off) => off()))
 </script>
 
 <template>
-  <SidebarShell name="theme" title="主题">
-    <div v-for="group in groups" :key="group.name" class="mm-theme-group">
-      <div class="mm-struct-groupname">{{ group.name }}</div>
-      <div class="mm-theme-grid">
-        <button
-          v-for="item in group.list"
-          :key="item.value"
-          type="button"
-          class="mm-theme-item"
-          :class="{ active: item.value === current }"
-          :title="item.name"
-          @click="use(item.value)"
-        >
-          <img v-if="themeImgMap[item.value]" :src="themeImgMap[item.value]" :alt="item.name" />
-          <span v-else class="mm-theme-noimg">{{ item.name }}</span>
-          <span class="mm-theme-name">{{ item.name }}</span>
-        </button>
-      </div>
+  <div v-for="group in groups" :key="group.name" class="mm-theme-group">
+    <div class="mm-struct-groupname">{{ group.name }}</div>
+    <div class="mm-theme-grid">
+      <button
+        v-for="item in group.list"
+        :key="item.value"
+        type="button"
+        class="mm-theme-item"
+        :class="{ active: item.value === current }"
+        :title="item.name"
+        @click="use(item.value)"
+      >
+        <img v-if="themeImgMap[item.value]" :src="themeImgMap[item.value]" :alt="item.name" />
+        <span v-else class="mm-theme-noimg">{{ item.name }}</span>
+        <span class="mm-theme-name">{{ item.name }}</span>
+      </button>
     </div>
-  </SidebarShell>
+  </div>
 </template>

@@ -238,6 +238,7 @@
 }
 
 /* ═══ 侧栏抽屉 ═══ */
+/* 以下 .mm-sidebar* 是单抽屉壳收敛前的旧壳样式（已无组件引用），保留给 Task 7 统一清理。 */
 .mm-sidebar {
   position: absolute;
   top: 10px;
@@ -283,14 +284,23 @@
   flex-direction: column;
   gap: 10px;
 }
-.mm-sidebar-slide-enter-active,
-.mm-sidebar-slide-leave-active {
+/* 抽屉内容排布：生成层 `.mm-drawer-body` 只给了内边距与滚动，侧栏表单件
+   （`.mm-field` / `.mm-shortcut-group` 等）原本靠旧壳 `.mm-sidebar-body` 的纵向 flex + gap
+   撑开间距，这里在自有层补回来，避免各行贴在一起。 */
+.mm-drawer-body {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+/* 抽屉滑入/滑出：名副其实地改到 mm-drawer 前缀（原型无此动效，Task 7 决定去留）。 */
+.mm-drawer-slide-enter-active,
+.mm-drawer-slide-leave-active {
   transition:
     transform 0.2s ease,
     opacity 0.2s ease;
 }
-.mm-sidebar-slide-enter-from,
-.mm-sidebar-slide-leave-to {
+.mm-drawer-slide-enter-from,
+.mm-drawer-slide-leave-to {
   transform: translateX(12px);
   opacity: 0;
 }

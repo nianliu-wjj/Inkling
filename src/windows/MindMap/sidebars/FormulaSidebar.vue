@@ -3,7 +3,6 @@ import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useToast } from '@/composables/useToast'
 import { formulaList } from '../constants/formulas'
 import { requireMindMap, useMindMap } from '../core/useMindMap'
-import SidebarShell from './SidebarShell.vue'
 
 /**
  * 公式侧栏（移植参考端 FormulaSidebar.vue）。
@@ -50,28 +49,26 @@ onBeforeUnmount(() => offs.forEach((off) => off()))
 </script>
 
 <template>
-  <SidebarShell name="formulaSidebar" title="公式">
-    <p v-if="!richText" class="mm-dialog-hint">非富文本模式下不支持插入公式，请在「设置」中开启节点富文本编辑。</p>
-    <textarea
-      v-model="latex"
-      class="mm-dialog-textarea mm-formula-input"
+  <p v-if="!richText" class="mm-dialog-hint">非富文本模式下不支持插入公式，请在「设置」中开启节点富文本编辑。</p>
+  <textarea
+    v-model="latex"
+    class="mm-dialog-textarea mm-formula-input"
+    :disabled="!richText"
+    placeholder="请输入 LaTeX 语法，例如 \frac{1}{2}"
+  />
+  <button type="button" class="btn primary" :disabled="!richText" @click="insert">完成</button>
+  <div class="mm-setting-group">常用公式</div>
+  <div class="mm-formula-list">
+    <button
+      v-for="item in formulaList"
+      :key="item"
+      type="button"
+      class="mm-formula-item"
       :disabled="!richText"
-      placeholder="请输入 LaTeX 语法，例如 \frac{1}{2}"
-    />
-    <button type="button" class="btn primary" :disabled="!richText" @click="insert">完成</button>
-    <div class="mm-setting-group">常用公式</div>
-    <div class="mm-formula-list">
-      <button
-        v-for="item in formulaList"
-        :key="item"
-        type="button"
-        class="mm-formula-item"
-        :disabled="!richText"
-        :title="item"
-        @click="pick(item)"
-      >
-        {{ item }}
-      </button>
-    </div>
-  </SidebarShell>
+      :title="item"
+      @click="pick(item)"
+    >
+      {{ item }}
+    </button>
+  </div>
 </template>

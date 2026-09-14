@@ -24,7 +24,6 @@ import FieldRow from '../widgets/FieldRow.vue'
 import NumberField from '../widgets/NumberField.vue'
 import SelectField from '../widgets/SelectField.vue'
 import SwitchField from '../widgets/SwitchField.vue'
-import SidebarShell from './SidebarShell.vue'
 import { backgroundFileToDataUrl } from './baseStyleOptions'
 
 /**
@@ -266,299 +265,292 @@ onBeforeUnmount(() => offs.forEach((off) => off()))
 </script>
 
 <template>
-  <SidebarShell name="baseStyle" title="基础样式">
-    <!-- 背景：颜色 / 图片（重复 / 位置 / 大小 / 本地上传） -->
-    <div class="mm-bs-group">背景</div>
-    <NTabs type="segment" size="small" default-value="color">
-      <NTabPane name="color" tab="颜色">
-        <ColorField
-          label="背景颜色"
-          :model-value="colorOf('backgroundColor')"
-          @update:model-value="(v) => update('backgroundColor', v)"
-        />
-      </NTabPane>
-      <NTabPane name="image" tab="图片">
-        <div class="mm-bs-bg-actions">
-          <button type="button" class="btn" @click="pickBackgroundImage">选择图片…</button>
-          <button v-if="bgImage" type="button" class="btn" @click="removeBackgroundImage">删除背景图</button>
-          <input ref="bgFileInput" type="file" accept="image/*" hidden @change="onBackgroundFile" />
-        </div>
-        <div v-if="bgImage" class="mm-bs-bg-preview"><img :src="bgImage" alt="背景预览" /></div>
-        <SelectField
-          label="图片重复"
-          :model-value="String(style.backgroundRepeat)"
-          :options="backgroundRepeatList"
-          @update:model-value="(v) => update('backgroundRepeat', v)"
-        />
-        <SelectField
-          label="图片位置"
-          :model-value="String(style.backgroundPosition)"
-          :options="backgroundPositionList"
-          @update:model-value="(v) => update('backgroundPosition', v)"
-        />
-        <SelectField
-          label="图片大小"
-          :model-value="String(style.backgroundSize)"
-          :options="backgroundSizeList"
-          @update:model-value="(v) => update('backgroundSize', v)"
-        />
-      </NTabPane>
-    </NTabs>
+  <!-- 背景：颜色 / 图片（重复 / 位置 / 大小 / 本地上传） -->
+  <div class="mm-bs-group">背景</div>
+  <NTabs type="segment" size="small" default-value="color">
+    <NTabPane name="color" tab="颜色">
+      <ColorField
+        label="背景颜色"
+        :model-value="colorOf('backgroundColor')"
+        @update:model-value="(v) => update('backgroundColor', v)"
+      />
+    </NTabPane>
+    <NTabPane name="image" tab="图片">
+      <div class="mm-bs-bg-actions">
+        <button type="button" class="btn" @click="pickBackgroundImage">选择图片…</button>
+        <button v-if="bgImage" type="button" class="btn" @click="removeBackgroundImage">删除背景图</button>
+        <input ref="bgFileInput" type="file" accept="image/*" hidden @change="onBackgroundFile" />
+      </div>
+      <div v-if="bgImage" class="mm-bs-bg-preview"><img :src="bgImage" alt="背景预览" /></div>
+      <SelectField
+        label="图片重复"
+        :model-value="String(style.backgroundRepeat)"
+        :options="backgroundRepeatList"
+        @update:model-value="(v) => update('backgroundRepeat', v)"
+      />
+      <SelectField
+        label="图片位置"
+        :model-value="String(style.backgroundPosition)"
+        :options="backgroundPositionList"
+        @update:model-value="(v) => update('backgroundPosition', v)"
+      />
+      <SelectField
+        label="图片大小"
+        :model-value="String(style.backgroundSize)"
+        :options="backgroundSizeList"
+        @update:model-value="(v) => update('backgroundSize', v)"
+      />
+    </NTabPane>
+  </NTabs>
 
-    <!-- 连线：颜色 / 粗细 / 风格 / 括号形态 / 圆角 / 根节点起始位置 / 箭头 -->
-    <div class="mm-bs-group">连线</div>
-    <ColorField label="颜色" :model-value="colorOf('lineColor')" @update:model-value="(v) => update('lineColor', v)" />
-    <SelectField
-      label="粗细"
-      :model-value="style.lineWidth"
-      :options="lineWidthOptions"
-      @update:model-value="(v) => update('lineWidth', v)"
-    />
-    <SelectField
-      v-if="lineStyleListShow.length > 1"
-      label="风格"
-      :model-value="String(style.lineStyle)"
-      :options="lineStyleListShow"
-      @update:model-value="(v) => update('lineStyle', v)"
-    />
-    <SelectField
-      v-if="style.lineStyle === 'curve' && showRootLineKeepSameInCurve"
-      label="根节点"
-      :model-value="style.rootLineKeepSameInCurve"
-      :options="rootLineKeepSameInCurveList"
-      @update:model-value="(v) => update('rootLineKeepSameInCurve', v)"
-    />
-    <SelectField
-      v-if="showLineRadius"
-      label="圆角大小"
-      :model-value="style.lineRadius"
-      :options="lineRadiusList.map((r) => ({ name: String(r), value: r }))"
-      @update:model-value="(v) => update('lineRadius', v)"
-    />
-    <SelectField
-      v-if="style.lineStyle === 'curve' && showRootLineKeepSameInCurve"
-      label="根节点连线起始位置"
-      :model-value="style.rootLineStartPositionKeepSameInCurve"
-      :options="rootLineStartPosList"
-      @update:model-value="(v) => update('rootLineStartPositionKeepSameInCurve', v)"
-    />
-    <SwitchField
-      label="是否显示箭头"
-      :model-value="!!style.showLineMarker"
-      @update:model-value="(v) => update('showLineMarker', v)"
-    />
+  <!-- 连线：颜色 / 粗细 / 风格 / 括号形态 / 圆角 / 根节点起始位置 / 箭头 -->
+  <div class="mm-bs-group">连线</div>
+  <ColorField label="颜色" :model-value="colorOf('lineColor')" @update:model-value="(v) => update('lineColor', v)" />
+  <SelectField
+    label="粗细"
+    :model-value="style.lineWidth"
+    :options="lineWidthOptions"
+    @update:model-value="(v) => update('lineWidth', v)"
+  />
+  <SelectField
+    v-if="lineStyleListShow.length > 1"
+    label="风格"
+    :model-value="String(style.lineStyle)"
+    :options="lineStyleListShow"
+    @update:model-value="(v) => update('lineStyle', v)"
+  />
+  <SelectField
+    v-if="style.lineStyle === 'curve' && showRootLineKeepSameInCurve"
+    label="根节点"
+    :model-value="style.rootLineKeepSameInCurve"
+    :options="rootLineKeepSameInCurveList"
+    @update:model-value="(v) => update('rootLineKeepSameInCurve', v)"
+  />
+  <SelectField
+    v-if="showLineRadius"
+    label="圆角大小"
+    :model-value="style.lineRadius"
+    :options="lineRadiusList.map((r) => ({ name: String(r), value: r }))"
+    @update:model-value="(v) => update('lineRadius', v)"
+  />
+  <SelectField
+    v-if="style.lineStyle === 'curve' && showRootLineKeepSameInCurve"
+    label="根节点连线起始位置"
+    :model-value="style.rootLineStartPositionKeepSameInCurve"
+    :options="rootLineStartPosList"
+    @update:model-value="(v) => update('rootLineStartPositionKeepSameInCurve', v)"
+  />
+  <SwitchField
+    label="是否显示箭头"
+    :model-value="!!style.showLineMarker"
+    @update:model-value="(v) => update('showLineMarker', v)"
+  />
 
-    <!-- 彩虹线条：点当前条弹出配色选择 -->
-    <div class="mm-bs-group">彩虹线条</div>
-    <details class="mm-bs-rainbow">
-      <summary class="mm-bs-rainbow-cur">
-        <span v-if="curRainbowLineColorList" class="mm-bs-colors-bar">
-          <span
-            v-for="color in curRainbowLineColorList"
-            :key="color"
-            class="mm-bs-color-item"
-            :style="{ backgroundColor: color }"
-          />
+  <!-- 彩虹线条：点当前条弹出配色选择 -->
+  <div class="mm-bs-group">彩虹线条</div>
+  <details class="mm-bs-rainbow">
+    <summary class="mm-bs-rainbow-cur">
+      <span v-if="curRainbowLineColorList" class="mm-bs-colors-bar">
+        <span
+          v-for="color in curRainbowLineColorList"
+          :key="color"
+          class="mm-bs-color-item"
+          :style="{ backgroundColor: color }"
+        />
+      </span>
+      <span v-else>不使用彩虹线条</span>
+    </summary>
+    <div class="mm-bs-rainbow-options">
+      <div
+        v-for="item in rainbowLinesOptions"
+        :key="item.value"
+        class="mm-bs-rainbow-option"
+        @click="updateRainbowLinesConfig(item)"
+      >
+        <span v-if="item.list" class="mm-bs-colors-bar">
+          <span v-for="color in item.list" :key="color" class="mm-bs-color-item" :style="{ backgroundColor: color }" />
         </span>
         <span v-else>不使用彩虹线条</span>
-      </summary>
-      <div class="mm-bs-rainbow-options">
-        <div
-          v-for="item in rainbowLinesOptions"
-          :key="item.value"
-          class="mm-bs-rainbow-option"
-          @click="updateRainbowLinesConfig(item)"
-        >
-          <span v-if="item.list" class="mm-bs-colors-bar">
-            <span
-              v-for="color in item.list"
-              :key="color"
-              class="mm-bs-color-item"
-              :style="{ backgroundColor: color }"
-            />
-          </span>
-          <span v-else>不使用彩虹线条</span>
-        </div>
       </div>
-    </details>
+    </div>
+  </details>
 
-    <!-- 概要的连线 -->
-    <div class="mm-bs-group">概要的连线</div>
-    <ColorField
-      label="颜色"
-      :model-value="colorOf('generalizationLineColor')"
-      @update:model-value="(v) => update('generalizationLineColor', v)"
-    />
-    <SelectField
-      label="粗细"
-      :model-value="style.generalizationLineWidth"
-      :options="lineWidthOptions"
-      @update:model-value="(v) => update('generalizationLineWidth', v)"
-    />
+  <!-- 概要的连线 -->
+  <div class="mm-bs-group">概要的连线</div>
+  <ColorField
+    label="颜色"
+    :model-value="colorOf('generalizationLineColor')"
+    @update:model-value="(v) => update('generalizationLineColor', v)"
+  />
+  <SelectField
+    label="粗细"
+    :model-value="style.generalizationLineWidth"
+    :options="lineWidthOptions"
+    @update:model-value="(v) => update('generalizationLineWidth', v)"
+  />
 
-    <!-- 关联线 -->
-    <div class="mm-bs-group">关联线</div>
-    <ColorField
-      label="颜色"
-      :model-value="colorOf('associativeLineColor')"
-      @update:model-value="(v) => update('associativeLineColor', v)"
-    />
-    <SelectField
-      label="粗细"
-      :model-value="style.associativeLineWidth"
-      :options="lineWidthOptions"
-      @update:model-value="(v) => update('associativeLineWidth', v)"
-    />
-    <ColorField
-      label="激活颜色"
-      :model-value="colorOf('associativeLineActiveColor')"
-      @update:model-value="(v) => update('associativeLineActiveColor', v)"
-    />
-    <SelectField
-      label="激活粗细"
-      :model-value="style.associativeLineActiveWidth"
-      :options="lineWidthOptions"
-      @update:model-value="(v) => update('associativeLineActiveWidth', v)"
-    />
-    <FieldRow label="虚线样式">
-      <div class="mm-bs-dasharray">
-        <svg
-          v-for="item in borderDasharrayList"
-          :key="item.value"
-          class="mm-bs-dasharray-item"
-          :class="{ active: style.associativeLineDasharray === item.value }"
-          width="64"
-          height="22"
-          :title="item.name"
-          @click="update('associativeLineDasharray', item.value)"
-        >
-          <line
-            x1="6"
-            y1="11"
-            x2="58"
-            y2="11"
-            stroke-width="2"
-            :stroke-dasharray="item.value === 'none' ? undefined : item.value"
-          />
-        </svg>
-      </div>
-    </FieldRow>
+  <!-- 关联线 -->
+  <div class="mm-bs-group">关联线</div>
+  <ColorField
+    label="颜色"
+    :model-value="colorOf('associativeLineColor')"
+    @update:model-value="(v) => update('associativeLineColor', v)"
+  />
+  <SelectField
+    label="粗细"
+    :model-value="style.associativeLineWidth"
+    :options="lineWidthOptions"
+    @update:model-value="(v) => update('associativeLineWidth', v)"
+  />
+  <ColorField
+    label="激活颜色"
+    :model-value="colorOf('associativeLineActiveColor')"
+    @update:model-value="(v) => update('associativeLineActiveColor', v)"
+  />
+  <SelectField
+    label="激活粗细"
+    :model-value="style.associativeLineActiveWidth"
+    :options="lineWidthOptions"
+    @update:model-value="(v) => update('associativeLineActiveWidth', v)"
+  />
+  <FieldRow label="虚线样式">
+    <div class="mm-bs-dasharray">
+      <svg
+        v-for="item in borderDasharrayList"
+        :key="item.value"
+        class="mm-bs-dasharray-item"
+        :class="{ active: style.associativeLineDasharray === item.value }"
+        width="64"
+        height="22"
+        :title="item.name"
+        @click="update('associativeLineDasharray', item.value)"
+      >
+        <line
+          x1="6"
+          y1="11"
+          x2="58"
+          y2="11"
+          stroke-width="2"
+          :stroke-dasharray="item.value === 'none' ? undefined : item.value"
+        />
+      </svg>
+    </div>
+  </FieldRow>
 
-    <!-- 关联线文字 -->
-    <div class="mm-bs-group">关联线文字</div>
-    <SelectField
-      label="字体"
-      :model-value="String(style.associativeLineTextFontFamily)"
-      :options="fontFamilyList"
-      @update:model-value="(v) => update('associativeLineTextFontFamily', v)"
-    />
-    <SelectField
-      label="字号"
-      :model-value="style.associativeLineTextFontSize"
-      :options="fontSizeOptions"
-      @update:model-value="(v) => update('associativeLineTextFontSize', v)"
-    />
-    <ColorField
-      label="颜色"
-      :model-value="colorOf('associativeLineTextColor')"
-      @update:model-value="(v) => update('associativeLineTextColor', v)"
-    />
+  <!-- 关联线文字 -->
+  <div class="mm-bs-group">关联线文字</div>
+  <SelectField
+    label="字体"
+    :model-value="String(style.associativeLineTextFontFamily)"
+    :options="fontFamilyList"
+    @update:model-value="(v) => update('associativeLineTextFontFamily', v)"
+  />
+  <SelectField
+    label="字号"
+    :model-value="style.associativeLineTextFontSize"
+    :options="fontSizeOptions"
+    @update:model-value="(v) => update('associativeLineTextFontSize', v)"
+  />
+  <ColorField
+    label="颜色"
+    :model-value="colorOf('associativeLineTextColor')"
+    @update:model-value="(v) => update('associativeLineTextColor', v)"
+  />
 
-    <!-- 节点边框风格（受结构限制） -->
-    <template v-if="showNodeUseLineStyle">
-      <div class="mm-bs-group">节点边框风格</div>
-      <SwitchField
-        label="是否使用只有底边框的风格"
-        :model-value="!!style.nodeUseLineStyle"
-        @update:model-value="(v) => update('nodeUseLineStyle', v)"
-      />
-    </template>
+  <!-- 节点边框风格（受结构限制） -->
+  <template v-if="showNodeUseLineStyle">
+    <div class="mm-bs-group">节点边框风格</div>
+    <SwitchField
+      label="是否使用只有底边框的风格"
+      :model-value="!!style.nodeUseLineStyle"
+      @update:model-value="(v) => update('nodeUseLineStyle', v)"
+    />
+  </template>
 
-    <!-- 节点内边距 -->
-    <div class="mm-bs-group">节点内边距</div>
-    <NumberField
-      label="水平"
-      :model-value="Number(style.paddingX) || 0"
-      :min="0"
-      :max="200"
-      @update:model-value="(v) => update('paddingX', v)"
-    />
-    <NumberField
-      label="垂直"
-      :model-value="Number(style.paddingY) || 0"
-      :min="0"
-      :max="200"
-      @update:model-value="(v) => update('paddingY', v)"
-    />
+  <!-- 节点内边距 -->
+  <div class="mm-bs-group">节点内边距</div>
+  <NumberField
+    label="水平"
+    :model-value="Number(style.paddingX) || 0"
+    :min="0"
+    :max="200"
+    @update:model-value="(v) => update('paddingX', v)"
+  />
+  <NumberField
+    label="垂直"
+    :model-value="Number(style.paddingY) || 0"
+    :min="0"
+    :max="200"
+    @update:model-value="(v) => update('paddingY', v)"
+  />
 
-    <!-- 图片（节点内图片最大尺寸） -->
-    <div class="mm-bs-group">图片</div>
-    <NumberField
-      label="显示的最大宽度"
-      :model-value="Number(style.imgMaxWidth) || 0"
-      :min="10"
-      :max="500"
-      @update:model-value="(v) => update('imgMaxWidth', v)"
-    />
-    <NumberField
-      label="显示的最大高度"
-      :model-value="Number(style.imgMaxHeight) || 0"
-      :min="10"
-      :max="500"
-      @update:model-value="(v) => update('imgMaxHeight', v)"
-    />
+  <!-- 图片（节点内图片最大尺寸） -->
+  <div class="mm-bs-group">图片</div>
+  <NumberField
+    label="显示的最大宽度"
+    :model-value="Number(style.imgMaxWidth) || 0"
+    :min="10"
+    :max="500"
+    @update:model-value="(v) => update('imgMaxWidth', v)"
+  />
+  <NumberField
+    label="显示的最大高度"
+    :model-value="Number(style.imgMaxHeight) || 0"
+    :min="10"
+    :max="500"
+    @update:model-value="(v) => update('imgMaxHeight', v)"
+  />
 
-    <!-- 图标 -->
-    <div class="mm-bs-group">图标</div>
-    <NumberField
-      label="大小"
-      :model-value="Number(style.iconSize) || 0"
-      :min="12"
-      :max="50"
-      @update:model-value="(v) => update('iconSize', v)"
-    />
+  <!-- 图标 -->
+  <div class="mm-bs-group">图标</div>
+  <NumberField
+    label="大小"
+    :model-value="Number(style.iconSize) || 0"
+    :min="12"
+    :max="50"
+    @update:model-value="(v) => update('iconSize', v)"
+  />
 
-    <!-- 二级节点外边距（按层级页签） -->
-    <div class="mm-bs-group">节点外边距</div>
-    <NTabs
-      type="segment"
-      size="small"
-      :value="marginActiveTab"
-      @update:value="(v) => ((marginActiveTab = v as 'second' | 'node'), initMarginStyle())"
-    >
-      <NTabPane name="second" tab="二级节点" />
-      <NTabPane name="node" tab="三级及以下节点" />
-    </NTabs>
-    <NumberField
-      label="水平"
-      :model-value="Number(style.marginX) || 0"
-      :min="0"
-      :max="200"
-      @update:model-value="(v) => updateMargin('marginX', v)"
-    />
-    <NumberField
-      label="垂直"
-      :model-value="Number(style.marginY) || 0"
-      :min="0"
-      :max="200"
-      @update:model-value="(v) => updateMargin('marginY', v)"
-    />
+  <!-- 二级节点外边距（按层级页签） -->
+  <div class="mm-bs-group">节点外边距</div>
+  <NTabs
+    type="segment"
+    size="small"
+    :value="marginActiveTab"
+    @update:value="(v) => ((marginActiveTab = v as 'second' | 'node'), initMarginStyle())"
+  >
+    <NTabPane name="second" tab="二级节点" />
+    <NTabPane name="node" tab="三级及以下节点" />
+  </NTabs>
+  <NumberField
+    label="水平"
+    :model-value="Number(style.marginX) || 0"
+    :min="0"
+    :max="200"
+    @update:model-value="(v) => updateMargin('marginX', v)"
+  />
+  <NumberField
+    label="垂直"
+    :model-value="Number(style.marginY) || 0"
+    :min="0"
+    :max="200"
+    @update:model-value="(v) => updateMargin('marginY', v)"
+  />
 
-    <!-- 外框内边距 -->
-    <div class="mm-bs-group">外框内边距</div>
-    <NumberField
-      label="水平"
-      :model-value="outerFramePadding.outerFramePaddingX"
-      :min="0"
-      :max="200"
-      @update:model-value="(v) => updateOuterFramePadding('outerFramePaddingX', v)"
-    />
-    <NumberField
-      label="垂直"
-      :model-value="outerFramePadding.outerFramePaddingY"
-      :min="0"
-      :max="200"
-      @update:model-value="(v) => updateOuterFramePadding('outerFramePaddingY', v)"
-    />
-  </SidebarShell>
+  <!-- 外框内边距 -->
+  <div class="mm-bs-group">外框内边距</div>
+  <NumberField
+    label="水平"
+    :model-value="outerFramePadding.outerFramePaddingX"
+    :min="0"
+    :max="200"
+    @update:model-value="(v) => updateOuterFramePadding('outerFramePaddingX', v)"
+  />
+  <NumberField
+    label="垂直"
+    :model-value="outerFramePadding.outerFramePaddingY"
+    :min="0"
+    :max="200"
+    @update:model-value="(v) => updateOuterFramePadding('outerFramePaddingY', v)"
+  />
 </template>

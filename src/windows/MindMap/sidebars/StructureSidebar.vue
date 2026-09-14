@@ -2,7 +2,6 @@
 import { onBeforeUnmount, onMounted, ref } from 'vue'
 import { layoutGroupList, layoutImgMap, layoutNameMap } from '../constants/layouts'
 import { requireMindMap, useMindMap } from '../core/useMindMap'
-import SidebarShell from './SidebarShell.vue'
 
 /**
  * 结构侧栏（移植参考端 Structure.vue）。
@@ -28,22 +27,20 @@ onBeforeUnmount(() => offs.forEach((off) => off()))
 </script>
 
 <template>
-  <SidebarShell name="structure" title="结构">
-    <div v-for="group in layoutGroupList" :key="group.name" class="mm-struct-group">
-      <div class="mm-struct-groupname">{{ group.name }}</div>
-      <div class="mm-struct-grid">
-        <button
-          v-for="value in group.list"
-          :key="value"
-          type="button"
-          class="mm-struct-item"
-          :class="{ active: value === current }"
-          :title="layoutNameMap[value] ?? value"
-          @click="use(value)"
-        >
-          <img :src="layoutImgMap[value]" :alt="layoutNameMap[value] ?? value" />
-        </button>
-      </div>
+  <div v-for="group in layoutGroupList" :key="group.name" class="mm-struct-group">
+    <div class="mm-struct-groupname">{{ group.name }}</div>
+    <div class="mm-struct-grid">
+      <button
+        v-for="value in group.list"
+        :key="value"
+        type="button"
+        class="mm-struct-item"
+        :class="{ active: value === current }"
+        :title="layoutNameMap[value] ?? value"
+        @click="use(value)"
+      >
+        <img :src="layoutImgMap[value]" :alt="layoutNameMap[value] ?? value" />
+      </button>
     </div>
-  </SidebarShell>
+  </div>
 </template>

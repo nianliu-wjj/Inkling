@@ -5,7 +5,6 @@ import { onBeforeUnmount, onMounted, ref } from 'vue'
 import { logger } from '@/service/logger'
 import { loadStickers, type StickerGroup } from '../constants'
 import { useMindMap } from '../core/useMindMap'
-import SidebarShell from './SidebarShell.vue'
 
 /**
  * 图标与贴纸侧栏（移植参考端 NodeIconSidebar.vue）。
@@ -65,23 +64,21 @@ onBeforeUnmount(() => offs.forEach((off) => off()))
 </script>
 
 <template>
-  <SidebarShell name="nodeIconSidebar" title="图标 / 贴纸">
-    <p v-if="!ui.activeNodes.length" class="mm-dialog-hint">请先选择一个节点</p>
-    <div v-for="group in groups" :key="group.type" class="mm-icon-group">
-      <div class="mm-struct-groupname">{{ group.name }}</div>
-      <div class="mm-icon-grid">
-        <button
-          v-for="icon in group.list"
-          :key="icon.name"
-          type="button"
-          class="mm-icon-item"
-          :class="{ active: selected.includes(`${group.type}_${icon.name}`) }"
-          :disabled="!ui.activeNodes.length"
-          @click="toggle(group.type, icon.name)"
-          v-html="render(icon.icon)"
-        />
-      </div>
+  <p v-if="!ui.activeNodes.length" class="mm-dialog-hint">请先选择一个节点</p>
+  <div v-for="group in groups" :key="group.type" class="mm-icon-group">
+    <div class="mm-struct-groupname">{{ group.name }}</div>
+    <div class="mm-icon-grid">
+      <button
+        v-for="icon in group.list"
+        :key="icon.name"
+        type="button"
+        class="mm-icon-item"
+        :class="{ active: selected.includes(`${group.type}_${icon.name}`) }"
+        :disabled="!ui.activeNodes.length"
+        @click="toggle(group.type, icon.name)"
+        v-html="render(icon.icon)"
+      />
     </div>
-    <p v-if="loading" class="mm-dialog-hint">正在加载贴纸…</p>
-  </SidebarShell>
+  </div>
+  <p v-if="loading" class="mm-dialog-hint">正在加载贴纸…</p>
 </template>

@@ -20,7 +20,6 @@ import ColorField from '../widgets/ColorField.vue'
 import FieldRow from '../widgets/FieldRow.vue'
 import SelectField from '../widgets/SelectField.vue'
 import SwitchField from '../widgets/SwitchField.vue'
-import SidebarShell from './SidebarShell.vue'
 
 /**
  * 节点样式侧栏（移植参考端 Style.vue 当前版本）。
@@ -209,272 +208,262 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <SidebarShell name="nodeStyle" title="节点样式">
-    <template v-if="ui.activeNodes.length > 0">
-      <!-- 文字 -->
-      <div class="mm-ns-group">文字</div>
-      <SelectField
-        label="字体"
-        :model-value="String(style.fontFamily)"
-        :options="fontFamilyList"
-        @update:model-value="(v) => update('fontFamily', v)"
-      />
-      <SelectField
-        label="字号"
-        :model-value="style.fontSize"
-        :options="fontSizeOptions"
-        @update:model-value="(v) => update('fontSize', v)"
-      />
-      <SelectField
-        label="行高"
-        :model-value="style.lineHeight"
-        :options="lineHeightOptions"
-        @update:model-value="(v) => update('lineHeight', v)"
-      />
-      <SelectField
-        label="对齐"
-        :model-value="String(style.textAlign)"
-        :options="alignList"
-        @update:model-value="(v) => update('textAlign', v)"
-      />
-      <ColorField label="颜色" :model-value="colorOf('color')" @update:model-value="(v) => update('color', v)" />
-      <FieldRow label="字形">
-        <div class="mm-ns-seg">
-          <button
-            type="button"
-            class="mm-ns-seg-btn"
-            :class="{ active: style.fontWeight === 'bold' }"
-            title="加粗"
-            @click="toggleFontWeight"
-          >
-            B
-          </button>
-          <button
-            type="button"
-            class="mm-ns-seg-btn mm-ns-seg-italic"
-            :class="{ active: style.fontStyle === 'italic' }"
-            title="斜体"
-            @click="toggleFontStyle"
-          >
-            I
-          </button>
-        </div>
-      </FieldRow>
-      <FieldRow label="划线">
-        <div class="mm-ns-seg">
-          <button
-            v-for="item in textDecorationList"
-            :key="item.value"
-            type="button"
-            class="mm-ns-seg-btn"
-            :class="{ active: String(style.textDecoration) === item.value }"
-            @click="update('textDecoration', item.value)"
-          >
-            {{ item.name }}
-          </button>
-        </div>
-      </FieldRow>
-
-      <!-- 边框 -->
-      <div class="mm-ns-group">边框</div>
-      <ColorField
-        label="颜色"
-        :model-value="colorOf('borderColor')"
-        @update:model-value="(v) => update('borderColor', v)"
-      />
-      <FieldRow label="样式">
-        <div class="mm-ns-tiles">
-          <button
-            v-for="item in borderDasharrayList"
-            :key="item.value"
-            type="button"
-            class="mm-ns-tile"
-            :class="{ active: String(style.borderDasharray) === item.value }"
-            :title="item.name"
-            @click="update('borderDasharray', item.value)"
-          >
-            <svg width="34" height="14" viewBox="0 0 34 14">
-              <line
-                x1="2"
-                y1="7"
-                x2="32"
-                y2="7"
-                stroke-width="2"
-                :stroke-dasharray="item.value === 'none' ? undefined : item.value"
-              />
-            </svg>
-          </button>
-        </div>
-      </FieldRow>
-      <SelectField
-        label="宽度"
-        :model-value="String(style.borderWidth)"
-        :options="widthOptions"
-        @update:model-value="(v) => update('borderWidth', v)"
-      />
-      <SelectField
-        v-if="isRectangleShape"
-        label="圆角"
-        :model-value="String(style.borderRadius)"
-        :options="radiusOptions"
-        @update:model-value="(v) => update('borderRadius', v)"
-      />
-
-      <!-- 背景 -->
-      <div class="mm-ns-group">背景</div>
-      <ColorField
-        label="颜色"
-        :model-value="colorOf('fillColor')"
-        @update:model-value="(v) => update('fillColor', v)"
-      />
-      <SwitchField
-        label="渐变"
-        :model-value="!!style.gradientStyle"
-        @update:model-value="(v) => update('gradientStyle', v)"
-      />
-      <template v-if="style.gradientStyle">
-        <ColorField
-          label="起始色"
-          :model-value="colorOf('startColor')"
-          @update:model-value="(v) => update('startColor', v)"
-        />
-        <ColorField
-          label="结束色"
-          :model-value="colorOf('endColor')"
-          @update:model-value="(v) => update('endColor', v)"
-        />
-        <SelectField
-          label="方向"
-          :model-value="String(style.linearGradientDir)"
-          :options="linearGradientDirList"
-          @update:model-value="(v) => update('linearGradientDir', v)"
-        />
-      </template>
-
-      <!-- 形状 -->
-      <div class="mm-ns-group">形状</div>
-      <div class="mm-ns-shape-grid">
+  <template v-if="ui.activeNodes.length > 0">
+    <!-- 文字 -->
+    <div class="mm-ns-group">文字</div>
+    <SelectField
+      label="字体"
+      :model-value="String(style.fontFamily)"
+      :options="fontFamilyList"
+      @update:model-value="(v) => update('fontFamily', v)"
+    />
+    <SelectField
+      label="字号"
+      :model-value="style.fontSize"
+      :options="fontSizeOptions"
+      @update:model-value="(v) => update('fontSize', v)"
+    />
+    <SelectField
+      label="行高"
+      :model-value="style.lineHeight"
+      :options="lineHeightOptions"
+      @update:model-value="(v) => update('lineHeight', v)"
+    />
+    <SelectField
+      label="对齐"
+      :model-value="String(style.textAlign)"
+      :options="alignList"
+      @update:model-value="(v) => update('textAlign', v)"
+    />
+    <ColorField label="颜色" :model-value="colorOf('color')" @update:model-value="(v) => update('color', v)" />
+    <FieldRow label="字形">
+      <div class="mm-ns-seg">
         <button
-          v-for="item in shapeList"
+          type="button"
+          class="mm-ns-seg-btn"
+          :class="{ active: style.fontWeight === 'bold' }"
+          title="加粗"
+          @click="toggleFontWeight"
+        >
+          B
+        </button>
+        <button
+          type="button"
+          class="mm-ns-seg-btn mm-ns-seg-italic"
+          :class="{ active: style.fontStyle === 'italic' }"
+          title="斜体"
+          @click="toggleFontStyle"
+        >
+          I
+        </button>
+      </div>
+    </FieldRow>
+    <FieldRow label="划线">
+      <div class="mm-ns-seg">
+        <button
+          v-for="item in textDecorationList"
           :key="item.value"
           type="button"
-          class="mm-ns-shape-item"
-          :class="{ active: String(style.shape) === item.value }"
-          :title="item.name"
-          @click="update('shape', item.value)"
+          class="mm-ns-seg-btn"
+          :class="{ active: String(style.textDecoration) === item.value }"
+          @click="update('textDecoration', item.value)"
         >
-          <svg viewBox="0 0 60 24">
-            <path :d="shapeListMap[item.value]" fill="none" stroke-width="2" />
+          {{ item.name }}
+        </button>
+      </div>
+    </FieldRow>
+
+    <!-- 边框 -->
+    <div class="mm-ns-group">边框</div>
+    <ColorField
+      label="颜色"
+      :model-value="colorOf('borderColor')"
+      @update:model-value="(v) => update('borderColor', v)"
+    />
+    <FieldRow label="样式">
+      <div class="mm-ns-tiles">
+        <button
+          v-for="item in borderDasharrayList"
+          :key="item.value"
+          type="button"
+          class="mm-ns-tile"
+          :class="{ active: String(style.borderDasharray) === item.value }"
+          :title="item.name"
+          @click="update('borderDasharray', item.value)"
+        >
+          <svg width="34" height="14" viewBox="0 0 34 14">
+            <line
+              x1="2"
+              y1="7"
+              x2="32"
+              y2="7"
+              stroke-width="2"
+              :stroke-dasharray="item.value === 'none' ? undefined : item.value"
+            />
           </svg>
         </button>
       </div>
+    </FieldRow>
+    <SelectField
+      label="宽度"
+      :model-value="String(style.borderWidth)"
+      :options="widthOptions"
+      @update:model-value="(v) => update('borderWidth', v)"
+    />
+    <SelectField
+      v-if="isRectangleShape"
+      label="圆角"
+      :model-value="String(style.borderRadius)"
+      :options="radiusOptions"
+      @update:model-value="(v) => update('borderRadius', v)"
+    />
 
-      <!-- 线条 -->
-      <div class="mm-ns-group">线条</div>
+    <!-- 背景 -->
+    <div class="mm-ns-group">背景</div>
+    <ColorField label="颜色" :model-value="colorOf('fillColor')" @update:model-value="(v) => update('fillColor', v)" />
+    <SwitchField
+      label="渐变"
+      :model-value="!!style.gradientStyle"
+      @update:model-value="(v) => update('gradientStyle', v)"
+    />
+    <template v-if="style.gradientStyle">
       <ColorField
-        label="颜色"
-        :model-value="colorOf('lineColor')"
-        @update:model-value="(v) => update('lineColor', v)"
+        label="起始色"
+        :model-value="colorOf('startColor')"
+        @update:model-value="(v) => update('startColor', v)"
       />
-      <FieldRow label="样式">
-        <div class="mm-ns-tiles">
-          <button
-            v-for="item in borderDasharrayList"
-            :key="item.value"
-            type="button"
-            class="mm-ns-tile"
-            :class="{ active: String(style.lineDasharray) === item.value }"
-            :title="item.name"
-            @click="update('lineDasharray', item.value)"
-          >
-            <svg width="34" height="14" viewBox="0 0 34 14">
-              <line
-                x1="2"
-                y1="7"
-                x2="32"
-                y2="7"
-                stroke-width="2"
-                :stroke-dasharray="item.value === 'none' ? undefined : item.value"
-              />
-            </svg>
-          </button>
-        </div>
-      </FieldRow>
-      <SelectField
-        label="宽度"
-        :model-value="String(style.lineWidth)"
-        :options="widthOptions"
-        @update:model-value="(v) => update('lineWidth', v)"
+      <ColorField
+        label="结束色"
+        :model-value="colorOf('endColor')"
+        @update:model-value="(v) => update('endColor', v)"
       />
       <SelectField
-        label="箭头位置"
-        :model-value="String(style.lineMarkerDir)"
-        :options="arrowDirOptions"
-        @update:model-value="(v) => update('lineMarkerDir', v)"
+        label="方向"
+        :model-value="String(style.linearGradientDir)"
+        :options="linearGradientDirList"
+        @update:model-value="(v) => update('linearGradientDir', v)"
       />
-
-      <!-- 节点内边距 -->
-      <div class="mm-ns-group">节点内边距</div>
-      <FieldRow label="水平">
-        <NSlider
-          class="mm-ns-slider"
-          :value="Number(style.paddingX) || 0"
-          :min="0"
-          :max="100"
-          :step="1"
-          @update:value="(v) => onPaddingInput('paddingX', v)"
-        />
-      </FieldRow>
-      <FieldRow label="垂直">
-        <NSlider
-          class="mm-ns-slider"
-          :value="Number(style.paddingY) || 0"
-          :min="0"
-          :max="100"
-          :step="1"
-          @update:value="(v) => onPaddingInput('paddingY', v)"
-        />
-      </FieldRow>
-
-      <!-- 图片布局 -->
-      <div class="mm-ns-group">图片</div>
-      <FieldRow label="布局">
-        <div class="mm-ns-seg">
-          <button
-            v-for="item in imgPlacementList"
-            :key="item.value"
-            type="button"
-            class="mm-ns-seg-btn"
-            :class="{ active: String(style.imgPlacement) === item.value }"
-            @click="update('imgPlacement', item.value)"
-          >
-            {{ item.name }}
-          </button>
-        </div>
-      </FieldRow>
-
-      <!-- 标签布局 -->
-      <div class="mm-ns-group">标签</div>
-      <FieldRow label="布局">
-        <div class="mm-ns-seg">
-          <button
-            v-for="item in tagPlacementList"
-            :key="item.value"
-            type="button"
-            class="mm-ns-seg-btn"
-            :class="{ active: String(style.tagPlacement) === item.value }"
-            @click="update('tagPlacement', item.value)"
-          >
-            {{ item.name }}
-          </button>
-        </div>
-      </FieldRow>
     </template>
 
-    <!-- 无激活节点（参考端 tipBox） -->
-    <div v-else class="mm-ns-tip">
-      <i class="mm-ns-tip-icon iconfont icontianjiazijiedian"></i>
-      <p class="mm-ns-tip-text">请选择一个节点</p>
+    <!-- 形状 -->
+    <div class="mm-ns-group">形状</div>
+    <div class="mm-ns-shape-grid">
+      <button
+        v-for="item in shapeList"
+        :key="item.value"
+        type="button"
+        class="mm-ns-shape-item"
+        :class="{ active: String(style.shape) === item.value }"
+        :title="item.name"
+        @click="update('shape', item.value)"
+      >
+        <svg viewBox="0 0 60 24">
+          <path :d="shapeListMap[item.value]" fill="none" stroke-width="2" />
+        </svg>
+      </button>
     </div>
-  </SidebarShell>
+
+    <!-- 线条 -->
+    <div class="mm-ns-group">线条</div>
+    <ColorField label="颜色" :model-value="colorOf('lineColor')" @update:model-value="(v) => update('lineColor', v)" />
+    <FieldRow label="样式">
+      <div class="mm-ns-tiles">
+        <button
+          v-for="item in borderDasharrayList"
+          :key="item.value"
+          type="button"
+          class="mm-ns-tile"
+          :class="{ active: String(style.lineDasharray) === item.value }"
+          :title="item.name"
+          @click="update('lineDasharray', item.value)"
+        >
+          <svg width="34" height="14" viewBox="0 0 34 14">
+            <line
+              x1="2"
+              y1="7"
+              x2="32"
+              y2="7"
+              stroke-width="2"
+              :stroke-dasharray="item.value === 'none' ? undefined : item.value"
+            />
+          </svg>
+        </button>
+      </div>
+    </FieldRow>
+    <SelectField
+      label="宽度"
+      :model-value="String(style.lineWidth)"
+      :options="widthOptions"
+      @update:model-value="(v) => update('lineWidth', v)"
+    />
+    <SelectField
+      label="箭头位置"
+      :model-value="String(style.lineMarkerDir)"
+      :options="arrowDirOptions"
+      @update:model-value="(v) => update('lineMarkerDir', v)"
+    />
+
+    <!-- 节点内边距 -->
+    <div class="mm-ns-group">节点内边距</div>
+    <FieldRow label="水平">
+      <NSlider
+        class="mm-ns-slider"
+        :value="Number(style.paddingX) || 0"
+        :min="0"
+        :max="100"
+        :step="1"
+        @update:value="(v) => onPaddingInput('paddingX', v)"
+      />
+    </FieldRow>
+    <FieldRow label="垂直">
+      <NSlider
+        class="mm-ns-slider"
+        :value="Number(style.paddingY) || 0"
+        :min="0"
+        :max="100"
+        :step="1"
+        @update:value="(v) => onPaddingInput('paddingY', v)"
+      />
+    </FieldRow>
+
+    <!-- 图片布局 -->
+    <div class="mm-ns-group">图片</div>
+    <FieldRow label="布局">
+      <div class="mm-ns-seg">
+        <button
+          v-for="item in imgPlacementList"
+          :key="item.value"
+          type="button"
+          class="mm-ns-seg-btn"
+          :class="{ active: String(style.imgPlacement) === item.value }"
+          @click="update('imgPlacement', item.value)"
+        >
+          {{ item.name }}
+        </button>
+      </div>
+    </FieldRow>
+
+    <!-- 标签布局 -->
+    <div class="mm-ns-group">标签</div>
+    <FieldRow label="布局">
+      <div class="mm-ns-seg">
+        <button
+          v-for="item in tagPlacementList"
+          :key="item.value"
+          type="button"
+          class="mm-ns-seg-btn"
+          :class="{ active: String(style.tagPlacement) === item.value }"
+          @click="update('tagPlacement', item.value)"
+        >
+          {{ item.name }}
+        </button>
+      </div>
+    </FieldRow>
+  </template>
+
+  <!-- 无激活节点（参考端 tipBox） -->
+  <div v-else class="mm-ns-tip">
+    <i class="mm-ns-tip-icon iconfont icontianjiazijiedian"></i>
+    <p class="mm-ns-tip-text">请选择一个节点</p>
+  </div>
 </template>

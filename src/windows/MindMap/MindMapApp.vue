@@ -37,16 +37,7 @@ import NodeImgPreview from './popups/NodeImgPreview.vue'
 import OuterFramePanel from './popups/OuterFramePanel.vue'
 import TagStylePanel from './popups/TagStylePanel.vue'
 import AssociativeLineStylePanel from './popups/AssociativeLineStylePanel.vue'
-import ShortcutSidebar from './sidebars/ShortcutSidebar.vue'
-import StructureSidebar from './sidebars/StructureSidebar.vue'
-import ThemeSidebar from './sidebars/ThemeSidebar.vue'
-import BaseStyleSidebar from './sidebars/BaseStyleSidebar.vue'
-import NodeStyleSidebar from './sidebars/NodeStyleSidebar.vue'
-import SettingSidebar from './sidebars/SettingSidebar.vue'
-import IconSidebar from './sidebars/IconSidebar.vue'
-import FormulaSidebar from './sidebars/FormulaSidebar.vue'
-import NoteSidebar from './sidebars/NoteSidebar.vue'
-import OutlineSidebar from './sidebars/OutlineSidebar.vue'
+import MmDrawer from './sidebars/MmDrawer.vue'
 import ImportDialog from './dialogs/ImportDialog.vue'
 import ExportDialog from './dialogs/ExportDialog.vue'
 import NodeImageDialog from './dialogs/NodeImageDialog.vue'
@@ -482,16 +473,8 @@ onUnmounted(() => {
             <OuterFramePanel />
             <TagStylePanel />
             <AssociativeLineStylePanel />
-            <ShortcutSidebar />
-            <StructureSidebar />
-            <ThemeSidebar />
-            <BaseStyleSidebar />
-            <NodeStyleSidebar />
-            <SettingSidebar />
-            <IconSidebar />
-            <FormulaSidebar />
-            <NoteSidebar />
-            <OutlineSidebar />
+            <!-- 右侧抽屉：单壳，按 ui.activeSidebar 渲染对应侧栏内容 -->
+            <MmDrawer v-if="!ui.isZenMode" />
             <ImportDialog />
             <ExportDialog />
             <NodeImageDialog />

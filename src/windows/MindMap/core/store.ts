@@ -12,7 +12,6 @@ export type SidebarName =
   | 'shortcutKey'
   | 'nodeIconSidebar'
   | 'formulaSidebar'
-  | 'nodeNoteSidebar'
   | ''
 
 /**
