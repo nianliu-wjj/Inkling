@@ -2,6 +2,8 @@
 import { NDropdown } from 'naive-ui'
 import { ref } from 'vue'
 import { logger } from '@/service/logger'
+// 自适应 / 展开全部 / 收起全部：与右键菜单同一条命令（收尾批补齐原型 12 项）
+import { expandAll, fitCanvas, unexpandAll } from '../core/canvasCommands'
 import { requireMindMap, useMindMap } from '../core/useMindMap'
 import Count from './Count.vue'
 import MouseAction from './MouseAction.vue'
@@ -16,11 +18,11 @@ import Demonstrate from './Demonstrate.vue'
  * 右 `.mm-ctrl-right` 放一排控制按钮，一律用生成层的 `.mm-ctrl-btn` / `.mm-ctrl-sep` / `.mm-zoom-val`。
  * 与原型的两点差异（spec 差异表 #12）：**不放语言下拉**（原型那是死控件）；
  * **保留我们的「鼠标行为」「演示」**（真能力，原型没有），按规格插在「全屏」之后。
+ * 原型底栏的 12 个控件**全部到位**（含最初的收尾批补上的「自适应 / 展开全部 / 收起全部」）。
  *
- * **只搬位置、不改行为**：每个按钮的 `@click` 与四个子组件（MouseAction / Fullscreen / Scale /
- * Demonstrate）的挂载方式都原样沿用 NavigatorToolbar，只把类名从自有层的 `.mm-nav-btn` 换成
- * 生成层的 `.mm-ctrl-btn`。原型的「自适应 / 展开全部 / 收起全部」没有搬进来——这三项我们由画布
- * 右键菜单提供（spec 差异表 #13），本任务不加新入口。
+ * 行为来源：前几枚沿用原 NavigatorToolbar 的 `@click`，四个子组件（MouseAction / Fullscreen /
+ * Scale / Demonstrate）原样搬入，只把类名从自有层的 `.mm-nav-btn` 换成生成层的 `.mm-ctrl-btn`；
+ * 收尾三枚走 `core/canvasCommands`，与右键菜单的同名项**同一条命令**（不另写一份实现）。
  *
  * 挂载点与原型一致：在 `.mm-stage` **之外**、`.mindmap-window` 之内，是窗口的静态 flex 项。
  * 原实现把导航条与字数统计绝对定位在画布右下/左下（压在画布上），原型底栏是占位的独立一条。
@@ -59,6 +61,18 @@ function onMoreSelect(key: string): void {
   if (key === 'shortcutKey') ui.activeSidebar = 'shortcutKey'
   else if (key === 'sourceCode') ui.isSourceCodeEdit = true
 }
+
+// —— 原型底栏后三枚（自适应 / 展开全部 / 收起全部）——
+// 命令走 core/canvasCommands，与右键菜单的同名项完全同源；底栏没有「当前节点」，故 uid 一律为空 = 全图。
+function onFitCanvas(): void {
+  fitCanvas(ctx)
+}
+function onExpandAll(): void {
+  expandAll(ctx)
+}
+function onUnexpandAll(): void {
+  unexpandAll(ctx)
+}
 </script>
 
 <template>
@@ -90,6 +104,12 @@ function onMoreSelect(key: string): void {
       <Demonstrate />
       <span class="mm-ctrl-sep" />
       <Scale />
+      <!-- 原型底栏后三枚（docs/index.html:429-431）。字形用原型自己的 ⊞ / ⊟ / ⤢：iconfont 里没有
+           「收起」字形（只有 iconzhankai 与形状离线不可辨的 iconzhankai1），三个一起用同族符号才不会
+           出现「一枚矢量图标 + 两枚文本符号」的混搭；本栏的 −/＋/⋯ 本来就是文本符号（详见报告）。 -->
+      <button type="button" class="mm-ctrl-btn" title="自适应大小" @click="onFitCanvas">⤢</button>
+      <button type="button" class="mm-ctrl-btn" title="展开全部" @click="onExpandAll">⊞</button>
+      <button type="button" class="mm-ctrl-btn" title="收起全部" @click="onUnexpandAll">⊟</button>
       <NDropdown trigger="click" :options="moreOptions" @select="onMoreSelect">
         <button type="button" class="mm-ctrl-btn mm-ctrl-more" title="更多">⋯</button>
       </NDropdown>

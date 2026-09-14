@@ -6,6 +6,8 @@ import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
 import type { MindMapNode } from 'simple-mind-map'
 import { useToast } from '@/composables/useToast'
 import { logger } from '@/service/logger'
+// 展开 / 收起 / 适应画布与底栏共用同一条命令（阶段五 Task 5），不要在内联分支里另写参数形状。
+import { expandAll, fitCanvas, unexpandAll } from '../core/canvasCommands'
 import { requireMindMap, useMindMap } from '../core/useMindMap'
 
 /**
@@ -147,7 +149,7 @@ function exec(key: string, disabled = false, ...args: unknown[]): void {
       localConfig.isZenMode = !localConfig.isZenMode
       break
     case 'FIT_CANVAS':
-      mindMap.view.fit()
+      fitCanvas(ctx)
       break
     case 'REMOVE_HYPERLINK':
       node.value?.setHyperlink('', '')
@@ -160,13 +162,12 @@ function exec(key: string, disabled = false, ...args: unknown[]): void {
         void mindMap.export('png', true, getTextFromHtml(node.value.getData('text')), false, node.value)
       }
       break
-    case 'UNEXPAND_ALL': {
-      const uid = node.value ? node.value.uid : ''
-      bus.emit('execCommand', key, !uid, uid)
+    // 展开 / 收起与底栏共用 core/canvasCommands 的同名命令（见那里的库签名说明）。
+    case 'UNEXPAND_ALL':
+      unexpandAll(ctx, node.value ? node.value.uid : '')
       break
-    }
     case 'EXPAND_ALL':
-      bus.emit('execCommand', key, node.value ? node.value.uid : '')
+      expandAll(ctx, node.value ? node.value.uid : '')
       break
     default:
       bus.emit('execCommand', key, ...args)
