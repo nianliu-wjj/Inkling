@@ -585,7 +585,10 @@
   gap: 4px;
   padding: 2px 8px;
   border-radius: 6px;
-  background: rgba(126, 224, 255, 0.15);
+  /* 底与字同源：文字早已吃 --cyan，底却写死成基础 :root 的 --cyan（#7ee0ff）15%，
+     在 --cyan 另有取值的主题（如浅色 #0c7d9c）下两者不同色。改用 color-mix 由同一令牌推导，
+     15% 与原值等价——color-mix 按预乘 alpha 插值，与 transparent 混合不会掉色相。 */
+  background: color-mix(in srgb, var(--cyan) 15%, transparent);
   color: var(--cyan);
   font-size: 12px;
 }
@@ -1133,11 +1136,13 @@
   display: block;
 }
 
-/* 视口框：红色描边 + 半透明红底（对齐参考端 windowBox） */
+/* 视口框：红色描边 + 半透明红底（对齐参考端 windowBox）
+   底原本是写死的 rgba(238, 69, 69, .2)（= 下面回退值 #ee4545），与描边同色却各写各的；
+   改由 --red 推导后两者恒同源，也跟上各主题的危险色（20% 与 2px 描边同色，视觉等价）。 */
 .mm-minimap-viewbox {
   position: absolute;
   border: 2px solid var(--red, #ee4545);
-  background: rgba(238, 69, 69, 0.2);
+  background: color-mix(in srgb, var(--red) 20%, transparent);
 }
 .mm-minimap-viewbox.with-transition {
   transition: all 0.3s;

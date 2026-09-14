@@ -7,10 +7,13 @@
  * 深色主题下白底浅字、浅色主题下反倒是深底。原型源码自己也把这条留成了待办
  * （docs/styles.css 的「⚠️ 下一步：在各 [data-theme] 主题块中覆盖以下 13 个令牌」）。
  *
- * 本测试把三件事固化成断言：
+ * 本测试把四件事固化成断言：
  *   1. 32 套主题**各自**都有全部 13 个 `--mm-*`（不漏套、不漏项）；
  *   2. `--mm-*` 取值引用的 10 个来源令牌在每套主题里都存在（缺一个会让规则静默失效）；
- *   3. 扩展层里新增的 `--mm-*` 一律由主题既有令牌推导，不许手挑颜色。
+ *   3. 扩展层里新增的 `--mm-*` 一律由主题既有令牌推导，不许手挑颜色；
+ *   4. 扩展层每套主题的 13 行**逐条等于规范模板**——只断言「名字出现过」拦不住把
+ *      `var(--menu-bg)` 写成 `var(--menubg)`（写错的变量名照旧是「出现过」），也拦不住
+ *      「注释里写了 token 名」充数。逐块比对模板同时兜住这两类假阳性。
  *
  * 读文本而非跑浏览器：令牌是纯文本事实，静态断言足够，且无需 DOM 环境。
  */
@@ -33,6 +36,27 @@ const MM_TOKENS = [
   '--mm-danger-soft',
   '--mm-accent-2',
   '--mm-accent-2-rgb',
+] as const
+
+/**
+ * extensions.css §12 的规范模板：每套主题的 13 行必须与它逐条一致。
+ * 取值一律由该主题既有令牌推导，改这里就等于改全部 31 套的取值口径——请连同
+ * extensions.css 的 §12 一起改，测试会逐套拦住漏改的。
+ */
+const MM_TEMPLATE = [
+  '--mm-surface: var(--menu-bg)',
+  '--mm-surface-2: var(--glass-bg)',
+  '--mm-surface-3: rgba(var(--wsa), 0.08)',
+  '--mm-border: rgba(var(--wsa), 0.16)',
+  '--mm-text: var(--text)',
+  '--mm-text-2: var(--text-strong)',
+  '--mm-text-dim: var(--text-dim)',
+  '--mm-primary: var(--accent)',
+  '--mm-primary-soft: rgba(var(--accent-rgb), 0.14)',
+  '--mm-danger: var(--red)',
+  '--mm-danger-soft: color-mix(in srgb, var(--red) 16%, transparent)',
+  '--mm-accent-2: var(--accent)',
+  '--mm-accent-2-rgb: var(--accent-rgb)',
 ] as const
 
 /**
@@ -119,6 +143,42 @@ test('32 套主题各自都定义了全部 13 个 --mm-* 令牌', () => {
     if (missing.length) problems.push(`${key}：缺 ${missing.join(' ')}`)
   }
   assert.deepEqual(problems, [], `以下主题未覆盖 --mm-*：\n${problems.join('\n')}`)
+})
+
+test('扩展层每套主题的 13 条 --mm-* 逐条等于规范模板', () => {
+  // 取扩展层里含 --mm-* 的块：§7 是 sepia 的主题令牌块（不含 --mm-*），§12 才是这 31 套。
+  const pattern = /:root\[data-theme=['"]([^'"]+)['"]\]\s*\{([\s\S]*?)\n\}/g
+  const blocks = [...read('src/styles/extensions.css').matchAll(pattern)].filter(([, , body]) => body.includes('--mm-'))
+  // 先对齐名单：32 套里除 typewriter（其 13 个令牌由生成层提供）都该有块。
+  // 这一步同时兜住「新增主题忘了加块」——那时下面的逐块比对根本不会看到它。
+  const expected = themeKeys().filter((key) => key !== 'typewriter')
+  assert.deepEqual(
+    blocks.map(([, key]) => key).sort(),
+    [...expected].sort(),
+    '扩展层的 --mm-* 主题块与「32 套减 typewriter」对不上',
+  )
+
+  // 比对前把连续空白折叠掉：这样只关心「哪条声明、什么取值」，缩进或换行（prettier 重排）
+  // 都不会造成假红。逐条比对是为了让报错能指到具体是第几条不一样。
+  const split = (text: string): string[] =>
+    text
+      .replace(/\s+/g, ' ')
+      .split(';')
+      .map((piece) => piece.trim())
+      .filter(Boolean)
+  const problems: string[] = []
+  for (const [, key, body] of blocks) {
+    const actual = split(body)
+    if (actual.length !== MM_TEMPLATE.length) {
+      problems.push(`${key}：${actual.length} 条声明，期望 ${MM_TEMPLATE.length} 条`)
+      continue
+    }
+    const bad = actual.findIndex((line, i) => line !== MM_TEMPLATE[i])
+    if (bad >= 0) {
+      problems.push(`${key} 第 ${bad + 1} 条：实际 \`${actual[bad]}\`，期望 \`${MM_TEMPLATE[bad]}\``)
+    }
+  }
+  assert.deepEqual(problems, [], `以下主题块偏离规范模板：\n${problems.join('\n')}`)
 })
 
 test('每套主题都定义了 --mm-* 取值引用的 10 个来源令牌', () => {
