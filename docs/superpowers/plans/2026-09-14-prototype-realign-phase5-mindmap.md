@@ -219,7 +219,7 @@ git commit -m "feat(mindmap): 导图名规范化纯函数与文件名岛组件"
 
 **Interfaces:**
 - Consumes：Task 1 的 `MmFilenameIsland`（props `name`，emits `rename`）
-- Produces：`Toolbar.vue` 根元素为 `.mm-topbar`（内含 `.mm-island.mm-island-left` / `MmFilenameIsland` / `.mm-island.mm-island-right`）；新增 bus 事件 `newMap`
+- Produces：`Toolbar.vue` 根元素为 `.mm-topbar`（内含 `.mm-island.mm-island-left` / `MmFilenameIsland` / `.mm-island.mm-island-right`）；新增 props `mapName: string`、emits `rename` / `save` / `close` / `new-map`（**不走 bus**——模板里就是组件 emit，2026-09-14 订正：原 Interfaces 行误记为新 bus 事件）
 
 - [ ] **Step 1: 改 `Toolbar.vue` 的模板为三岛**
 
