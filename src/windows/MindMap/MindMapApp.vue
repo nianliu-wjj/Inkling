@@ -475,9 +475,6 @@ onUnmounted(() => {
             <OuterFramePanel />
             <TagStylePanel />
             <AssociativeLineStylePanel />
-            <!-- 图标 / 公式：工具栏按钮弹出的节点模态（spec D42），与其它弹层一样常驻挂载、靠 bus 唤出 -->
-            <NodeIconModal />
-            <NodeFormulaModal />
             <!-- 右侧抽屉：单壳，按 ui.activeSidebar 渲染对应侧栏内容 -->
             <MmDrawer v-if="!ui.isZenMode" />
             <ImportDialog />
@@ -492,6 +489,21 @@ onUnmounted(() => {
           </template>
           <!-- 后续阶段在此挂 NavigatorToolbar / 各侧栏 / 各浮层 / 各对话框 -->
         </div>
+
+        <!-- 图标 / 公式：工具栏按钮弹出的节点模态（spec D42），与其它弹层一样常驻挂载、靠 bus 唤出。
+             刻意挂在 .mm-stage 之外、.mindmap-window 之内——原型 #mmModalOverlay 正是在 #mindmapWindow 里。
+             生成层 .mm-modal-overlay 是 `position: absolute; inset: 0`：若留在 .mm-stage 内，就会被它的
+             `position: relative` 认作定位上下文，遮罩只盖住画布，盖不住标题栏与窗口内边距环——于是
+             点标题栏的标签芯片能叠出第二个弹窗，且此时 Esc 会与 TagManagerModal 的监听同时响应，
+             把本弹窗静默连带关掉。
+             挂到这里后祖先链上再无定位祖先（.mindmap-window 是 static，NConfigProvider / #app 也不定位）
+             ⇒ 定位上下文回落到初始包含块，`inset: 0` 即整个窗口，标题栏一并盖住。
+             层序无需调整：.mm-stage 是 `position: relative` + `z-index: auto`，**不构成层叠上下文**，
+             遮罩的 36 照旧压过抽屉 35 / 顶栏 30（见 mindmap.css 里那两条自有层规则）。
+             两者 setup 只调 useMindMap()，而 context 由 MindMapApp 在根部 provide（与 v-if 无关）；
+             requireMindMap 只在 insert() 内调用、open() 另有 activeNodes 空守卫，故脱离 v-if="mindMap" 是安全的。 -->
+        <NodeIconModal />
+        <NodeFormulaModal />
 
         <TagManagerModal
           v-if="showTagManager"

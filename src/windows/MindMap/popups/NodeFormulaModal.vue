@@ -11,7 +11,9 @@ import MmModal from './MmModal.vue'
  *
  * 内容从 `sidebars/FormulaSidebar.vue` 迁入，只换渲染宿主（右侧抽屉 → 工具栏按钮弹出的模态）：
  * LaTeX 输入框 + 常用公式表都是我们的真实现（spec D47），表格改挂生成层的 `.mm-formula-table`
- * ——整行可点即填入输入框，对应原型 `docs/app.js:2000-2003` 的行点击。
+ * ——整行可点即填入输入框，对应原型 `docs/app.js:2000-2003` 的行点击；
+ * 旧侧栏那行是 `<button :disabled>`，天生可 Tab，故行上补 `role="button"` + tabindex + Enter/空格，
+ * 把表格形态下的键盘可达补回来。
  * 非富文本模式下整体禁用并给提示（公式渲染依赖节点富文本），与侧栏时期一致。
  *
  * @author nianliu-jj
@@ -89,10 +91,24 @@ onBeforeUnmount(() => offs.forEach((off) => off()))
       placeholder="请输入 LaTeX 语法，例如 \frac{1}{2}"
     />
     <div class="mm-setting-group">常用公式（点击填入）</div>
-    <!-- 生成层 `.mm-formula-table` 的 `tr:hover` 就是「整行可点」的视觉反馈 -->
+    <!-- 生成层 `.mm-formula-table` 的 `tr:hover` 就是「整行可点」的视觉反馈。
+         行上的 `role="button"` 同时把它接进 base.css 全局焦点环那条
+         `[role='button']:focus-visible` 规则，故无需新增任何样式。
+         键盘可达是相对旧侧栏（`<button :disabled>` 可 Tab、有 disabled 语义）的补回：
+         Enter / 空格填入，非富文本时 tabindex=-1 且 aria-disabled，不再响应键盘（`pick` 里也拦一道）。 -->
     <table class="mm-formula-table" :class="{ disabled: !richText }">
       <tbody>
-        <tr v-for="item in formulaList" :key="item" :title="item" @click="pick(item)">
+        <tr
+          v-for="item in formulaList"
+          :key="item"
+          :title="item"
+          role="button"
+          :tabindex="richText ? 0 : -1"
+          :aria-disabled="richText ? undefined : 'true'"
+          @click="pick(item)"
+          @keydown.enter.prevent="pick(item)"
+          @keydown.space.prevent="pick(item)"
+        >
           <td class="mm-formula-tex">{{ item }}</td>
         </tr>
       </tbody>
