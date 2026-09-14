@@ -110,7 +110,7 @@ onBeforeUnmount(() => offs.forEach((off) => off()))
   <MmModal :visible="visible" title="图标/贴纸" @close="visible = false">
     <p v-if="!ui.activeNodes.length" class="mm-dialog-hint">请先选择一个节点</p>
     <div v-for="group in groups" :key="group.type" class="mm-icon-group">
-      <div class="mm-struct-groupname">{{ group.name }}</div>
+      <div class="mm-group-title">{{ group.name }}</div>
       <div class="mm-icon-grid">
         <button
           v-for="icon in group.list"

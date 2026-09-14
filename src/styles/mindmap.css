@@ -2,7 +2,79 @@
  * 思维导图窗口专用样式（只由 mindmap.ts 引入，不进其他窗口）。
  *
  * 窗口壳（.mindmap-window / .mindmap-bar / .mindmap-title / .mindmap-actions）原在
- * window-fit.css，随全功能改造迁到此处；新增画布舞台与编辑 UI 浮层的通用外观。
+ * window-fit.css，随全功能改造迁到此处。
+ *
+ * **本文件只装三类东西**（阶段五 Task 7 收敛后的契约，2026-09-15）：
+ *   1. 真实窗口适配——生成层照 `docs/` 原型的宽窗口画，没管无边框窗口与窄窗口（`.mindmap-window`、
+ *      `.mm-topbar` 的定位与降级、`.mm-island-*` 的收缩权重等）；
+ *   2. 项目扩展——生成层没有、而我们真实现了的（`.mm-field` / `.mm-dialog` 表单件、`.mm-search`
+ *      的搜索与替换行为、`.mm-demo-*` 演示控制条、拖拽导入遮罩、`.mm-bs-*` / `.mm-ns-*` 侧栏件）；
+ *   3. 生成层未覆盖的新组件与主题令牌重述（文件末段）。
+ * 凡是"生成层已有同名或对应类名"的自造样式一律删除——**被取代的类名在此只留一行去向注释**，
+ * 不再保留空块，免得下一个人以为它还在生效。
+ */
+
+/* ═══ 窗口层叠序总表（阶段五 Task 7 一次裁决，2026-09-15）═══
+ *
+ * 本窗口所有浮层都落在**同一个**层叠上下文里：`.mindmap-window` 是 static，`.mm-stage` 是
+ * `position: relative` 但 `z-index: auto` —— 两者都不构成层叠上下文，所以留在窗口内的浮层
+ * （15–50）与 Teleport 到 body 的浮层（2000 / 3000 / 10001）以及生成层的 `.mm-ctx`(9760)
+ * 可以直接按数值比较。下面这张表是**唯一口径**，下面各条规则只留简短指向，不再各写一套说法。
+ *
+ *   值     选择器                     归属     说明
+ *   ─────  ─────────────────────────  ───────  ──────────────────────────────────────────
+ *   （无）  .mm-canvas                生成层   画布本体，DOM 序最先，不需要层序
+ *   15     .mm-scrollbar-track        自有层   画布滚动条
+ *   20     .mm-minimap                自有层   小地图（生成层给 9）
+ *   28     .mm-sidebar-dock           自有层   右侧触发条（生成层给 9）
+ *   30     .mm-topbar                 自有层   顶栏三岛（生成层给 10；三岛同为 30，靠 DOM 序分先后）
+ *   35     .mm-drawer                 自有层   单抽屉壳（生成层给 10）
+ *   36     .mm-search                 自有层   搜索 / 替换浮层（生成层无对应类，裁决见本表下方①）
+ *   37     .mm-modal-overlay          自有层   图标 / 公式模态遮罩（生成层给 20）
+ *   40     .mm-outline-edit-dialog    自有层   大纲全屏编辑
+ *   50     .mm-drag-mask              自有层   拖拽文件导入遮罩（pointer-events: none）
+ *   2000   .mm-rtt / .mm-icontb / .mm-imgtb / .mm-note-show /
+ *          .mm-tagpanel / .mm-linepanel / .mm-framepanel
+ *                                     自有层   挂 body 的浮动小面板，固定层
+ *   3000   .mm-imgpv                  自有层   图片预览全屏遮罩（挂 body）
+ *   9760   .mm-ctx                    生成层   右键菜单（挂 body，见②）
+ *   10001  .mm-demo-exit / .mm-demo-step / 全局 toast
+ *                                     自有层   演示模式控制条（挂 body）/ 生成层的 toast
+ *   ─────  ─────────────────────────  ───────  ──────────────────────────────────────────
+ *
+ * ① **搜索浮层抬到抽屉之上（Task 7 裁决）**：原型是「搜索压抽屉」（`.mm-search-box` 12 >
+ *   `.mm-drawer` 10），而我们的抽屉被 Task 3 抬到 35 之后，搜索浮层（原 30）翻成了「被抽屉压」。
+ *   选择**修掉翻转**而不是接受它，理由是代价不是美观而是功能：两者几何上大面积重叠
+ *   （搜索 `right:16px` 宽 288 ⇒ 横向 [16,304]；抽屉 `right:72px` 宽 280 ⇒ [72,352]，重叠 232px，
+ *   纵向抽屉自上而下整条覆盖），抽屉不透明且默认吃指针事件 ⇒ 抽屉一开，Ctrl+F 唤出的输入框与
+ *   结果列表整块落在抽屉底下，看不见也点不到。用户开抽屉的动机（改样式）与搜索并不互斥。
+ *   取值 36 并把 `.mm-modal-overlay` 由 36 顺延到 37：搜索是**非模态**浮层，必须低于模态遮罩
+ *   （模态开着时不该有浮层压在遮罩上），而 35 与 36 之间没有整数余量，只能让遮罩腾一位。
+ *   改完的相对次序：抽屉 35 < 搜索 36 < 模态遮罩 37 < 大纲编辑 40 —— 除本项外未动任何既有序。
+ *   另：生成层的 `.mm-search-box`(12) 是原型那颗药丸框的**桩规则**，全仓无组件渲染它（已 grep 确认），
+ *   因此不参与本次裁决；将来若真要改用那颗框，它是生成层规则、只能在本文件覆盖，须一并抬到抽屉之上。
+ *
+ * ② **右键菜单不在这张表的"抬升"叙事里**：Task 5 把它 Teleport 到 body 后，`.mm-ctx` 的 9760
+ *   来自生成层，是"整块浮层搬出了窗口内部"而非"又被抬了一档"。它仍然压过本表所有条目，与原型
+ *   一致（原型 `#mindmapCtxMenu` 同样在 body 级）。**不要把它改成 60**：60 < 2000，那会把它压回
+ *   浮面板与弹窗之下，反而与原型相反。已知的次序翻转有两处，当前都无害：
+ *     - `#mindmapWindow.mm-fullscreen` 9800 —— 全仓无引用（`#mindmapWindow` 这个 id 本项目根本没用），
+ *       是原型遗留的死规则，不会真的压住菜单；
+ *     - `.mm-imgpv`(3000) 图片预览 —— 想「右键图片预览」这条路被「单击冒泡成 `node_click` 先关菜单」
+ *       挡住，菜单在预览打开前就关了，当前不可达。
+ */
+
+/* ═══ 被生成层取代、已删除的自造类（去向对照，勿再添加）═══
+ *   .mm-toolbar / -group / -sep      → 生成层 .mm-topbar / .mm-island（Task 2 三岛改造）
+ *   .mm-trigger / -btn / -label      → 生成层 .mm-sidebar-dock / .mm-dock-item / -ico / -lbl（Task 7 迁移）
+ *   .mm-sidebar / -head / -title / -close / -body
+ *                                    → 生成层 .mm-drawer*（Task 3 单抽屉壳；组件已无引用）
+ *   .mm-ctxmenu                      → 生成层 .mm-ctx*（Task 5 改挂 body，令牌改用 --mm-*）
+ *   .mm-count                        → 生成层 .mm-bottombar 内的 .mm-stat-left（Task 5 底栏合并）
+ *   .mm-nav / -btn / -more / -scale-input
+ *                                    → 生成层 .mm-bottombar 内的 .mm-ctrl-right / .mm-ctrl-btn / .mm-zoom-val
+ *   .mm-note-area                     → 备注侧栏已随 spec D42 改为模态，走 .mm-dialog-textarea（Task 7 删）
+ *   .mm-minimap-close                 → 生成层同名类是原型的关闭键，我们的 Navigator 并不渲染它（Task 7 删）
  */
 
 /* ═══ 窗口壳 ═══ */
@@ -84,33 +156,9 @@
 }
 
 /* ═══ 顶部工具栏 ═══ */
-/* 浮于画布顶部居中，横向排布；小屏时自动换行。 */
-.mm-toolbar {
-  position: absolute;
-  top: 10px;
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: 30;
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  max-width: calc(100% - 24px);
-  padding: 5px 8px;
-  flex-wrap: wrap;
-  justify-content: center;
-}
-.mm-toolbar-group {
-  display: flex;
-  align-items: center;
-  gap: 2px;
-  flex-wrap: wrap;
-}
-.mm-toolbar-sep {
-  width: 1px;
-  align-self: stretch;
-  margin: 2px 4px;
-  background: rgba(var(--wsa), 0.14);
-}
+/* 旧的自造壳 `.mm-toolbar` / `-group` / `-sep`（原为「浮于画布顶部居中、flex-wrap 换行的单条工具条」）
+   已随 Task 2 的三岛改造删除，去向见文件头的"被生成层取代"对照表：壳换成生成层 `.mm-topbar` +
+   `.mm-island`（`components.css:666-686`）。下面只留生成层没有的按钮级补充。 */
 /* 单个工具按钮：图标在上、文字在下。
    只保留生成层没有的排布微调、禁用态与格式刷取材态；**颜色与 hover 底色交给生成层**
    （components.css:769-800 的 .mm-tool-btn，走 --mm-* 令牌）。自有层在生成层之后加载，
@@ -163,7 +211,10 @@
 
    3) 窄窗口的降级拓扑见下面三条岛规则——生成层是照原型的宽窗口画的，没管压缩顺序。
 
-   待 Task 7 收敛自有层时一并复核。 */
+   Task 7 复核结论：这三条**全部保留**。生成层的 `.mm-topbar`（`components.css:666`）只给了
+   `display:flex` / 背景 / 边框，既没有脱离文档流的定位（画布是 `absolute; inset:0` 的兄弟节点，
+   静态流里的顶栏会被它盖住）、`.mm-filename-island` 也仍是原型「单岛居中」时代的
+   `absolute; left:50%`——两处都必须由自有层补，且层序（30）已登记在文件头的总表里。 */
 .mm-topbar {
   position: absolute;
   top: 0;
@@ -197,113 +248,44 @@
   margin: 0 auto;
 }
 
-/* ═══ 右侧侧栏触发条 ═══ */
-.mm-trigger {
-  position: absolute;
-  top: 50%;
-  right: 10px;
-  transform: translateY(-50%);
+/* ═══ 右侧侧栏触发条（阶段五 Task 7：改用生成层 .mm-sidebar-dock / .mm-dock-item）═══
+   形态与几何全部交给生成层（`components.css:849-890`，照原型 `docs/index.html:373-380`），
+   自有层的旧壳 `.mm-trigger` / `-btn` / `-label` 已删（去向见文件头对照表）。
+   这里只留两处生成层没有的：
+
+   1) **层序 28**：生成层给 `.mm-sidebar-dock` 的是 9——那是原型的坐标（原型顶栏同为 10 一档）；
+      我们自有层把顶栏抬到了 30（为脱离画布），触发条必须跟着抬到「顶栏之下、小地图 20 之上」，
+      取 28。完整口径见文件头总表。
+   2) **图标去色复位**：生成层把 `.mm-dock-ico` 列进了「UI 图标统一黑白」的 `filter: grayscale(1)`
+      名单（`components.css:1588`）——那是给原型彩色 emoji 去色的。我们的字形是单色矢量图标
+      （颜色由 `color` 决定），去色会把 `:hover` / `.active` 的 `--mm-primary` 一并抹成灰，
+      悬停与高亮态完全看不见。与 `.mm-ctrl-btn`（Task 5）是同一个坑、同一种修法。 */
+.mm-sidebar-dock {
   z-index: 28;
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  padding: 5px;
 }
-.mm-trigger-btn {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 2px;
-  width: 48px;
-  padding: 6px 4px;
-  border: none;
-  border-radius: 8px;
-  background: transparent;
-  color: var(--text-dim);
-  cursor: pointer;
-  transition: background 0.14s;
-}
-.mm-trigger-btn .iconfont {
-  font-size: 16px;
-}
-.mm-trigger-label {
-  font-size: 10px;
-  white-space: nowrap;
-}
-.mm-trigger-btn:hover {
-  background: rgba(var(--wsa), 0.12);
-  color: var(--text);
-}
-.mm-trigger-btn.active {
-  background: rgba(var(--accent-rgb), 0.22);
-  color: var(--accent);
+.mm-dock-ico {
+  filter: none;
 }
 
 /* ═══ 侧栏抽屉 ═══ */
-/* 以下 .mm-sidebar* 是单抽屉壳收敛前的旧壳样式（已无组件引用），保留给 Task 7 统一清理。 */
-.mm-sidebar {
-  position: absolute;
-  top: 10px;
-  right: 66px;
-  bottom: 10px;
-  z-index: 40;
-  width: 300px;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-}
-.mm-sidebar-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 10px 14px;
-  border-bottom: 1px solid rgba(var(--wsa), 0.12);
-}
-.mm-sidebar-title {
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--text);
-}
-.mm-sidebar-close {
-  border: none;
-  background: transparent;
-  color: var(--text-dim);
-  cursor: pointer;
-  font-size: 13px;
-  padding: 2px 6px;
-  border-radius: 6px;
-}
-.mm-sidebar-close:hover {
-  background: rgba(var(--wsa), 0.12);
-  color: var(--text);
-}
-.mm-sidebar-body {
-  flex: 1;
-  min-height: 0;
-  overflow-y: auto;
-  padding: 10px 14px;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-/* 抽屉层序：必须压过顶栏（自有层把 .mm-topbar 抬到了 30——Task 2 为脱离画布的绝对定位而加），
-   否则抽屉 header 整条落在顶栏纵向带里，右岛（不透明 + pointer-events:auto）会把 ✕ 盖死。
-   取 35 是因为它正好落在唯一空档：上界到「大纲全屏编辑 40 / 拖拽遮罩 50 / 右键菜单 60 /
-   各弹窗 2000+ / toast 10001」都还有余量，下界压过顶栏 30 / 触发条 28 / 字数 25 / 导航栏 20 /
-   小地图 20，不牵动任何既有层级。
-   （生成层 .mm-drawer 是 10，原型靠与顶栏同层 + DOM 顺序取胜；我们自有层抬了顶栏，故必须显式补。） */
+/* 旧抽屉壳 `.mm-sidebar` / `-head` / `-title` / `-close` / `-body`（`components.css` 生成层
+   `.mm-drawer*` 的单壳前身）已在 Task 7 删除：Task 3 把 `.mm-sidebar` 的用法整体换成了
+   `.mm-drawer`，整段壳样式只剩空转；删除前已逐个 grep 确认全仓（含 mindmap-outline.css、
+   extensions.css 与全部组件）无任何引用。下面只留自有层对生成层抽屉的三处补充。 */
+/* 抽屉层序 35：必须压过顶栏（自有层把它抬到了 30），否则抽屉 header 整条落在顶栏纵向带里，
+   右岛（不透明 + pointer-events:auto）会把 ✕ 盖死。取值口径见文件头总表。 */
 .mm-drawer {
   z-index: 35;
 }
-/* 节点弹窗层序：必须同时压过顶栏（30）与抽屉（35）。
-   生成层 `.mm-modal-overlay` 是 20 —— 原型里它的顶栏 10 / 抽屉 10 都在其下，20 够用；
-   我们自有层把两者分别抬到了 30 / 35，照用 20 会露两个破绽：
+/* 节点弹窗层序 37：必须同时压过顶栏（30）、抽屉（35）与搜索浮层（36）。
+   生成层 `.mm-modal-overlay` 是 20 —— 原型里顶栏 10 / 抽屉 10 / 搜索框 12 都在其下，20 够用；
+   我们自有层把三者分别抬到了 30 / 35 / 36，照用 20 会露两个破绽：
    ① 遮罩盖不住顶栏，弹窗开着时工具栏仍可点（能叠出第二个弹窗）；
    ② 抽屉压住弹窗右半。
-   取 36 与抽屉取 35 是同一段空档（上界仍是大纲全屏编辑 40），不牵动任何既有层级。
-   ⚠️ Task 7 要统一裁决窗口层级序，本条是我方层级序的一处新增，届时应并入那份裁决。 */
+   本值原为 36，Task 7 统一裁决层序时随搜索浮层一起顺延到 37（搜索是非模态浮层，必须低于模态遮罩，
+   而 35 与 36 之间没有整数余量）。完整口径与理由见文件头总表①。 */
 .mm-modal-overlay {
-  z-index: 36;
+  z-index: 37;
 }
 /* 抽屉内容排布：生成层 `.mm-drawer-body` 只给了内边距与滚动，侧栏表单件
    （`.mm-field` / `.mm-shortcut-group` 等）原本靠旧壳 `.mm-sidebar-body` 的纵向 flex + gap
@@ -612,7 +594,9 @@
   flex-direction: column;
   gap: 6px;
 }
-.mm-struct-groupname {
+/* 通用分组小标题：结构 / 主题侧栏与图标弹窗三处都用它（原名 `.mm-struct-groupname` 带 `struct`
+   前缀，是结构侧栏一家在用时的遗留名字；Task 7 改名，别再往新组件上套旧名）。 */
+.mm-group-title {
   font-size: 12px;
   font-weight: 600;
   color: var(--text);
@@ -713,10 +697,20 @@
   background: var(--mm-primary-soft);
   outline: 1px solid var(--mm-primary);
 }
-/* 无激活节点时整片方格禁用（旧侧栏的 `:disabled`，生成层没有这条）。 */
-.mm-icon-tile:disabled {
+/* 无激活节点时整片方格禁用（旧侧栏的 `:disabled`，生成层没有这条）。
+   除自身的不透明度与光标外，**必须连悬停态一起复位**：生成层 `.mm-icon-tile:hover`
+   （`components.css:1123-1127`）没有 `:not(:disabled)` 守卫，会给禁用方格照常加边框色、
+   换底色并 `scale(1.15)` —— 禁用态看着仍像能点。
+   可达性：打开弹窗前有两道守卫（工具栏按钮 `:disabled` + `open()` 里的 activeNodes 判空），
+   故这条分支只在「弹窗开着时激活节点被清空」时才走得到；但那是结构性守卫、不该依赖它，
+   复位成本为零，照补。 */
+.mm-icon-tile:disabled,
+.mm-icon-tile:disabled:hover {
   opacity: 0.45;
   cursor: not-allowed;
+  border-color: var(--mm-border);
+  background: var(--mm-surface-2);
+  transform: none;
 }
 
 /* 公式输入的 LaTeX 框：生成层 `.mm-textarea` 是按多行备注设计的 180px 高，
@@ -736,10 +730,8 @@
   cursor: not-allowed;
 }
 
-/* 备注侧栏：比对话框留更多行。 */
-.mm-note-area {
-  min-height: 260px;
-}
+/* 备注侧栏的加高规则（`.mm-note-area`，min-height: 260px）已随 Task 7 删除：备注侧栏在 Task 3
+   按 spec D42 改为模态后，NodeNoteDialog 用的是 `.mm-dialog-textarea`，这个类全仓已无引用。 */
 /* ═══ 基础样式侧栏（BaseStyleSidebar）专用样式 ═══
    仅放本侧栏特有、既有 mm-* 类覆盖不到的部分；控制器负责合并进 mindmap.css。 */
 
@@ -1190,11 +1182,16 @@
 /* ═══ 搜索与替换浮层（SearchBox）专用样式 ═══
    参考端 Search.vue 样式移植，走 Inkling 令牌；由控制器合并进 mindmap.css。 */
 
+/* 层序 36（Task 7 裁决）：搜索 / 替换浮层必须压过抽屉（35），否则抽屉一开，Ctrl+F 唤出的输入框与
+   结果列表整块落在抽屉底下（两者横向重叠 232px、纵向抽屉自上而下全覆盖），看不见也点不到——
+   原型是「搜索压抽屉」（`.mm-search-box` 12 > `.mm-drawer` 10），这里把 Task 3 抬抽屉带来的翻转修回去。
+   同时必须低于模态遮罩（37）：搜索是非模态浮层，模态开着时不该有浮层压在遮罩上。
+   完整口径与取值理由见文件头总表①。 */
 .mm-search {
   position: absolute;
   top: 70px;
   right: -320px;
-  z-index: 30;
+  z-index: 36;
   width: 288px;
   padding: 16px;
   border-radius: 12px;
@@ -1679,7 +1676,8 @@
 /* ═══ 大纲全屏编辑 / 源码编辑对话框 专用样式 ═══
    参考端 OutlineEdit.vue 与源码编辑样式移植，走 Inkling 令牌；由控制器合并进 mindmap.css。 */
 
-/* 大纲全屏编辑：铺满窗口，层级低于各编辑弹窗 */
+/* 大纲全屏编辑：铺满窗口。层序 40 在模态遮罩（37）**之上**——此处原注释写的是「层级低于各编辑弹窗」，
+   Task 7 订正：40 > 37 一直如此，是旧注释写反了，本次只改注释不改数值。 */
 .mm-outline-edit-dialog {
   position: absolute;
   inset: 0;
@@ -1758,7 +1756,8 @@
  * 652–1484）里另有若干**不受令牌管辖**的字面色值，光补令牌修不动它们：
  *   - 白底系 rgba(255,255,255,.9/.96)：13 套深色主题下白底浅字（本任务的主诉之一）；
  *   - 绝对黑描边 rgba(0,0,0,.06~.1)：深色主题下与暗底同色，岛屿 / 抽屉的边直接隐形；
- *   - 绝对黑悬停底 rgba(0,0,0,.08)：小地图关闭键在深色主题下整个消失。
+ *   - 绝对黑悬停底 rgba(0,0,0,.08)：小地图关闭键在深色主题下整个消失（该键本身随 Task 7 一并删除，
+ *     见下；这里记的是当初发现问题的路径）。
  * 生成层不得手改（sync:styles --check 会拦），故在此按主题令牌重述——本文件在 @/styles 之后加载
  * （mindmap.ts），同特异性（0,1,0）下后加载者胜。
  *
@@ -1785,15 +1784,10 @@
   background: var(--mm-surface);
   border-color: rgba(var(--wsa), 0.1);
 }
-/* 小地图关闭键：生成层常住底是 rgba(0,0,0,.08)，压在深色画布上等于隐形。 */
-.mm-minimap-close {
-  background: rgba(var(--wsa), 0.1);
-}
-/* 悬停：生成层的 rgba(255,77,79,.8) 是固定红，改吃主题危险色（文字色 --mm-surface 保持生成层的，
-   它与 --mm-danger 在深浅两类主题下都够反差）。 */
-.mm-minimap-close:hover {
-  background: var(--mm-danger);
-}
+/* 小地图关闭键的两条（`.mm-minimap-close` 常住底 + 悬停红）已在 Task 7 删除：那个关闭键是原型
+   小地图上的按钮，我们的 Navigator.vue 模板里只有缩略图与视口框、**不渲染关闭键**（全仓 grep 确认
+   `.mm-minimap-close` 只出现在生成层与本文件），给小地图关合另走底栏按钮。将来若补上关闭键，
+   再把「生成层 rgba(0,0,0,.08) 常住底在深色画布上隐形」这条改回 `rgba(var(--wsa), .1)`。 */
 /* 三座岛 + 侧栏 dock + 底栏控件组的描边：生成层是 rgba(0,0,0,.06)。 */
 .mm-island,
 .mm-filename-island,
@@ -1801,9 +1795,10 @@
 .mm-ctrl-right {
   border-color: rgba(var(--wsa), 0.06);
 }
-/* 抽屉 / 模态 / 取色板的描边：生成层是 rgba(0,0,0,.08)。 */
+/* 抽屉 / 模态的描边：生成层是 rgba(0,0,0,.08)。
+   （原选择器里还有 `.mm-color-swatch`——那是原型取色板的方格，本项目用自有层的 `.mm-color-dot`
+   （widgets/ColorField.vue）渲染取色，全仓无 `.mm-color-swatch` 引用，Task 7 一并删掉这一项。） */
 .mm-drawer,
-.mm-modal,
-.mm-color-swatch {
+.mm-modal {
   border-color: rgba(var(--wsa), 0.08);
 }

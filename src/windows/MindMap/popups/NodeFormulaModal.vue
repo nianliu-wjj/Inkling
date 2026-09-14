@@ -95,8 +95,15 @@ onBeforeUnmount(() => offs.forEach((off) => off()))
          行上的 `role="button"` 同时把它接进 base.css 全局焦点环那条
          `[role='button']:focus-visible` 规则，故无需新增任何样式。
          键盘可达是相对旧侧栏（`<button :disabled>` 可 Tab、有 disabled 语义）的补回：
-         Enter / 空格填入，非富文本时 tabindex=-1 且 aria-disabled，不再响应键盘（`pick` 里也拦一道）。 -->
-    <table class="mm-formula-table" :class="{ disabled: !richText }">
+         Enter / 空格填入，非富文本时 tabindex=-1 且 aria-disabled，不再响应键盘（`pick` 里也拦一道）。
+
+         `role="presentation"`（Task 4 审查补）：`tr` 上的 `role="button"` 覆盖了它隐含的 `row`，
+         而 `<table>` 的 required-owned-elements 要求子项是 rowgroup/row ⇒ 结构不成立。让表格
+         整体让掉隐式的 table/row/cell 角色后，这一块就是「一串按钮」，结构合法、零 CSS 代价。
+         **不把表格语义改回来**是权衡后的取舍：这份「表格」只剩单列、没有 `<th>` / `<caption>` /
+         `<thead>`，行语义的信息量≈0（读屏念出来与列表无异）；而按钮语义换来的是真收益——
+         Tab 可达、Enter / 空格可点、`aria-disabled` 能表达禁用、能吃到全局焦点环。 -->
+    <table class="mm-formula-table" :class="{ disabled: !richText }" role="presentation">
       <tbody>
         <tr
           v-for="item in formulaList"

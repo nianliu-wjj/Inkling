@@ -28,7 +28,7 @@ onBeforeUnmount(() => offs.forEach((off) => off()))
 
 <template>
   <div v-for="group in layoutGroupList" :key="group.name" class="mm-struct-group">
-    <div class="mm-struct-groupname">{{ group.name }}</div>
+    <div class="mm-group-title">{{ group.name }}</div>
     <div class="mm-struct-grid">
       <button
         v-for="value in group.list"
