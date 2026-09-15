@@ -305,17 +305,34 @@
   flex-direction: column;
   gap: 10px;
 }
-/* 抽屉滑入/滑出：名副其实地改到 mm-drawer 前缀（原型无此动效，Task 7 决定去留）。 */
-.mm-drawer-slide-enter-active,
-.mm-drawer-slide-leave-active {
+/* 抽屉开合动效（原型无此动效，Task 7 决定去留；本次把驱动方式由 <Transition> 改为 :class）。
+   —— 为什么不用 <Transition> ——
+   过渡与 <KeepAlive> 套在一起会让 KeepAlive 的 deactivate 撞进 Transition 的上下文：切侧栏时
+   KeepAlive 卸载旧实例走的 deactivate 落到了外层 Transition 上，实测报
+   `parentComponent.ctx.deactivate is not a function`（Vue warn 指向
+   `<BaseTransition persisted> at <Transition name="mm-drawer-slide" persisted>`），每次切就报一次。
+   改用 :class 驱动本节的 CSS 过渡：动画照旧，且不与保活打架。
+   （配套的 mm-drawer-slide-* 两条规则只服务于已删掉的 <Transition name="mm-drawer-slide">，一并删除。）
+
+   两条硬约束，改这里时别踩：
+   1. 不能用 `v-show` 切显隐——它切的是 `display: none`，而 display 不是可过渡属性，切了就没动画；
+   2. aside 必须常驻（不能 `v-if`），否则 <KeepAlive> 连同缓存的侧栏实例一起被销毁、状态回退
+      （夹具实测结论，见 MmDrawer.vue 模板注释）。
+   visibility 也写进过渡列表，不是多余的：只给 opacity 的话抽屉虽然看不见，里面的表单件仍留在
+   Tab 序里（`v-show` 时代是 `display: none`，不参与 Tab），键盘用户会 Tab 进一个不可见的抽屉。
+   visibility 是离散属性，过渡到 hidden 时在动画结束后才生效、从 hidden 回来则立即变可见，
+   正好是「淡出到底再消失、出现时马上可见」。 */
+.mm-drawer {
   transition:
+    opacity 0.2s ease,
     transform 0.2s ease,
-    opacity 0.2s ease;
+    visibility 0.2s;
 }
-.mm-drawer-slide-enter-from,
-.mm-drawer-slide-leave-to {
-  transform: translateX(12px);
+.mm-drawer.closed {
   opacity: 0;
+  transform: translateX(12px);
+  visibility: hidden;
+  pointer-events: none;
 }
 
 /* ═══ 侧栏表单件 ═══ */

@@ -100,29 +100,38 @@ watch(
 </script>
 
 <template>
-  <Transition name="mm-drawer-slide">
-    <!--
-      `v-show` 而非 `v-if`：原型 `#mmDrawer` 也是常驻 DOM、只切 `.hidden`，且只有常驻才能让
-      `<KeepAlive>` 的缓存在关闭后依然存活（见 lastShown 注释）。`@click.stop` 沿用旧壳：
-      抽屉浮在画布上方，内部点击不应冒泡到舞台，免得顺手带出画布的选中 / 拖拽逻辑。
+  <!--
+    【不要改回 <Transition>】显隐动画走 `:class` + CSS 过渡（规则在 mindmap.css 的「侧栏抽屉」一节），
+    不是因为 `<Transition>` 不能用，而是**它和下面的 `<KeepAlive>` 套在一起会炸**：切侧栏时
+    KeepAlive 卸载旧实例走的 `deactivate` 落在了外层 Transition 的上下文里，控制台每次切换都报
+    `Uncaught (in promise) TypeError: parentComponent.ctx.deactivate is not a function`
+    （Vue warn: Unhandled error during execution of component update，指向
+    `<BaseTransition persisted> at <Transition name="mm-drawer-slide" persisted>`）。
+    `:class` 驱动 CSS 过渡既有同样的动画，又不与保活打架。
 
-      【不要改回去】计划简报里字面写的是 `<aside v-if="current">`，照着改会丢状态——这是
-      **夹具实测**结论（不是推测）：`<KeepAlive>` 此时落在被 `v-if` 销毁的子树里，抽屉一关
-      它连同缓存一起没了，重开时 setup 重跑、状态回退（大纲树展开态、公式框里没提交的 LaTeX）。
-      该取舍的唯一证据是 `.tmp/keepalive-check.mjs`（已 gitignore，可 `node .tmp/keepalive-check.mjs`
-      复跑）；Task 3 报告第三节给出了本写法与两种对照写法的完整读数。
-    -->
-    <aside v-show="visible" class="mm-drawer" @click.stop>
-      <div class="mm-drawer-header">
-        <span class="mm-drawer-title">{{ title }}</span>
-        <button type="button" class="mm-drawer-close" title="关闭面板" @click="close">✕</button>
-      </div>
-      <div class="mm-drawer-body">
-        <!-- 同一时刻只有一个侧栏实例在渲染；切换时旧的被 KeepAlive 收起，DOM 里始终只有这一个抽屉 -->
-        <KeepAlive>
-          <component :is="current" v-if="current" />
-        </KeepAlive>
-      </div>
-    </aside>
-  </Transition>
+    副作用一并交代：显隐不再能靠 `v-show`（它切的是 `display: none`，而 display 不可过渡，
+    切了动画就没了），改为常驻 DOM、用 `.closed` 类切 `opacity` / `transform` / `visibility`。
+
+    【不要改回 <aside v-if>】计划简报里字面写的是 `<aside v-if="current">`，照着改会丢状态——这是
+    **夹具实测**结论（不是推测）：`<KeepAlive>` 此时落在被 `v-if` 销毁的子树里，抽屉一关
+    它连同缓存一起没了，重开时 setup 重跑、状态回退（大纲树展开态、公式框里没提交的 LaTeX）。
+    该取舍的唯一证据是 `.tmp/keepalive-check.mjs`（已 gitignore，可 `node .tmp/keepalive-check.mjs`
+    复跑）；Task 3 报告第三节给出了本写法与两种对照写法的完整读数。它同样是不用 `<Transition>`
+    的前提：保活要求 aside 常驻。
+
+    `@click.stop` 沿用旧壳：抽屉浮在画布上方，内部点击不应冒泡到舞台，
+    免得顺手带出画布的选中 / 拖拽逻辑。
+  -->
+  <aside class="mm-drawer" :class="{ closed: !visible }" @click.stop>
+    <div class="mm-drawer-header">
+      <span class="mm-drawer-title">{{ title }}</span>
+      <button type="button" class="mm-drawer-close" title="关闭面板" @click="close">✕</button>
+    </div>
+    <div class="mm-drawer-body">
+      <!-- 同一时刻只有一个侧栏实例在渲染；切换时旧的被 KeepAlive 收起，DOM 里始终只有这一个抽屉 -->
+      <KeepAlive>
+        <component :is="current" v-if="current" />
+      </KeepAlive>
+    </div>
+  </aside>
 </template>
