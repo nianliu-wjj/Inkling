@@ -208,9 +208,9 @@ async function save(silent = false): Promise<void> {
     })
     noteId.value = saved.id
     dirty.value = false
-    // 暂存名已经写进笔记，不再需要。但笔记列表要靠 notes-changed 异步重拉，此刻 note 可能还是
-    // null，直接清会让文件名岛闪一下「未命名导图」，故等笔记真的出现在列表里再清。
-    if (notes.value.some((item) => item.id === saved.id)) pendingName.value = ''
+    // 暂存名不在这里清：`notes` 由 notes-changed 异步重拉，此刻列表里往往还没有这条笔记，查一次
+    // 查不到就再没机会（旧实现正是在这里判断，几乎恒假、于是暂存名永远粘着）。改由文件末尾那个
+    // `watch(note, …)` 在笔记真正回到列表时清。
     if (silent) logger.info('mindmap', `自动保存 id=${saved.id}`)
     else {
       toast('已保存')
@@ -245,6 +245,9 @@ async function renameTo(name: string): Promise<void> {
       mindmapData: mindmapData.value ?? serializeMindMapData(initialData.value),
       draft: false,
     })
+    // 改名是**整条落库**（含上面的 mindmapData），此刻不存在未保存的改动 ⇒ 顺手把「未保存」徽章
+    // 清掉；不清的话改完名徽章还挂着，看着像没存上，与「切主题看观感」那条验收项会互相干扰。
+    dirty.value = false
     toast('已重命名')
     logger.info('mindmap', `导图改名为「${name}」`)
   } catch (error) {
@@ -416,6 +419,11 @@ onMounted(() => {
 
 // 目标笔记加载完成后填入导图数据与标签（新建时列表里没有它，保持空白）。
 watch(note, (value) => {
+  // 暂存名对应的笔记一旦回到列表就清掉。**不能**改在保存成功那一瞬去查：`notes` 由 `notes-changed`
+  // 事件异步重拉（一次 IPC 往返），保存 resolve 时列表里往往还没有这条笔记，那时查不到就再没有
+  // 第二次机会——暂存名会一直粘着，之后每次自动保存都把它写回 `content`，把用户在别处改过的标题
+  // 静默覆盖掉。（`note` 就是 `noteId` 指向的那条，非空即是它。）
+  if (value && value.id === noteId.value) pendingName.value = ''
   if (!value || dirty.value) return
   mindmapData.value = value.mindmap_data
   tags.value = [...value.tags]

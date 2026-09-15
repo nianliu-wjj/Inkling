@@ -290,6 +290,13 @@
 .mm-modal-overlay {
   z-index: 37;
 }
+/* 抽屉标题承载的是**主题色文字**，不是原型那些彩色 emoji：生成层把它收进了「UI 图标统一黑白」的
+   容器级 `filter: grayscale(1)` 名单（`components.css:1596`，名单见 `:1583-1604`），不去色复位的话
+   整条标题会比窗口里其它文字明显发灰（`--text` 在多数主题带色偏，灰化后统一成灰）。
+   与 `.mm-dock-ico`（本文件触发条一节）、`.mm-ctrl-btn`（底栏一节）同一种修法。 */
+.mm-drawer-title {
+  filter: none;
+}
 /* 抽屉内容排布：生成层 `.mm-drawer-body` 只给了内边距与滚动，侧栏表单件
    （`.mm-field` / `.mm-shortcut-group` 等）原本靠旧壳 `.mm-sidebar-body` 的纵向 flex + gap
    撑开间距，这里在自有层补回来，避免各行贴在一起。 */
@@ -1233,6 +1240,10 @@
   flex: 1;
   min-width: 0;
   max-width: none;
+  /* 同 `.mm-drawer-title`：生成层把 `.mm-search-input` 收进了「UI 图标统一黑白」的 grayscale 名单
+     （`components.css:1601`），那是给原型那颗药丸框里的 emoji 备的；我们这张输入框里是用户搜的
+     文字（`--text` 多半带色偏），不去色复位就会比同窗口其它文字发灰。 */
+  filter: none;
 }
 .mm-search-info {
   position: absolute;
