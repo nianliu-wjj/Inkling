@@ -18,9 +18,11 @@ import MmFilenameIsland from './MmFilenameIsland.vue'
  *   换成 emoji 会让整个窗口的图标语言与其余部分割裂，属于本阶段范围外的纯外观变动。
  *
  * 本组件只负责展示与上抛事件：改名 / 保存 / 新建 / 关闭的落库与状态变更都在 MindMapApp。
+ * 标签同理：头部的 `TagList` 预览随 `header.mindmap-bar` 一并删除后，标签管理器的唯一入口
+ * 是中岛文件名岛上的 🏷，`tags` 只是从 MindMapApp 透传给它的展示数据。
  */
-defineProps<{ mapName: string }>()
-const emit = defineEmits<{ rename: [name: string]; save: []; close: []; 'new-map': [] }>()
+defineProps<{ mapName: string; tags: string[] }>()
+const emit = defineEmits<{ rename: [name: string]; save: []; close: []; 'new-map': []; 'open-tags': [] }>()
 
 const { bus, ui } = useMindMap()
 
@@ -208,8 +210,8 @@ const leftButtons: Btn[] = [...historyButtons, ...nodeButtons]
       </button>
     </div>
 
-    <!-- 中间：文件名岛（原型 docs/index.html:333-346） -->
-    <MmFilenameIsland :name="mapName" @rename="emit('rename', $event)" />
+    <!-- 中间：文件名岛（原型 docs/index.html:333-346）；🏷 是本项目扩展，见 MmFilenameIsland 注释 -->
+    <MmFilenameIsland :name="mapName" :tags="tags" @rename="emit('rename', $event)" @open-tags="emit('open-tags')" />
 
     <!-- 右岛：文件与存储（原型 docs/index.html:349-359） -->
     <div class="mm-island mm-island-right">

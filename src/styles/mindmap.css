@@ -1,8 +1,9 @@
 /**
  * 思维导图窗口专用样式（只由 mindmap.ts 引入，不进其他窗口）。
  *
- * 窗口壳（.mindmap-window / .mindmap-bar / .mindmap-title / .mindmap-actions）原在
- * window-fit.css，随全功能改造迁到此处。
+ * 窗口壳（`.mindmap-window`）原在 window-fit.css，随全功能改造迁到此处。
+ * （`.mindmap-bar` / `-title` / `-actions` / `-dirty` 四条随窗口内那条头部栏一起删除，
+ *   去向见下方「被生成层取代、已删除的自造类」对照表。）
  *
  * **本文件只装三类东西**（阶段五 Task 7 收敛后的契约，2026-09-15）：
  *   1. 真实窗口适配——生成层照 `docs/` 原型的宽窗口画，没管无边框窗口与窄窗口（`.mindmap-window`、
@@ -78,6 +79,12 @@
  *                                    → 生成层 .mm-bottombar 内的 .mm-ctrl-right / .mm-ctrl-btn / .mm-zoom-val
  *   .mm-note-area                     → 备注侧栏已随 spec D42 改为模态，走 .mm-dialog-textarea（Task 7 删）
  *   .mm-minimap-close                 → 生成层同名类是原型的关闭键，我们的 Navigator 并不渲染它（Task 7 删）
+ *   .mindmap-bar / -title / -actions / -dirty
+ *                                    → 窗口内那条头部栏整体删除（用户实机反馈「头部栏不需要」，与原型对齐：
+ *                                      #mindmapWindow 的头部只有系统标题栏 .window-titlebar）。去向：
+ *                                        名字与未保存态 → 系统窗口标题（MindMapApp 的 applyWindowTitle）
+ *                                        标签入口      → 顶栏中岛 .mm-filename-island 上的 🏷
+ *                                        保存 / 关闭   → 顶栏右岛（阶段五 Task 2 三岛改造时已迁走）
  */
 
 /* ═══ 窗口壳 ═══ */
@@ -88,41 +95,9 @@
   padding: 10px 12px 12px;
   gap: 8px;
 }
-/* 操作条：标题在左，标签与按钮在右。 */
-.mindmap-bar {
-  display: flex;
-  flex: none;
-  align-items: center;
-  gap: 10px;
-}
-.mindmap-title {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 13.5px;
-  font-weight: 600;
-  color: var(--text);
-}
-/* 未保存标记：不用弹窗打扰，只在标题旁给一个静态提示。 */
-.mindmap-dirty {
-  padding: 1px 6px;
-  border-radius: 999px;
-  background: rgba(var(--accent-rgb), 0.14);
-  color: var(--accent);
-  font-size: 10.5px;
-  font-style: normal;
-  font-weight: 500;
-}
-.mindmap-actions {
-  display: flex;
-  margin-left: auto;
-  align-items: center;
-  gap: 8px;
-}
-/* 禅模式：隐藏一切 chrome，只留画布。 */
-.mindmap-window.zen .mindmap-bar {
-  display: none;
-}
+/* 禅模式（`.mindmap-window.zen`）在本文件里已无规则：唯一一条 `.mindmap-window.zen .mindmap-bar`
+   随头部条一起删掉了。进出禅模式的显隐全部由 MindMapApp 模板上的 `v-if="!ui.isZenMode"` 承担
+   （顶栏 / 触发条 / 抽屉 / 底栏都是卸载重挂，不是 CSS 隐藏）；根元素那个 `zen` 类现在只是状态标记。 */
 
 /* ═══ 画布舞台 ═══ */
 /* 舞台占满剩余高度并作为所有编辑 UI 浮层的定位上下文。

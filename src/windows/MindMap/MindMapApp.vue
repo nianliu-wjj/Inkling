@@ -5,7 +5,6 @@ import type MindMap from 'simple-mind-map'
 import type { MindMapNode } from 'simple-mind-map'
 import { computed, nextTick, onMounted, onUnmounted, reactive, ref, shallowRef, watch } from 'vue'
 import ToastHost from '@/components/base/ToastHost.vue'
-import TagList from '@/components/tag/TagList.vue'
 import TagManagerModal from '@/components/tag/TagManagerModal.vue'
 import { useNotes, useSettings } from '@/composables/useData'
 import { applyCachedGlass, useGlass } from '@/composables/useGlass'
@@ -56,8 +55,10 @@ import MindMapStage from './MindMapStage.vue'
  * 思维导图窗口壳。
  *
  * 独立顶层窗口，一个笔记一个（label 形如 `mindmap-<id>`，新建用 `mindmap-new`）。
- * 顶部是 Inkling 操作条（导图名 / 未保存标记 / 标签；保存与关闭已随阶段五迁进顶栏右岛），
- * 下方是铺满的画布区，编辑 UI（顶栏三岛 / 侧栏 / 浮层 / 对话框）挂在 `.mm-stage` 内。
+ * **窗口内没有头部条**（对齐原型：`#mindmapWindow` 的头部只有系统标题栏那道 `.window-titlebar`）：
+ * 导图名与未保存态进系统窗口标题（见下方 `applyWindowTitle`），标签入口并入顶栏中岛的文件名岛
+ * （`MmFilenameIsland.vue` 的 🏷），保存与关闭在顶栏右岛。下方是铺满的画布区，
+ * 编辑 UI（顶栏三岛 / 侧栏 / 浮层 / 对话框）挂在 `.mm-stage` 内。
  *
  * 本组件在根部用 provide 注入 { mindMap, bus, ui, localConfig, mapConfig }，
  * 并负责：库事件 → bus、持久化（全量格式）、自动保存、本机配置落盘与同步到库。
@@ -122,6 +123,34 @@ const persistName = computed(() => pendingName.value || note.value?.content || '
 const canRender = computed(() => payloadReady.value && (isNew.value || note.value !== null))
 /** 初始全量数据：编辑既有导图取其存储数据，新建则为空根节点。画布只在 canRender 后渲染一次。 */
 const initialData = computed<MindMapFullData>(() => parseMindMapData(note.value?.mindmap_data ?? null))
+
+// —— 窗口标题 ——
+/**
+ * 把导图名与未保存态写进系统窗口标题，形如 `我的导图 * · Inkling`。
+ *
+ * 这两件事原先由窗口内那条 `header.mindmap-bar` 承担（🧠 + 名字 + 「未保存」徽章），实机验收后按
+ * 用户要求删掉整条头部栏、与原型对齐——原型的 `#mindmapWindow` 头部只有系统标题栏
+ * （`docs/index.html:100` 的 `.window-titlebar`），而导图窗口本就保留系统标题栏
+ * （`windows.rs:245`），所以把名字与未保存标记落到系统标题上最贴合原型。
+ * `*` 是约定俗成的「有未保存改动」标记（原来那枚徽章的职责），保存在右岛、改名在文件名岛，
+ * 三者互不重叠。
+ *
+ * 两处必须留意：
+ * 1. **权限**：`setTitle` 需要 `core:window:allow-set-title`，它**不在** `core:default` 的
+ *    `core:window:default` 集合里（该集合只含只读的 `allow-title`），所以显式配在
+ *    `src-tauri/capabilities/default.json`。漏配时这里会拿到 rejected promise，标题纹丝不动但不报错。
+ * 2. **Rust 建窗时的标题是「🧠 编辑/新建思维导图 · Inkling」**（`windows.rs:283`），本 watch 以
+ *    `immediate: true` 在挂载时立刻盖掉它。Tauri **不会**把 `document.title` 同步给原生标题
+ *    （只有显式注册 `on_document_title_changed` 才会，本项目未注册），所以这条 IPC 是唯一的写入口。
+ */
+function applyWindowTitle(): void {
+  const title = `${mapName.value}${dirty.value ? ' *' : ''} · Inkling`
+  getCurrentWindow()
+    .setTitle(title)
+    .catch((error: unknown) => logger.error('mindmap', '设置窗口标题失败', error))
+}
+// 名字来自 `note.content`，笔记从列表异步加载完成后才会变成真名，所以要保持订阅而非只在挂载时设一次。
+watch([mapName, dirty], applyWindowTitle, { immediate: true })
 
 watch(
   () => settings.value.theme,
@@ -445,15 +474,6 @@ onUnmounted(() => {
   >
     <NDialogProvider>
       <div class="mindmap-window" :class="{ zen: ui.isZenMode }">
-        <header class="mindmap-bar">
-          <span class="mindmap-title">🧠 {{ mapName }}<em v-if="dirty" class="mindmap-dirty">未保存</em></span>
-          <div class="mindmap-actions">
-            <div class="tag-preview" title="点击管理标签">
-              <TagList :tags="tags" :max="3" @open="showTagManager = true" />
-            </div>
-          </div>
-        </header>
-
         <div
           class="mm-stage"
           @dragenter.prevent="onDragEnter"
@@ -469,10 +489,12 @@ onUnmounted(() => {
             <Toolbar
               v-if="!ui.isZenMode"
               :map-name="mapName"
+              :tags="tags"
               @rename="renameTo"
               @save="save()"
               @close="close"
               @new-map="startNewMap"
+              @open-tags="showTagManager = true"
             />
             <Navigator />
             <ScrollbarBars />
