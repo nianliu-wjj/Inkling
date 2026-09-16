@@ -73,12 +73,28 @@ const activeContent = computed<Component | null>(() => CONTENT[activeName.value]
  * 2. 关闭动画里正文不会先空掉（`v-show` 的离场动画期间 DOM 仍在）。
  * 组件实例由 `<KeepAlive>` 缓存，切换 dock 项时同样复用，只有真正卸载 MmDrawer 才会释放。
  */
-const lastShown = shallowRef<Component | null>(null)
+const lastShownName = shallowRef<OpenSidebarName | null>(null)
 watch(activeContent, (value) => {
-  if (value) lastShown.value = value
+  if (value) lastShownName.value = activeName.value
 })
 
-const current = computed<Component | null>(() => activeContent.value ?? lastShown.value)
+/**
+ * 当前渲染在 `<KeepAlive>` 里的侧栏**名字**——它同时是模板里 `<component>` 的 `:key`。
+ *
+ * 这个 key 不是可有可无的：`<component :is v-if>` 经编译器处理后会带上 `v-if` 分支的固定 key `0`
+ * （产物是 `createBlock(resolveDynamicComponent(current), { key: 0 })`），而 `<KeepAlive>` 取缓存键
+ * 的规则是「vnode 有 key 就用 key，没有才用组件对象」——于是七个侧栏共用同一个缓存槽 `0`：
+ * 切到 B 时 KeepAlive 从槽里取出 A 的实例塞给 B 的 vnode 并标成 kept-alive，正文永远停在第一次
+ * 打开的那个侧栏（实机：点「设置」抽屉标题变了、正文仍是节点样式的「请选择一个节点」），
+ * 同时旧 vnode 的卸载走到 `ctx.deactivate` 时父组件对不上，每切一次控制台报一条
+ * `TypeError: parentComponent.ctx.deactivate is not a function`。
+ * 显式给名字做 key 后每个侧栏各占一槽，切换、关闭再重开都保住实例与内部状态
+ * （复现与修法对照见 `.tmp/keepalive-compiled.mjs` / `.tmp/keepalive-fix.mjs`，已 gitignore）。
+ */
+const currentName = computed<OpenSidebarName | null>(() =>
+  activeContent.value ? activeName.value : lastShownName.value,
+)
+const current = computed<Component | null>(() => (currentName.value ? CONTENT[currentName.value] : null))
 /** 抽屉是否可见：`activeSidebar` 指向某个已知侧栏。 */
 const visible = computed(() => activeContent.value !== null)
 const title = computed(
@@ -101,16 +117,17 @@ watch(
 
 <template>
   <!--
-    【不要改回 <Transition>】显隐动画走 `:class` + CSS 过渡（规则在 mindmap.css 的「侧栏抽屉」一节），
-    不是因为 `<Transition>` 不能用，而是**它和下面的 `<KeepAlive>` 套在一起会炸**：切侧栏时
-    KeepAlive 卸载旧实例走的 `deactivate` 落在了外层 Transition 的上下文里，控制台每次切换都报
-    `Uncaught (in promise) TypeError: parentComponent.ctx.deactivate is not a function`
-    （Vue warn: Unhandled error during execution of component update，指向
-    `<BaseTransition persisted> at <Transition name="mm-drawer-slide" persisted>`）。
-    `:class` 驱动 CSS 过渡既有同样的动画，又不与保活打架。
+    显隐动画走 `:class` + CSS 过渡（规则在 mindmap.css 的「侧栏抽屉」一节），抽屉常驻 DOM、
+    用 `.closed` 类切 `opacity` / `transform` / `visibility`（不能用 `v-show`：它切的是
+    `display: none`，display 不可过渡，切了动画就没了）。
+    注：2026-09-15 曾把控制台的 `parentComponent.ctx.deactivate is not a function` 归咎于
+    `<Transition>` 与 `<KeepAlive>` 套用并因此去掉了 `<Transition>`——那是误判，去掉后报错照旧。
+    真正的根因是 `<component>` 缺显式 key 导致 KeepAlive 缓存键碰撞，见上方 `currentName` 的注释；
+    `<Transition>` 本身与保活并不冲突，只是眼下 `:class` 过渡已够用，不必再改回去。
 
-    副作用一并交代：显隐不再能靠 `v-show`（它切的是 `display: none`，而 display 不可过渡，
-    切了动画就没了），改为常驻 DOM、用 `.closed` 类切 `opacity` / `transform` / `visibility`。
+    【`<component>` 上的 `:key="currentName"` 不能删】删了七个侧栏会共用 KeepAlive 的同一个缓存槽
+    （编译器给 `v-if` 分支的 key 是固定的 `0`），正文停在第一次打开的侧栏不再切换，且每切一次
+    报一条 deactivate 错误。理由与复现见 `currentName` 的注释。
 
     【不要改回 <aside v-if>】计划简报里字面写的是 `<aside v-if="current">`，照着改会丢状态——这是
     **夹具实测**结论（不是推测）：`<KeepAlive>` 此时落在被 `v-if` 销毁的子树里，抽屉一关
@@ -130,7 +147,7 @@ watch(
     <div class="mm-drawer-body">
       <!-- 同一时刻只有一个侧栏实例在渲染；切换时旧的被 KeepAlive 收起，DOM 里始终只有这一个抽屉 -->
       <KeepAlive>
-        <component :is="current" v-if="current" />
+        <component :is="current" v-if="current" :key="currentName ?? undefined" />
       </KeepAlive>
     </div>
   </aside>

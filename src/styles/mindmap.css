@@ -280,14 +280,11 @@
   flex-direction: column;
   gap: 10px;
 }
-/* 抽屉开合动效（原型无此动效，Task 7 决定去留；本次把驱动方式由 <Transition> 改为 :class）。
-   —— 为什么不用 <Transition> ——
-   过渡与 <KeepAlive> 套在一起会让 KeepAlive 的 deactivate 撞进 Transition 的上下文：切侧栏时
-   KeepAlive 卸载旧实例走的 deactivate 落到了外层 Transition 上，实测报
-   `parentComponent.ctx.deactivate is not a function`（Vue warn 指向
-   `<BaseTransition persisted> at <Transition name="mm-drawer-slide" persisted>`），每次切就报一次。
-   改用 :class 驱动本节的 CSS 过渡：动画照旧，且不与保活打架。
-   （配套的 mm-drawer-slide-* 两条规则只服务于已删掉的 <Transition name="mm-drawer-slide">，一并删除。）
+/* 抽屉开合动效（原型无此动效，Task 7 决定去留；驱动方式是 :class + 本节 CSS 过渡）。
+   曾用 <Transition name="mm-drawer-slide">，2026-09-15 因误把 `parentComponent.ctx.deactivate is not
+   a function` 归咎于「Transition 与 KeepAlive 套用」而改成 :class；事后查明该报错的根因是
+   `<component>` 缺显式 key 造成 KeepAlive 缓存键碰撞（见 MmDrawer.vue 的 `currentName` 注释），
+   与 <Transition> 无关。:class 过渡已够用，就不再改回去；mm-drawer-slide-* 两条规则已随之删除。
 
    两条硬约束，改这里时别踩：
    1. 不能用 `v-show` 切显隐——它切的是 `display: none`，而 display 不是可过渡属性，切了就没动画；
