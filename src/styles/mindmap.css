@@ -28,7 +28,7 @@
  *   15     .mm-scrollbar-track        自有层   画布滚动条
  *   20     .mm-minimap                自有层   小地图（生成层给 9）
  *   28     .mm-sidebar-dock           自有层   右侧触发条（生成层给 9）
- *   30     .mm-topbar                 自有层   顶栏三岛（生成层给 10；三岛同为 30，靠 DOM 序分先后）
+ *   30     .mm-topbar                 自有层   顶栏三岛（生成层给 10；画布上方的占位行、不压画布，此值只保证被遮罩 37 盖住）
  *   35     .mm-drawer                 自有层   单抽屉壳（生成层给 10）
  *   36     .mm-search                 自有层   搜索 / 替换浮层（生成层无对应类，裁决见本表下方①）
  *   37     .mm-modal-overlay          自有层   图标 / 公式模态遮罩（生成层给 20）
@@ -177,27 +177,30 @@
   color: var(--mm-primary);
 }
 
-/* ═══ 顶栏三岛（左岛 / 文件名岛 / 右岛，阶段五 Task 2）═══
+/* ═══ 顶栏三岛（左岛 / 文件名岛 / 右岛，阶段五 Task 2；实机验收后改占位行，2026-09-16）═══
    三段式形态来自生成层的 .mm-topbar / .mm-island（components.css:666-686），
-   这里只补三处自有层适配——生成层是照 docs/ 原型生成的，改不得：
+   这里只补自有层适配——生成层是照 docs/ 原型生成的，改不得：
 
-   1) .mm-topbar 必须脱离文档流并抬到画布之上：画布 .mm-canvas 是 `absolute; inset:0`
-      的定位元素，会盖住静态流里的兄弟节点，连点击都会被它截走；
-   2) 生成层的 .mm-filename-island（components.css:688-692）仍是原型里「单岛居中」时代的
-      `absolute; left:50%; top:10px` —— 原型的中岛本来就浮在左岛上面（窄窗口下会压住左岛
-      尾部按钮）。三段式排布下让它回到静态流，用 `margin:0 auto` 在左右两岛之间居中。
-
-   3) 窄窗口的降级拓扑见下面三条岛规则——生成层是照原型的宽窗口画的，没管压缩顺序。
-
-   Task 7 复核结论：这三条**全部保留**。生成层的 `.mm-topbar`（`components.css:666`）只给了
-   `display:flex` / 背景 / 边框，既没有脱离文档流的定位（画布是 `absolute; inset:0` 的兄弟节点，
-   静态流里的顶栏会被它盖住）、`.mm-filename-island` 也仍是原型「单岛居中」时代的
-   `absolute; left:50%`——两处都必须由自有层补，层序也已登记在文件头的总表里。 */
+   1) .mm-topbar 是**画布上方独占的一行**，不再浮在画布上。它在 MindMapApp 模板里挂在 .mm-stage
+      之外（与原型 `.mm-topbar` / `.mm-canvas-wrap` 是兄弟一致），走静态流，画布从它下方开始——
+      Task 2 曾把它设成 `absolute; top:0` 压在画布上，三岛盖住画布顶部约 65px，view.fit() 的可用区
+      含被盖住的那一带（验收记录 §5 待议项 3），用户定夺后按原型改回占位行。
+      `position: relative` 只为构成定位基准（生成层给中岛的 absolute 若被误用也不会飞到窗口外），
+      z-index 仍登记在文件头总表里：模态遮罩（37）是 `inset:0` 到整个窗口的，必须压过它。
+      生成层的 `padding: 10px 14px 4px` 是给无内边距的原型窗口配的，我们的 .mindmap-window 自带
+      10/12px 内边距与 8px 行距，叠加会让顶栏离窗口边太远，这里归零。
+   2) 生成层的 .mm-filename-island（components.css:688-692）是 `absolute; left:50%; top:10px`
+      —— 原型的中岛就是绝对定位真居中、浮在左岛上面。**这里刻意不照原型**：左岛 17 枚带字按钮
+      约 836px，默认 1360 宽下真居中的中岛左缘在 593px，会盖住「备注 / 标签 / 概要」三枚且点不到
+      （2026-09-16 实机截图确认，用户定夺「不强求居中，保按钮」）。改法是让中岛回到静态流、
+      用 `margin:0 auto` 落在左右两岛之间的空隙里：所有按钮可见可点，代价是不居中——
+      偏差 =（左岛宽 − 右岛宽）/ 2，默认宽下约偏右 290px（验收记录 §2 第 3 项实测 ≈320，
+      顶栏 padding 归零后略小）。
+   3) 窄窗口的降级拓扑见下面三条岛规则——生成层是照原型的宽窗口画的，没管压缩顺序。 */
 .mm-topbar {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
+  position: relative;
+  flex: none;
+  padding: 0;
   z-index: 30;
 }
 /* 左岛先让位：收缩权重 3 倍于文件名岛，窗口变窄时它先被压到 0 并在岛内横向滚动
@@ -218,9 +221,8 @@
   transform: none;
   /* 中岛可收缩（长名字最终交给 .mm-filename-text 的省略号），但不与左岛同权：
      它只在左岛归零后才继续缩。margin: 0 auto 的 auto 外边距会吃掉剩余空间，
-     把中岛推到左右两岛之间（生成层的 justify-content: space-between 因此不再生效）；
-     原型是 absolute 真居中，静态流下只能近似——偏差为（左岛宽 − 右岛宽）/ 2，
-     宽窗口下基本贴满时看不出来，需实机复核。 */
+     把中岛推到左右两岛之间（生成层的 justify-content: space-between 因此不再生效）。
+     不真居中的取舍见本节头注 2)。 */
   flex: 0 1 auto;
   min-width: 0;
   margin: 0 auto;
@@ -251,8 +253,9 @@
    `.mm-drawer*` 的单壳前身）已在 Task 7 删除：Task 3 把 `.mm-sidebar` 的用法整体换成了
    `.mm-drawer`，整段壳样式只剩空转；删除前已逐个 grep 确认全仓（含 mindmap-outline.css、
    extensions.css 与全部组件）无任何引用。下面只留自有层对生成层抽屉的三处补充。 */
-/* 抽屉必须压过顶栏（Task 2 为让顶栏脱离画布把它抬进了浮层档），否则抽屉 header 整条落在顶栏纵向带里，
-   右岛（不透明 + pointer-events:auto）会把 ✕ 盖死。取值见文件头总表。 */
+/* 抽屉压过顶栏：Task 2 时顶栏浮在画布上，抽屉 header 整条落在顶栏纵向带里，右岛（不透明 +
+   pointer-events:auto）会把 ✕ 盖死，故抬到 35。顶栏改成画布上方的占位行后两者几何上不再重叠，
+   本值只剩「搜索 36 / 遮罩 37 顺延自它」的锚点意义，取值见文件头总表。 */
 .mm-drawer {
   z-index: 35;
 }
@@ -1192,7 +1195,9 @@
    不该有浮层压在遮罩上。完整口径与取值理由见文件头总表①。 */
 .mm-search {
   position: absolute;
-  top: 70px;
+  /* 原为 70px，是给浮在画布上的顶栏让位；顶栏改成画布上方的占位行后 .mm-stage 顶部已无遮挡，
+     取原型 .mm-search-box 的 18px（components.css:947）贴着画布上沿。 */
+  top: 18px;
   right: -320px;
   z-index: 36;
   width: 288px;

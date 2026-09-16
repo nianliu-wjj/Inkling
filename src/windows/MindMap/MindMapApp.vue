@@ -57,8 +57,9 @@ import MindMapStage from './MindMapStage.vue'
  * 独立顶层窗口，一个笔记一个（label 形如 `mindmap-<id>`，新建用 `mindmap-new`）。
  * **窗口内没有头部条**（对齐原型：`#mindmapWindow` 的头部只有系统标题栏那道 `.window-titlebar`）：
  * 导图名与未保存态进系统窗口标题（见下方 `applyWindowTitle`），标签入口并入顶栏中岛的文件名岛
- * （`MmFilenameIsland.vue` 的 🏷），保存与关闭在顶栏右岛。下方是铺满的画布区，
- * 编辑 UI（顶栏三岛 / 侧栏 / 浮层 / 对话框）挂在 `.mm-stage` 内。
+ * （`MmFilenameIsland.vue` 的 🏷），保存与关闭在顶栏右岛。窗口内自上而下是：顶栏三岛（占位一行，
+ * 不压画布）→ 画布区 `.mm-stage`（侧栏 / 浮层 / 对话框挂在其内）→ 底栏，与原型
+ * `.mm-topbar` / `.mm-canvas-wrap` / `.mm-bottombar` 三兄弟一致。
  *
  * 本组件在根部用 provide 注入 { mindMap, bus, ui, localConfig, mapConfig }，
  * 并负责：库事件 → bus、持久化（全量格式）、自动保存、本机配置落盘与同步到库。
@@ -474,6 +475,22 @@ onUnmounted(() => {
   >
     <NDialogProvider>
       <div class="mindmap-window" :class="{ zen: ui.isZenMode }">
+        <!-- 顶栏三岛：挂在 .mm-stage 之外、画布上方独占一行，与原型一致（docs/index.html:311，
+             .mm-topbar 是 .mm-canvas-wrap 的兄弟节点、不压画布）。实机验收前它浮在画布上
+             （mindmap.css 曾把 .mm-topbar 设成 absolute），三岛盖住画布顶部约 65px，view.fit()
+             的可用区含被盖住的那一带；用户要求按原型对齐后改成占位行，画布随之从顶栏下方开始。
+             与底栏同样用 v-if="mindMap" 守卫：Toolbar 自身不取实例，但它的按钮全走 bus 下发命令，
+             实例未就绪时点了也无人应答，与底栏保持同一出现时机更省心。 -->
+        <Toolbar
+          v-if="mindMap && !ui.isZenMode"
+          :map-name="mapName"
+          :tags="tags"
+          @rename="renameTo"
+          @save="save()"
+          @close="close"
+          @new-map="startNewMap"
+          @open-tags="showTagManager = true"
+        />
         <div
           class="mm-stage"
           @dragenter.prevent="onDragEnter"
@@ -486,16 +503,6 @@ onUnmounted(() => {
           <div v-if="dragImportActive" class="mm-drag-mask">松开鼠标导入该文件</div>
           <!-- 编辑 UI：仅在实例就绪后渲染，避免组件里 requireMindMap 抛错 -->
           <template v-if="mindMap">
-            <Toolbar
-              v-if="!ui.isZenMode"
-              :map-name="mapName"
-              :tags="tags"
-              @rename="renameTo"
-              @save="save()"
-              @close="close"
-              @new-map="startNewMap"
-              @open-tags="showTagManager = true"
-            />
             <Navigator />
             <ScrollbarBars />
             <SidebarTrigger v-if="!ui.isZenMode" />
